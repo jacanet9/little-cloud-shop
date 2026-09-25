@@ -4,13 +4,13 @@
 
 const SUPABASE_CONFIG_KEY = 'little_cloud_supabase_cfg_v6';
 
-const DEFAULT_SUPABASE_URL = 'https://syyqfckckjebwtxwqqti.supabase.co';
-const DEFAULT_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN5eXFmY2tja2plYnd0eHdxcXRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0Mjc4MjAsImV4cCI6MjA4OTk5MzgyMH0.1D7h4Q96F6pZlqV3Z0s3-qQ9t_5F_9R_r-u4oZ0W3X4';
+const DEFAULT_SUPABASE_URL = 'https://hwzdowxjxtdhcgiylnbo.supabase.co';
+const DEFAULT_SUPABASE_ANON_KEY = 'sb_publishable_5ZvVjg1viXXX_vli5gdhAA_j4lSg5j4';
 
 /**
  * Open Native Modal for Supabase Configuration
  */
-window.openSupabaseConfigModal = function() {
+window.openSupabaseConfigModal = function () {
   const modal = document.getElementById('modal-supabase-config');
   if (modal) {
     modal.classList.add('active');
@@ -21,19 +21,19 @@ window.openSupabaseConfigModal = function() {
   }
 };
 
-window.closeSupabaseConfigModal = function() {
+window.closeSupabaseConfigModal = function () {
   const modal = document.getElementById('modal-supabase-config');
   if (modal) modal.classList.remove('active');
 };
 
-window.restoreDefaultSupabaseConfig = function() {
+window.restoreDefaultSupabaseConfig = function () {
   const urlInput = document.getElementById('native-supa-url');
   const keyInput = document.getElementById('native-supa-key');
   if (urlInput) urlInput.value = DEFAULT_SUPABASE_URL;
   if (keyInput) keyInput.value = DEFAULT_SUPABASE_ANON_KEY;
 };
 
-window.handleNativeSaveSupabase = async function(event) {
+window.handleNativeSaveSupabase = async function (event) {
   if (event) event.preventDefault();
   const url = document.getElementById('native-supa-url').value;
   const anonKey = document.getElementById('native-supa-key').value;
@@ -93,11 +93,11 @@ class SupabaseManager {
   async saveConfig(url, anonKey) {
     this.config = { url: (url || DEFAULT_SUPABASE_URL).trim(), anonKey: (anonKey || DEFAULT_SUPABASE_ANON_KEY).trim() };
     localStorage.setItem(SUPABASE_CONFIG_KEY, JSON.stringify(this.config));
-    
+
     // Clear old caches
     localStorage.removeItem('little_cloud_local_db_v2');
     localStorage.removeItem('little_cloud_local_db');
-    
+
     const success = await this.initClient();
     if (success) {
       if (window.appManager) await window.appManager.init();
@@ -134,7 +134,7 @@ class SupabaseManager {
     const badge = document.getElementById('supabase-status-badge');
     const textSpan = document.getElementById('supabase-status-text');
     const warning = document.getElementById('supabase-unconnected-alert');
-    
+
     if (badge) {
       badge.style.cursor = 'pointer';
       if (connected) {
@@ -167,7 +167,7 @@ class SupabaseManager {
         if (!fallback.error && fallback.data) {
           return fallback.data;
         }
-      } catch (e) {}
+      } catch (e) { }
     }
     return [];
   }
@@ -235,7 +235,7 @@ window.supabaseManager = new SupabaseManager();
 document.addEventListener('DOMContentLoaded', () => {
   const badge = document.getElementById('supabase-status-badge');
   if (badge) {
-    badge.onclick = function() {
+    badge.onclick = function () {
       if (typeof window.openSupabaseConfigModal === 'function') {
         window.openSupabaseConfigModal();
       }
