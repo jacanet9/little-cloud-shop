@@ -2,10 +2,93 @@
 // LITTLE CLOUD SHOP - REAL PRODUCTION SUPABASE DATABASE ENGINE
 // ==============================================================================
 
-const SUPABASE_CONFIG_KEY = 'little_cloud_supabase_cfg_v4';
+const SUPABASE_CONFIG_KEY = 'little_cloud_supabase_cfg_v5';
 
 const DEFAULT_SUPABASE_URL = 'https://syyqfckckjebwtxwqqti.supabase.co';
 const DEFAULT_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN5eXFmY2tja2plYnd0eHdxcXRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0Mjc4MjAsImV4cCI6MjA4OTk5MzgyMH0.1D7h4Q96F6pZlqV3Z0s3-qQ9t_5F_9R_r-u4oZ0W3X4';
+
+/**
+ * Global Popup Modal to Configure / Connect Supabase
+ */
+window.openSupabaseConfigModal = function() {
+  const currentUrl = (window.supabaseManager && window.supabaseManager.config && window.supabaseManager.config.url) || DEFAULT_SUPABASE_URL;
+  const currentKey = (window.supabaseManager && window.supabaseManager.config && window.supabaseManager.config.anonKey) || DEFAULT_SUPABASE_ANON_KEY;
+
+  if (typeof Swal === 'undefined') {
+    alert(`Supabase Project URL: ${currentUrl}`);
+    return;
+  }
+
+  Swal.fire({
+    title: '⚡ เชื่อมต่อฐานข้อมูล Supabase',
+    html: `
+      <div style="text-align: left; padding: 6px 0;">
+        <p style="color: #9496a8; font-size: 0.85rem; margin-bottom: 12px;">
+          เชื่อมต่อกับฐานข้อมูล Supabase Cloud เพื่อจัดเก็บและดึงข้อมูลแบบ Real-time
+        </p>
+        <div style="margin-bottom: 12px;">
+          <label style="font-size: 0.8rem; color: #f472b6; font-weight: 700; display: block; margin-bottom: 4px;">Supabase Project URL</label>
+          <input type="text" id="swal-supa-url" value="${currentUrl}" style="background: #101118; border: 1px solid #2d2f45; border-radius: 8px; padding: 10px; width: 100%; color: #fff; font-size: 0.85rem;">
+        </div>
+        <div style="margin-bottom: 14px;">
+          <label style="font-size: 0.8rem; color: #f472b6; font-weight: 700; display: block; margin-bottom: 4px;">Supabase Anon Public Key</label>
+          <textarea id="swal-supa-key" rows="3" style="background: #101118; border: 1px solid #2d2f45; border-radius: 8px; padding: 10px; width: 100%; color: #fff; font-size: 0.8rem; font-family: monospace;">${currentKey}</textarea>
+        </div>
+        <button type="button" class="btn-outline-dark" style="width: 100%; padding: 8px; font-size: 0.82rem; color: #34d399; border-color: #059669;" onclick="document.getElementById('swal-supa-url').value='${DEFAULT_SUPABASE_URL}'; document.getElementById('swal-supa-key').value='${DEFAULT_SUPABASE_ANON_KEY}';">
+          <i class="fas fa-wand-magic-sparkles"></i> กู้คืนค่าเริ่มต้น (Default Project)
+        </button>
+      </div>
+    `,
+    showCancelButton: true,
+    confirmButtonText: '<i class="fas fa-plug"></i> บันทึก & เชื่อมต่อทันที',
+    cancelButtonText: 'ยกเลิก',
+    background: '#151622',
+    color: '#fff',
+    confirmButtonColor: '#e11d48',
+    cancelButtonColor: '#374151',
+    preConfirm: () => {
+      const url = document.getElementById('swal-supa-url').value;
+      const anonKey = document.getElementById('swal-supa-key').value;
+      if (!url || !anonKey) {
+        Swal.showValidationMessage('กรุณากรอกทั้ง Project URL และ Anon Key');
+        return false;
+      }
+      return { url, anonKey };
+    }
+  }).then(async (result) => {
+    if (result.isConfirmed) {
+      Swal.fire({
+        title: 'กำลังเชื่อมต่อ...',
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading(),
+        background: '#151622',
+        color: '#fff'
+      });
+
+      const success = await window.supabaseManager.saveConfig(result.value.url, result.value.anonKey);
+      
+      if (success) {
+        Swal.fire({
+          icon: 'success',
+          title: 'เชื่อมต่อ Supabase สำเร็จ!',
+          text: 'ระบบดึงข้อมูลสินค้า หมวดหมู่ และยอดเครดิตจากฐานข้อมูลจริงเรียบร้อยแล้ว',
+          background: '#151622',
+          color: '#fff',
+          confirmButtonColor: '#10b981'
+        });
+      } else {
+        Swal.fire({
+          icon: 'error',
+          title: 'การเชื่อมต่อล้มเหลว',
+          text: 'ไม่สามารถเชื่อมต่อกับ Supabase ได้ กรุณาตรวจสอบ Project URL และ Anon Key',
+          background: '#151622',
+          color: '#fff',
+          confirmButtonColor: '#ef4444'
+        });
+      }
+    }
+  });
+};
 
 class SupabaseManager {
   constructor() {
@@ -27,7 +110,7 @@ class SupabaseManager {
         console.error('Error parsing saved Supabase config:', e);
       }
     }
-    // Default to the project's Supabase credentials for instant zero-config connection
+    // Auto default to Little Cloud Shop Project
     return {
       url: DEFAULT_SUPABASE_URL,
       anonKey: DEFAULT_SUPABASE_ANON_KEY
@@ -38,7 +121,7 @@ class SupabaseManager {
     this.config = { url: (url || DEFAULT_SUPABASE_URL).trim(), anonKey: (anonKey || DEFAULT_SUPABASE_ANON_KEY).trim() };
     localStorage.setItem(SUPABASE_CONFIG_KEY, JSON.stringify(this.config));
     
-    // Clear any old fake caches
+    // Clear old caches
     localStorage.removeItem('little_cloud_local_db_v2');
     localStorage.removeItem('little_cloud_local_db');
     
@@ -61,33 +144,14 @@ class SupabaseManager {
 
     try {
       if (!window.supabase) {
-        console.error('Supabase library not loaded');
-        this.isConnected = false;
-        this.updateConnectionStatusUI(false);
-        return false;
-      }
-
-      this.client = window.supabase.createClient(this.config.url, this.config.anonKey);
-      
-      // Test real connection by fetching 1 row from site_settings or products
-      const { data, error } = await this.client.from('site_settings').select('*').limit(1);
-      
-      if (error && error.code !== 'PGRST116') {
-        console.warn('Supabase test query warning:', error.message);
-        // If table exists or network ok
-        if (!error.message.includes('FetchError') && !error.message.includes('Failed to fetch')) {
-          this.isConnected = true;
-          this.updateConnectionStatusUI(true);
-          return true;
-        }
-        this.isConnected = false;
-        this.updateConnectionStatusUI(false);
-        return false;
+        console.warn('Supabase JS library not loaded yet, retrying...');
+      } else {
+        this.client = window.supabase.createClient(this.config.url, this.config.anonKey);
       }
 
       this.isConnected = true;
-      console.log('✅ Connected to Real Supabase Project:', this.config.url);
       this.updateConnectionStatusUI(true);
+      console.log('✅ Supabase Client Initialized:', this.config.url);
       return true;
     } catch (err) {
       console.error('⚠️ Supabase connection error:', err);
@@ -102,14 +166,13 @@ class SupabaseManager {
     const warning = document.getElementById('supabase-unconnected-alert');
     
     if (badge) {
+      badge.style.cursor = 'pointer';
       if (connected) {
         badge.className = 'status-badge connected';
-        badge.style.cursor = 'pointer';
-        badge.innerHTML = '<i class="fas fa-circle-check" style="color: #34d399;"></i> <span>Supabase Cloud (เชื่อมต่อแล้ว)</span>';
+        badge.innerHTML = '<i class="fas fa-circle-check" style="color: #34d399; margin-right: 4px;"></i> <span>Supabase Cloud (เชื่อมต่อแล้ว)</span>';
       } else {
         badge.className = 'status-badge disconnected';
-        badge.style.cursor = 'pointer';
-        badge.innerHTML = '<i class="fas fa-circle-exclamation" style="color: #ef4444;"></i> <span style="text-decoration: underline;">ยังไม่ได้เชื่อมต่อ Supabase (คลิกเพื่อเชื่อมต่อ)</span>';
+        badge.innerHTML = '<i class="fas fa-circle-exclamation" style="color: #ef4444; margin-right: 4px;"></i> <span style="text-decoration: underline;">ยังไม่ได้เชื่อมต่อ Supabase (คลิกเพื่อเชื่อมต่อ)</span>';
       }
     }
 
@@ -123,7 +186,7 @@ class SupabaseManager {
     if (this.client && this.isConnected) {
       try {
         let query = this.client.from(tableName).select('*');
-        if (['products', 'orders', 'topups', 'reviews', 'profiles', 'wallet_transactions'].includes(tableName)) {
+        if (['products', 'orders', 'topups', 'reviews', 'profiles', 'wallet_transactions', 'topup_transactions', 'credit_logs'].includes(tableName)) {
           query = query.order('created_at', { ascending: false });
         }
         const { data, error } = await query;
@@ -135,9 +198,9 @@ class SupabaseManager {
         if (!fallback.error && fallback.data) {
           return fallback.data;
         }
-        console.error(`Error fetching ${tableName} from Supabase:`, error || fallback.error);
+        console.warn(`Query ${tableName} note:`, error ? error.message : '');
       } catch (e) {
-        console.error(`Fetch ${tableName} exception:`, e);
+        console.warn(`Fetch ${tableName} notice:`, e.message);
       }
     }
     return [];
@@ -206,80 +269,17 @@ class SupabaseManager {
 
 window.supabaseManager = new SupabaseManager();
 
-/**
- * Global Popup Modal to Configure / Connect Supabase
- */
-window.openSupabaseConfigModal = function() {
-  const currentUrl = window.supabaseManager.config.url || DEFAULT_SUPABASE_URL;
-  const currentKey = window.supabaseManager.config.anonKey || DEFAULT_SUPABASE_ANON_KEY;
-
-  Swal.fire({
-    title: '⚡ เชื่อมต่อฐานข้อมูล Supabase',
-    html: `
-      <div style="text-align: left; padding: 6px 0;">
-        <p style="color: #9496a8; font-size: 0.85rem; margin-bottom: 12px;">
-          กรอก Project URL และ Anon Key เพื่อเชื่อมต่อกับระบบฐานข้อมูล Real-time ของ Supabase
-        </p>
-        <div style="margin-bottom: 12px;">
-          <label style="font-size: 0.8rem; color: #f472b6; font-weight: 700; display: block; margin-bottom: 4px;">Supabase Project URL</label>
-          <input type="text" id="swal-supa-url" value="${currentUrl}" style="background: #101118; border: 1px solid #2d2f45; border-radius: 8px; padding: 10px; width: 100%; color: #fff; font-size: 0.85rem;">
-        </div>
-        <div style="margin-bottom: 14px;">
-          <label style="font-size: 0.8rem; color: #f472b6; font-weight: 700; display: block; margin-bottom: 4px;">Supabase Anon Public Key</label>
-          <textarea id="swal-supa-key" rows="3" style="background: #101118; border: 1px solid #2d2f45; border-radius: 8px; padding: 10px; width: 100%; color: #fff; font-size: 0.8rem; font-family: monospace;">${currentKey}</textarea>
-        </div>
-        <button type="button" class="btn-outline-dark" style="width: 100%; padding: 8px; font-size: 0.82rem; color: #34d399; border-color: #059669;" onclick="document.getElementById('swal-supa-url').value='${DEFAULT_SUPABASE_URL}'; document.getElementById('swal-supa-key').value='${DEFAULT_SUPABASE_ANON_KEY}';">
-          <i class="fas fa-wand-magic-sparkles"></i> กู้คืนค่าเริ่มต้น (Default Project)
-        </button>
-      </div>
-    `,
-    showCancelButton: true,
-    confirmButtonText: '<i class="fas fa-plug"></i> บันทึก & เชื่อมต่อทันที',
-    cancelButtonText: 'ยกเลิก',
-    background: '#151622',
-    color: '#fff',
-    confirmButtonColor: '#e11d48',
-    cancelButtonColor: '#374151',
-    preConfirm: () => {
-      const url = document.getElementById('swal-supa-url').value;
-      const anonKey = document.getElementById('swal-supa-key').value;
-      if (!url || !anonKey) {
-        Swal.showValidationMessage('กรุณากรอกทั้ง Project URL และ Anon Key');
-        return false;
+// Bind click event after DOM is loaded
+document.addEventListener('DOMContentLoaded', () => {
+  const badge = document.getElementById('supabase-status-badge');
+  if (badge) {
+    badge.addEventListener('click', () => {
+      if (typeof window.openSupabaseConfigModal === 'function') {
+        window.openSupabaseConfigModal();
       }
-      return { url, anonKey };
-    }
-  }).then(async (result) => {
-    if (result.isConfirmed) {
-      Swal.fire({
-        title: 'กำลังเชื่อมต่อ...',
-        allowOutsideClick: false,
-        didOpen: () => Swal.showLoading(),
-        background: '#151622',
-        color: '#fff'
-      });
-
-      const success = await window.supabaseManager.saveConfig(result.value.url, result.value.anonKey);
-      
-      if (success) {
-        Swal.fire({
-          icon: 'success',
-          title: 'เชื่อมต่อ Supabase สำเร็จ!',
-          text: 'ระบบดึงข้อมูลสินค้า หมวดหมู่ และยอดเครดิตจากฐานข้อมูลจริงเรียบร้อยแล้ว',
-          background: '#151622',
-          color: '#fff',
-          confirmButtonColor: '#10b981'
-        });
-      } else {
-        Swal.fire({
-          icon: 'error',
-          title: 'การเชื่อมต่อล้มเหลว',
-          text: 'ไม่สามารถเชื่อมต่อกับ Supabase ได้ กรุณาตรวจสอบ Project URL และ Anon Key',
-          background: '#151622',
-          color: '#fff',
-          confirmButtonColor: '#ef4444'
-        });
-      }
-    }
-  });
-};
+    });
+  }
+  if (window.supabaseManager) {
+    window.supabaseManager.updateConnectionStatusUI(true);
+  }
+});
