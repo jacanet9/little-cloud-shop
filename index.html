@@ -580,6 +580,50 @@
   </footer>
 
   <!-- ========================================================================
+       MODAL: SUPABASE CONFIGURATION (Native HTML Modal)
+       ======================================================================== -->
+  <div class="modal-overlay" id="modal-supabase-config">
+    <div class="modal-box"
+      style="background: #151622; border: 1px solid #292b3d; border-radius: 20px; max-width: 480px; padding: 24px; position: relative;">
+      <button class="modal-close-btn" onclick="window.closeSupabaseConfigModal()">
+        <i class="fas fa-times"></i>
+      </button>
+
+      <div style="text-align: center; margin-bottom: 20px;">
+        <div style="width: 48px; height: 48px; border-radius: 12px; background: rgba(52, 211, 153, 0.12); color: #34d399; font-size: 1.4rem; display: flex; align-items: center; justify-content: center; margin: 0 auto 10px;">
+          <i class="fas fa-database"></i>
+        </div>
+        <h3 style="font-size: 1.3rem; color: #fff; font-weight: 800; margin-bottom: 4px;">เชื่อมต่อฐานข้อมูล Supabase</h3>
+        <p style="font-size: 0.83rem; color: var(--text-muted);">จัดการการเชื่อมต่อ Supabase Cloud Database แบบเรียลไทม์</p>
+      </div>
+
+      <form onsubmit="window.handleNativeSaveSupabase(event)">
+        <div style="margin-bottom: 12px;">
+          <label style="display: block; font-size: 0.8rem; color: #f472b6; font-weight: 700; margin-bottom: 4px;">Supabase Project URL</label>
+          <input type="text" id="native-supa-url" value="https://syyqfckckjebwtxwqqti.supabase.co"
+            style="background: #1a1b28; border: 1px solid #2c2e42; border-radius: 10px; padding: 12px 14px; width: 100%; color: #fff; font-size: 0.85rem;">
+        </div>
+
+        <div style="margin-bottom: 16px;">
+          <label style="display: block; font-size: 0.8rem; color: #f472b6; font-weight: 700; margin-bottom: 4px;">Supabase Anon Key</label>
+          <textarea id="native-supa-key" rows="3"
+            style="background: #1a1b28; border: 1px solid #2c2e42; border-radius: 10px; padding: 10px 14px; width: 100%; color: #fff; font-size: 0.78rem; font-family: monospace;">eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN5eXFmY2tja2plYnd0eHdxcXRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0Mjc4MjAsImV4cCI6MjA4OTk5MzgyMH0.1D7h4Q96F6pZlqV3Z0s3-qQ9t_5F_9R_r-u4oZ0W3X4</textarea>
+        </div>
+
+        <div style="display: flex; gap: 8px; margin-bottom: 14px;">
+          <button type="button" class="btn-outline-dark" style="flex: 1; padding: 10px; font-size: 0.82rem; color: #34d399; border-color: #059669;" onclick="window.restoreDefaultSupabaseConfig()">
+            <i class="fas fa-wand-magic-sparkles"></i> ค่าเริ่มต้นของร้าน
+          </button>
+        </div>
+
+        <button type="submit" class="btn-pink" style="width: 100%; padding: 12px; font-size: 0.95rem; font-weight: 700;">
+          <i class="fas fa-plug"></i> บันทึก & เชื่อมต่อทันที
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================================================
        MODAL: AUTHENTICATION (Login / Register)
        ======================================================================== -->
   <div class="modal-overlay" id="modal-auth">
