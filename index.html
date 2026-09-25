@@ -16,8 +16,9 @@
   <!-- SweetAlert2 -->
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
-  <!-- Supabase JS Client -->
+  <!-- Supabase JS Client & Config -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/supabase-config.js?v=6.0"></script>
 
   <!-- Custom Design System matching Screenshots -->
   <link rel="stylesheet" href="css/style.css?v=2.0">
@@ -36,10 +37,10 @@
         เงินเข้ากระเป๋าทันที</span>
     </div>
     <div style="display: flex; align-items: center; gap: 14px;">
-      <a href="javascript:void(0)" class="status-badge connected" id="supabase-status-badge"
-        onclick="window.openSupabaseConfigModal()" style="font-size: 0.75rem; padding: 2px 10px;">
-        <i class="fas fa-database"></i> <span id="supabase-status-text">Supabase Cloud</span>
-      </a>
+      <button type="button" class="status-badge connected" id="supabase-status-badge"
+        onclick="window.openSupabaseConfigModal()" style="font-size: 0.75rem; padding: 4px 12px; cursor: pointer; border: none;">
+        <i class="fas fa-circle-check" style="color: #34d399; margin-right: 4px;"></i> <span id="supabase-status-text">Supabase Cloud (เชื่อมต่อแล้ว)</span>
+      </button>
       <span style="font-size: 0.75rem; color: #717388;"><i class="fas fa-signal"></i> 24H ONLINE</span>
     </div>
   </div>
@@ -1045,7 +1046,6 @@
   </div>
 
   <!-- Scripts -->
-  <script src="js/supabase-config.js?v=5.0"></script>
   <script src="js/auth.js?v=5.0"></script>
   <script src="js/wallet.js?v=5.0"></script>
   <script src="js/payment-gateway.js?v=5.0"></script>
