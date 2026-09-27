@@ -367,11 +367,39 @@ class TopupManager {
 
   handleSlipSelected(input) {
     if (input.files && input.files[0]) {
-      this.selectedSlipFile = input.files[0];
+      const file = input.files[0];
+      this.selectedSlipFile = file;
+
       const filenameLabel = document.getElementById('topup-slip-filename');
+      const badge = document.getElementById('topup-slip-badge');
+      const dropzone = document.getElementById('topup-slip-dropzone');
+      const previewContainer = document.getElementById('topup-slip-preview-container');
+      const previewImg = document.getElementById('topup-slip-preview');
+
       if (filenameLabel) {
-        filenameLabel.textContent = `📎 ${input.files[0].name}`;
-        filenameLabel.style.color = '#10b981';
+        filenameLabel.textContent = `📎 ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+        filenameLabel.style.color = '#059669';
+        filenameLabel.style.fontWeight = '600';
+      }
+
+      if (badge) {
+        badge.textContent = '✅ แนบสลิปแล้ว';
+        badge.style.background = '#dcfce7';
+        badge.style.color = '#15803d';
+      }
+
+      if (dropzone) {
+        dropzone.style.borderColor = '#10b981';
+        dropzone.style.background = '#f0fdf4';
+      }
+
+      if (previewContainer && previewImg) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          previewImg.src = e.target.result;
+          previewContainer.style.display = 'block';
+        };
+        reader.readAsDataURL(file);
       }
     }
   }
@@ -382,7 +410,7 @@ class TopupManager {
       Swal.fire({
         icon: 'warning',
         title: 'กรุณาเข้าสู่ระบบ',
-        text: 'กรุณาเข้าสู่ระบบก่อนทำการเติมเงิน',
+        text: 'คุณต้องเข้าสู่ระบบหรือสมัครสมาชิกก่อนทำการเติมเงิน',
         background: '#151622',
         color: '#fff',
         confirmButtonColor: '#e11d48'
@@ -402,12 +430,54 @@ class TopupManager {
       return;
     }
 
+    // STRICT VALIDATION: You CANNOT pass without uploading a genuine bank slip!
+    if (!this.selectedSlipFile) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'ยังไม่ได้แนบสลิปการโอนเงิน',
+        html: `
+          <div style="text-align: left; padding: 6px 0; color: #cbd5e1; font-size: 0.9rem; line-height: 1.6;">
+            <p style="margin-bottom: 8px; color: #f87171; font-weight: 700;">
+              ❌ ไม่สามารถทำรายการได้เนื่องจากยังไม่มีหลักฐานการโอนเงิน
+            </p>
+            <p style="margin-bottom: 8px;">ระบบมีระบบตรวจสอบสลิปอัตโนมัติ กรุณาโอนเงินผ่านแอปธนาคาร แล้วแนบรูปภาพสลิปจริงก่อนกดยืนยัน</p>
+            <div style="background: #1e2030; border: 1px solid #33364d; border-radius: 8px; padding: 10px; margin-top: 8px;">
+              <b style="color: #f472b6;">ขั้นตอน:</b>
+              <ol style="margin: 4px 0 0; padding-left: 18px; color: #a5a8bc; font-size: 0.85rem;">
+                <li>สแกน QR Code พร้อมเพย์ด้านบนและโอนเงิน</li>
+                <li>คลิกที่กล่อง <b>"แนบรูปสลิปหลักฐานการโอน"</b></li>
+                <li>เลือกรูปภาพสลิปที่ได้จากแอปธนาคาร</li>
+                <li>กดปุ่มยืนยันอีกครั้งเพื่อให้ระบบตรวจสอบ QR Code บนสลิป</li>
+              </ol>
+            </div>
+          </div>
+        `,
+        background: '#151622',
+        color: '#fff',
+        confirmButtonColor: '#e11d48',
+        confirmButtonText: 'ไปแนบรูปสลิปโอนเงิน'
+      });
+
+      const dropzone = document.getElementById('topup-slip-dropzone');
+      if (dropzone) {
+        dropzone.style.borderColor = '#ef4444';
+        dropzone.style.background = '#fff1f2';
+        dropzone.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      return;
+    }
+
+    // Show Scanning / Verification Spinner
     Swal.fire({
-      title: 'กำลังตรวจสอบการชำระเงิน...',
+      title: 'กำลังสแกนและตรวจสอบสลิป...',
       html: `
         <div style="padding: 10px; text-align: center;">
-          <p style="color: #a5a8bc; font-size: 0.9rem; margin-bottom: 8px;">ระบบกำลังตรวจสอบยอดเงินและบันทึกเข้ากระเป๋าของคุณแบบอัตโนมัติ</p>
-          <div style="color: #f472b6; font-weight: 700; font-size: 1.1rem;">จำนวนเงิน: ฿ ${amount.toLocaleString('th-TH', { minimumFractionDigits: 2 })}</div>
+          <p style="color: #a5a8bc; font-size: 0.88rem; margin-bottom: 8px;">
+            ระบบกำลังอ่าน QR Code ธนาคาร ตรวจสอบความถูกต้อง และป้องกันการใช้สลิปซ้ำ
+          </p>
+          <div style="color: #f472b6; font-weight: 700; font-size: 1.1rem;">
+            ยอดเงินที่ระบุ: ฿ ${amount.toLocaleString('th-TH', { minimumFractionDigits: 2 })}
+          </div>
         </div>
       `,
       allowOutsideClick: false,
@@ -417,7 +487,7 @@ class TopupManager {
     });
 
     try {
-      // Direct reliable topup pipeline (updates Supabase profiles & ledger)
+      // Process full topup pipeline with real slip inspection
       const result = await window.paymentGatewayEngine.processTopupPipeline({
         amount: amount,
         slipFile: this.selectedSlipFile
@@ -429,11 +499,11 @@ class TopupManager {
         balanceAfter: result.balanceAfter
       });
     } catch (err) {
-      console.error('Topup confirmation error:', err);
+      console.error('Topup verification failed:', err);
       Swal.fire({
         icon: 'error',
-        title: 'การตรวจสอบชำระเงินไม่สำเร็จ',
-        text: err.message || 'เกิดข้อผิดพลาดในการบันทึกข้อมูล กรุณาลองใหม่อีกครั้ง',
+        title: 'การตรวจสอบสลิปไม่ผ่าน',
+        text: err.message || 'เกิดข้อผิดพลาดในการตรวจสอบสลิป กรุณาตรวจสอบว่ารูปภาพเป็นสลิปโอนเงินจริงของธนาคาร',
         background: '#151622',
         color: '#fff',
         confirmButtonColor: '#ef4444'

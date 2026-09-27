@@ -381,17 +381,33 @@
             </div>
 
             <!-- Instructions Notice Banner -->
-            <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; padding: 10px 14px; margin-bottom: 14px; text-align: left; font-size: 0.8rem; color: #1e40af; line-height: 1.5;">
-              <i class="fas fa-circle-info" style="color: #2563eb; margin-right: 4px;"></i>
-              <b>วิธีทำรายการ:</b> เปิดแอปธนาคารบนมือถือ สแกน QR เพื่อตรวจยอดเงินและชื่อผู้รับ เมื่อโอนเสร็จแล้วกดปุ่ม <b>"ฉันโอนเงินแล้ว"</b> ด้านล่าง ยอดจะเข้าเว็บอัตโนมัติทันที
+            <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; padding: 12px 14px; margin-bottom: 14px; text-align: left; font-size: 0.82rem; color: #1e40af; line-height: 1.5;">
+              <div style="font-weight: 700; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
+                <i class="fas fa-shield-check" style="color: #2563eb;"></i>
+                <span>ขั้นตอนการเติมเงิน (ระบบตรวจสอบสลิปอัตโนมัติ):</span>
+              </div>
+              <ol style="margin: 0; padding-left: 20px; color: #334155; font-size: 0.8rem;">
+                <li>เปิดแอปธนาคาร สแกน QR Code ด้านบนเพื่อโอนเงิน</li>
+                <li>บันทึกรูปสลิปจากแอปธนาคาร</li>
+                <li>กดปุ่ม <b>"แนบรูปสลิปโอนเงิน"</b> ด้านล่าง แล้วกดยืนยันเพื่อรับเครดิตทันที</li>
+              </ol>
             </div>
 
-            <!-- Slip Upload Box (Optional Fallback) -->
-            <div style="background: #f1f5f9; border: 1px dashed #cbd5e1; border-radius: 12px; padding: 10px; margin-bottom: 14px; text-align: left;"
+            <!-- Slip Upload Box (Required) -->
+            <div id="topup-slip-dropzone" style="background: #f8fafc; border: 2px dashed #94a3b8; border-radius: 12px; padding: 14px; margin-bottom: 14px; text-align: left; cursor: pointer; transition: all 0.2s;"
               onclick="document.getElementById('topup-slip-input').click();">
-              <div style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; font-size: 0.8rem; font-weight: 700; color: #334155;">
-                <span><i class="fas fa-file-invoice-dollar" style="color: #003b71; margin-right: 6px;"></i> แนบสลิปโอนเงิน (ถ้ามี):</span>
-                <span id="topup-slip-filename" style="color: #0284c7; font-weight: 600; font-size: 0.75rem;">คลิกเพื่อเลือกไฟล์ (ไม่บังคับ)...</span>
+              <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.85rem; font-weight: 700; color: #1e293b;">
+                <span style="display: flex; align-items: center; gap: 8px;">
+                  <i class="fas fa-file-invoice-dollar" style="color: #e11d48; font-size: 1.15rem;"></i>
+                  <span>แนบรูปสลิปหลักฐานการโอน <span style="color: #ef4444; font-weight: 800;">*จำเป็น</span></span>
+                </span>
+                <span id="topup-slip-badge" style="background: #e2e8f0; color: #475569; font-size: 0.72rem; padding: 3px 8px; border-radius: 4px; font-weight: 600;">ยังไม่ได้แนบ</span>
+              </div>
+              <div style="margin-top: 6px; font-size: 0.78rem; color: #64748b;" id="topup-slip-filename">
+                คลิกที่นี่เพื่อเลือกรูปภาพสลิปจากมือถือ / คอมพิวเตอร์...
+              </div>
+              <div id="topup-slip-preview-container" style="display: none; margin-top: 10px; text-align: center;">
+                <img id="topup-slip-preview" src="" alt="Slip Preview" style="max-height: 130px; border-radius: 8px; border: 1px solid #cbd5e1; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin: 0 auto; display: block;">
               </div>
               <input type="file" id="topup-slip-input" accept="image/*" style="display: none;" onchange="window.topupManager.handleSlipSelected(this)">
             </div>
@@ -399,7 +415,7 @@
             <!-- Action Buttons -->
             <button class="btn-pink" style="width: 100%; padding: 14px; font-size: 0.98rem; font-weight: 700; box-shadow: 0 4px 15px rgba(225,29,72,0.35); margin-bottom: 8px; display: flex; align-items: center; justify-content: center; gap: 8px;"
               onclick="window.topupManager.confirmPaymentSimulation()">
-              <i class="fas fa-circle-check"></i> ฉันโอนเงินแล้ว (ตรวจสอบและอัปเดตยอดทันที)
+              <i class="fas fa-file-circle-check"></i> ตรวจสอบสลิปและเพิ่มเครดิตทันที
             </button>
 
             <button type="button" class="btn-outline-dark" style="width: 100%; padding: 8px; font-size: 0.85rem; color: #64748b; border-color: #cbd5e1;"
@@ -1131,6 +1147,7 @@
 
 
   <!-- Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
   <script src="js/auth.js?v=8.0"></script>
   <script src="js/wallet.js?v=5.0"></script>
   <script src="js/payment-gateway.js?v=5.0"></script>
