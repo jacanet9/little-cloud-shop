@@ -36,9 +36,10 @@
       <span id="site-announcement-text">⚡ ระบบส่งของอัตโนมัติ 24 ชม. | เติมเงินผ่าน PromptPay
         เงินเข้ากระเป๋าทันที</span>
     </div>
-      <div class="status-badge connected" id="supabase-status-badge" style="font-size: 0.75rem; padding: 4px 12px; display: flex; align-items: center; gap: 6px;">
-        <i class="fas fa-database" style="color: #34d399;"></i> <span>Supabase Cloud (เชื่อมต่อแล้ว)</span>
-      </div>
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <button type="button" class="btn-top-supabase" onclick="window.openSupabaseConfigModal()">
+        <i class="fas fa-database"></i> <span>เชื่อมต่อ Supabase</span>
+      </button>
       <span style="font-size: 0.75rem; color: #717388;"><i class="fas fa-signal"></i> 24H ONLINE</span>
     </div>
   </div>
@@ -85,6 +86,11 @@
 
       <!-- Right Nav Controls (Cart, Balance, User Avatar) -->
       <div class="nav-right-group">
+
+        <!-- Supabase Connect Button -->
+        <button class="btn-icon-circle btn-nav-supabase" onclick="window.openSupabaseConfigModal()" title="เชื่อมต่อ / ตั้งค่า Supabase Database">
+          <i class="fas fa-database"></i>
+        </button>
 
         <!-- Cart Button -->
         <button class="btn-icon-circle" onclick="window.openCartDrawer()" title="ตะกร้าสินค้า">
@@ -1087,8 +1093,14 @@
     </div>
   </div>
 
+  <!-- Floating Supabase Quick Connect Button -->
+  <button type="button" class="floating-supabase-btn" onclick="window.openSupabaseConfigModal()" title="เชื่อมต่อ / ตั้งค่า Supabase Database">
+    <i class="fas fa-database"></i>
+    <span>เชื่อมต่อ Supabase</span>
+  </button>
+
   <!-- Scripts -->
-  <script src="js/auth.js?v=5.0"></script>
+  <script src="js/auth.js?v=6.0"></script>
   <script src="js/wallet.js?v=5.0"></script>
   <script src="js/payment-gateway.js?v=5.0"></script>
   <script src="js/shop.js?v=5.0"></script>

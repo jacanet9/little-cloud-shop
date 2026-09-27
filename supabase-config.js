@@ -2,10 +2,40 @@
 // LITTLE CLOUD SHOP - REAL PRODUCTION SUPABASE DATABASE ENGINE
 // ==============================================================================
 
-const SUPABASE_CONFIG_KEY = 'little_cloud_supabase_cfg_v6';
+const SUPABASE_CONFIG_KEY = 'little_cloud_supabase_cfg_v7';
 
 const DEFAULT_SUPABASE_URL = 'https://hwzdowxjxtdhcgiylnbo.supabase.co';
 const DEFAULT_SUPABASE_ANON_KEY = 'sb_publishable_5ZvVjg1viXXX_vli5gdhAA_j4lSg5j4';
+
+/**
+ * Smart URL Formatter:
+ * Accepts:
+ * - https://hwzdowxjxtdhcgiylnbo.supabase.co
+ * - https://supabase.com/dashboard/project/hwzdowxjxtdhcgiylnbo
+ * - https://supabase.com/dashboard/project/hwzdowxjxtdhcgiylnbo/settings/api
+ * - hwzdowxjxtdhcgiylnbo
+ */
+function sanitizeSupabaseUrl(input) {
+  if (!input) return DEFAULT_SUPABASE_URL;
+  let str = input.trim();
+
+  // If user pasted dashboard link: https://supabase.com/dashboard/project/hwzdowxjxtdhcgiylnbo
+  const dashMatch = str.match(/project\/([a-z0-9_-]+)/i);
+  if (dashMatch) {
+    return `https://${dashMatch[1]}.supabase.co`;
+  }
+
+  // If user just typed the ref ID
+  if (/^[a-z0-9_-]{15,30}$/i.test(str)) {
+    return `https://${str}.supabase.co`;
+  }
+
+  if (!str.startsWith('http://') && !str.startsWith('https://')) {
+    str = 'https://' + str;
+  }
+
+  return str.replace(/\/+$/, '');
+}
 
 /**
  * Open Native Modal for Supabase Configuration
@@ -35,10 +65,10 @@ window.restoreDefaultSupabaseConfig = function () {
 
 window.handleNativeSaveSupabase = async function (event) {
   if (event) event.preventDefault();
-  const url = document.getElementById('native-supa-url').value;
+  const rawUrl = document.getElementById('native-supa-url').value;
   const anonKey = document.getElementById('native-supa-key').value;
 
-  if (!url || !anonKey) {
+  if (!rawUrl || !anonKey) {
     if (typeof Swal !== 'undefined') {
       Swal.fire({ icon: 'warning', title: 'กรุณากรอกข้อมูล', text: 'ต้องใส่ทั้ง Project URL และ Anon Key' });
     } else {
@@ -47,14 +77,15 @@ window.handleNativeSaveSupabase = async function (event) {
     return;
   }
 
-  const success = await window.supabaseManager.saveConfig(url, anonKey);
+  const cleanUrl = sanitizeSupabaseUrl(rawUrl);
+  const success = await window.supabaseManager.saveConfig(cleanUrl, anonKey);
   window.closeSupabaseConfigModal();
 
   if (typeof Swal !== 'undefined') {
     Swal.fire({
       icon: 'success',
       title: 'เชื่อมต่อ Supabase สำเร็จ!',
-      text: 'ระบบดึงข้อมูลจาก Supabase Cloud เรียบร้อยแล้ว',
+      text: `เชื่อมต่อกับ ${cleanUrl} เรียบร้อยแล้ว`,
       background: '#151622',
       color: '#fff',
       confirmButtonColor: '#10b981'
@@ -78,6 +109,7 @@ class SupabaseManager {
       try {
         const parsed = JSON.parse(saved);
         if (parsed.url && parsed.anonKey) {
+          parsed.url = sanitizeSupabaseUrl(parsed.url);
           return parsed;
         }
       } catch (e) {
@@ -91,7 +123,8 @@ class SupabaseManager {
   }
 
   async saveConfig(url, anonKey) {
-    this.config = { url: (url || DEFAULT_SUPABASE_URL).trim(), anonKey: (anonKey || DEFAULT_SUPABASE_ANON_KEY).trim() };
+    const formattedUrl = sanitizeSupabaseUrl(url);
+    this.config = { url: formattedUrl, anonKey: (anonKey || DEFAULT_SUPABASE_ANON_KEY).trim() };
     localStorage.setItem(SUPABASE_CONFIG_KEY, JSON.stringify(this.config));
 
     // Clear old caches
@@ -116,11 +149,13 @@ class SupabaseManager {
     }
 
     try {
+      this.config.url = sanitizeSupabaseUrl(this.config.url);
       if (window.supabase) {
         this.client = window.supabase.createClient(this.config.url, this.config.anonKey);
       }
       this.isConnected = true;
       this.updateConnectionStatusUI(true);
+      console.log('✅ Supabase Connected:', this.config.url);
       return true;
     } catch (err) {
       console.error('⚠️ Supabase connection error:', err);
@@ -231,7 +266,6 @@ class SupabaseManager {
 
 window.supabaseManager = new SupabaseManager();
 
-// Immediate DOM load binding
 document.addEventListener('DOMContentLoaded', () => {
   const badge = document.getElementById('supabase-status-badge');
   if (badge) {
