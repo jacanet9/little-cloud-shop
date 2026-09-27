@@ -883,6 +883,12 @@ body {
   }
 }
 
+@media (max-width: 768px) {
+  .supabase-direct-panel form {
+    grid-template-columns: 1fr !important;
+  }
+}
+
 /* ==========================================================================
    MODAL OVERLAY & POPUP SYSTEM (Fixed Layer)
    ========================================================================== */

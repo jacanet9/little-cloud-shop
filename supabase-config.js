@@ -38,6 +38,106 @@ function sanitizeSupabaseUrl(input) {
 }
 
 /**
+ * Direct On-Page Save Supabase Handler (No Modal Needed)
+ */
+window.handleDirectSaveSupabase = async function (event) {
+  if (event) event.preventDefault();
+  const urlInput = document.getElementById('direct-supa-url') || document.getElementById('native-supa-url');
+  const keyInput = document.getElementById('direct-supa-key') || document.getElementById('native-supa-key');
+  const msgEl = document.getElementById('direct-supa-msg');
+
+  const rawUrl = urlInput ? urlInput.value.trim() : '';
+  const anonKey = keyInput ? keyInput.value.trim() : '';
+
+  if (!rawUrl || !anonKey) {
+    if (msgEl) {
+      msgEl.style.display = 'block';
+      msgEl.style.color = '#ef4444';
+      msgEl.textContent = '❌ กรุณากรอกทั้ง Supabase URL และ Anon Key';
+    }
+    if (typeof Swal !== 'undefined') {
+      Swal.fire({ icon: 'warning', title: 'กรุณากรอกข้อมูล', text: 'ต้องใส่ทั้ง Project URL และ Anon Key', background: '#151622', color: '#fff' });
+    }
+    return;
+  }
+
+  const cleanUrl = sanitizeSupabaseUrl(rawUrl);
+  if (msgEl) {
+    msgEl.style.display = 'block';
+    msgEl.style.color = '#38bdf8';
+    msgEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> กำลังเชื่อมต่อกับ ' + cleanUrl + '...';
+  }
+
+  const success = await window.supabaseManager.saveConfig(cleanUrl, anonKey);
+  
+  // Sync all inputs on page
+  window.syncDirectSupabaseInputs();
+
+  if (msgEl) {
+    msgEl.style.display = 'block';
+    if (success) {
+      msgEl.style.color = '#34d399';
+      msgEl.innerHTML = '✅ บันทึกและเชื่อมต่อ Supabase สำเร็จ (' + cleanUrl + ')';
+    } else {
+      msgEl.style.color = '#fbbf24';
+      msgEl.innerHTML = '⚠️ บันทึกข้อมูลแล้ว แต่ไม่สามารถดึงตารางได้ (โปรดตรวจทาน URL/Key หรือ CORS)';
+    }
+  }
+
+  if (typeof Swal !== 'undefined') {
+    Swal.fire({
+      icon: success ? 'success' : 'info',
+      title: success ? 'เชื่อมต่อ Supabase สำเร็จ!' : 'บันทึกการตั้งค่าแล้ว',
+      text: `เชื่อมต่อกับ ${cleanUrl} เรียบร้อยแล้ว`,
+      background: '#151622',
+      color: '#fff',
+      confirmButtonColor: '#10b981'
+    });
+  }
+};
+
+window.restoreDirectSupabaseConfig = function () {
+  const urlInput = document.getElementById('direct-supa-url');
+  const keyInput = document.getElementById('direct-supa-key');
+  if (urlInput) urlInput.value = DEFAULT_SUPABASE_URL;
+  if (keyInput) keyInput.value = DEFAULT_SUPABASE_ANON_KEY;
+  window.handleDirectSaveSupabase();
+};
+
+window.syncDirectSupabaseInputs = function () {
+  const currentUrl = (window.supabaseManager && window.supabaseManager.config && window.supabaseManager.config.url) || DEFAULT_SUPABASE_URL;
+  const currentKey = (window.supabaseManager && window.supabaseManager.config && window.supabaseManager.config.anonKey) || DEFAULT_SUPABASE_ANON_KEY;
+
+  const directUrl = document.getElementById('direct-supa-url');
+  const directKey = document.getElementById('direct-supa-key');
+  const nativeUrl = document.getElementById('native-supa-url');
+  const nativeKey = document.getElementById('native-supa-key');
+
+  if (directUrl) directUrl.value = currentUrl;
+  if (directKey) directKey.value = currentKey;
+  if (nativeUrl) nativeUrl.value = currentUrl;
+  if (nativeKey) nativeKey.value = currentKey;
+
+  const badge = document.getElementById('direct-supa-badge');
+  if (badge) {
+    const isConnected = window.supabaseManager && window.supabaseManager.isConnected;
+    badge.style.background = isConnected ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)';
+    badge.style.color = isConnected ? '#34d399' : '#f87171';
+    badge.style.borderColor = isConnected ? 'rgba(16, 185, 129, 0.4)' : 'rgba(239, 68, 68, 0.4)';
+    badge.innerHTML = isConnected ? '<i class="fas fa-circle-check"></i> เชื่อมต่อแล้ว' : '<i class="fas fa-circle-xmark"></i> ยังไม่เชื่อมต่อ';
+  }
+};
+
+// Auto sync when DOM is ready
+if (typeof document !== 'undefined') {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => window.syncDirectSupabaseInputs());
+  } else {
+    setTimeout(() => window.syncDirectSupabaseInputs(), 100);
+  }
+}
+
+/**
  * Open Modal for Supabase Configuration (Bulletproof with Swal fallback)
  */
 window.openSupabaseConfigModal = function () {
@@ -85,6 +185,7 @@ window.openSupabaseConfigModal = function () {
       if (result.isConfirmed && result.value) {
         const cleanUrl = sanitizeSupabaseUrl(result.value.url);
         await window.supabaseManager.saveConfig(cleanUrl, result.value.key);
+        window.syncDirectSupabaseInputs();
         Swal.fire({
           icon: 'success',
           title: 'เชื่อมต่อ Supabase สำเร็จ!',
@@ -144,6 +245,7 @@ window.handleNativeSaveSupabase = async function (event) {
   }
 
   const success = await window.supabaseManager.saveConfig(cleanUrl, anonKey);
+  window.syncDirectSupabaseInputs();
   window.closeSupabaseConfigModal();
 
   if (typeof Swal !== 'undefined') {
