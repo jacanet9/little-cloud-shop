@@ -154,31 +154,12 @@ class AuthManager {
       return;
     }
 
-    if (!window.supabaseManager.isConnected) {
-      Swal.fire({
-        icon: 'warning',
-        title: 'ยังไม่ได้เชื่อมต่อฐานข้อมูล',
-        text: 'กรุณาเชื่อมต่อ Supabase Database ก่อนเข้าสู่ระบบ',
-        confirmButtonText: 'เชื่อมต่อ Supabase ตอนนี้',
-        background: '#180a2f',
-        color: '#fff',
-        confirmButtonColor: '#d946ef'
-      }).then(() => {
-        window.openSupabaseConfigModal();
-      });
-      return;
-    }
-
     try {
-      const client = window.supabaseManager.client;
-      const { data: users, error } = await client
-        .from('profiles')
-        .select('*')
-        .eq('username', username);
-
-      if (error) throw error;
-
-      const user = users && users.find(p => p.password_hash === passOrPin || p.pin === passOrPin);
+      const users = await window.supabaseManager.fetchTable('profiles');
+      const user = users && users.find(p => 
+        p.username && p.username.toLowerCase() === username.toLowerCase() &&
+        (p.password_hash === passOrPin || p.pin === passOrPin)
+      );
 
       if (user) {
         this.saveCurrentUser({
@@ -244,38 +225,17 @@ class AuthManager {
       return;
     }
 
-    if (!window.supabaseManager.isConnected) {
-      Swal.fire({
-        icon: 'warning',
-        title: 'ยังไม่ได้เชื่อมต่อฐานข้อมูล',
-        text: 'กรุณาเชื่อมต่อ Supabase Database ก่อนสมัครสมาชิก',
-        confirmButtonText: 'เชื่อมต่อ Supabase ตอนนี้',
-        background: '#180a2f',
-        color: '#fff',
-        confirmButtonColor: '#d946ef'
-      }).then(() => {
-        window.openSupabaseConfigModal();
-      });
-      return;
-    }
-
     try {
-      const client = window.supabaseManager.client;
+      const allProfiles = await window.supabaseManager.fetchTable('profiles');
       
       // Check existing username in Supabase
-      const { data: existing, error: checkErr } = await client
-        .from('profiles')
-        .select('username')
-        .eq('username', username);
-
-      if (checkErr) throw checkErr;
-      if (existing && existing.length > 0) {
+      const existing = allProfiles && allProfiles.find(p => p.username && p.username.toLowerCase() === username.toLowerCase());
+      if (existing) {
         Swal.fire({ icon: 'error', title: 'ชื่อนี้มีผู้ใช้งานแล้ว', text: 'กรุณาเลือกชื่อผู้ใช้งานอื่น', background: '#180a2f', color: '#fff', confirmButtonColor: '#ef4444' });
         return;
       }
 
       // Check if this is the very first account created, make it admin if none exists
-      const { data: allProfiles } = await client.from('profiles').select('id');
       const assignedRole = (!allProfiles || allProfiles.length === 0) ? 'admin' : 'member';
 
       const newUser = {
@@ -286,18 +246,12 @@ class AuthManager {
         balance: 0.00
       };
 
-      const { data: inserted, error: insertErr } = await client
-        .from('profiles')
-        .insert([newUser])
-        .select();
+      const createdUser = await window.supabaseManager.insertRecord('profiles', newUser);
 
-      if (insertErr) throw insertErr;
-
-      const createdUser = inserted[0];
       this.saveCurrentUser({
         id: createdUser.id,
-        username: createdUser.username,
-        role: createdUser.role,
+        username: createdUser.username || username,
+        role: createdUser.role || assignedRole,
         balance: Number(createdUser.balance) || 0
       });
 
@@ -306,7 +260,7 @@ class AuthManager {
       Swal.fire({
         icon: 'success',
         title: 'สมัครสมาชิกสำเร็จ!',
-        html: `ยินดีต้อนรับคุณ <b>${createdUser.username}</b> (${createdUser.role.toUpperCase()})<br>บันทึกเข้าสู่ระบบ Supabase เรียบร้อยแล้ว`,
+        html: `ยินดีต้อนรับคุณ <b>${createdUser.username || username}</b> (${(createdUser.role || assignedRole).toUpperCase()})<br>บันทึกเข้าสู่ระบบ Supabase เรียบร้อยแล้ว`,
         background: '#180a2f',
         color: '#fff',
         confirmButtonColor: '#d946ef'

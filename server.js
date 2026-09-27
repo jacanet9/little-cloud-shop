@@ -14,8 +14,8 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Initialize Supabase Client
-const SUPABASE_URL = process.env.SUPABASE_URL || 'https://syyqfckckjebwtxwqqti.supabase.co';
-const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN5eXFmY2tja2plYnd0eHdxcXRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0Mjc4MjAsImV4cCI6MjA4OTk5MzgyMH0.1D7h4Q96F6pZlqV3Z0s3-qQ9t_5F_9R_r-u4oZ0W3X4';
+const SUPABASE_URL = process.env.SUPABASE_URL || 'https://hwzdowxjxtdhcgiylnbo.supabase.co';
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || 'sb_publishable_5ZvVjg1viXXX_vli5gdhAA_j4lSg5j4';
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // Omise Config

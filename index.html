@@ -18,7 +18,7 @@
 
   <!-- Supabase JS Client & Config -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/supabase-config.js?v=9.0"></script>
+  <script src="js/supabase-config.js?v=11.0"></script>
 
   <!-- Custom Design System matching Screenshots -->
   <link rel="stylesheet" href="css/style.css?v=2.0">
@@ -155,6 +155,23 @@
             <span>นัดรับสินค้าในเกมส์</span>
           </div>
         </div>
+      </div>
+    </section>
+
+    <!-- Featured Products Showcase on Home Page -->
+    <section class="home-featured-section" style="margin: 40px 0;">
+      <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
+        <div>
+          <span class="hero-tag-pill" style="font-size: 0.75rem; margin-bottom: 6px;">FEATURED PRODUCTS</span>
+          <h2 style="font-size: 1.7rem; font-weight: 800; color: #fff; margin: 4px 0;">🔥 สินค้ายอดนิยมในร้าน</h2>
+          <p style="color: var(--text-muted); font-size: 0.9rem;">ไอเทม สกินอาวุธ และเงิน M พร้อมส่งมอบทันที 24 ชม.</p>
+        </div>
+        <button class="btn-pink" style="padding: 8px 18px; font-size: 0.85rem;" onclick="window.navToTab('shop')">
+          ดูสินค้าทั้งหมดในร้าน <i class="fas fa-arrow-right" style="margin-left: 6px;"></i>
+        </button>
+      </div>
+      <div class="shop-products-grid" id="home-featured-grid">
+        <!-- Rendered dynamically from Supabase database -->
       </div>
     </section>
 
@@ -1058,10 +1075,10 @@
 
 
   <!-- Scripts -->
-  <script src="js/auth.js?v=6.0"></script>
+  <script src="js/auth.js?v=7.0"></script>
   <script src="js/wallet.js?v=5.0"></script>
   <script src="js/payment-gateway.js?v=5.0"></script>
-  <script src="js/shop.js?v=6.0"></script>
+  <script src="js/shop.js?v=7.0"></script>
   <script src="js/admin.js?v=5.0"></script>
   <script src="js/topup.js?v=5.0"></script>
   <script src="js/reviews.js?v=5.0"></script>

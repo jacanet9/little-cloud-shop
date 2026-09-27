@@ -883,6 +883,12 @@ body {
   }
 }
 
+@media (max-width: 768px) {
+  .supabase-direct-panel form {
+    grid-template-columns: 1fr !important;
+  }
+}
+
 /* ==========================================================================
    MODAL OVERLAY & POPUP SYSTEM (Fixed Layer)
    ========================================================================== */
@@ -975,6 +981,70 @@ body {
 
 .hidden {
   display: none !important;
+}
+
+/* Supabase Connect Action Buttons */
+.btn-top-supabase {
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid #10b981;
+  color: #34d399;
+  border-radius: 8px;
+  padding: 5px 12px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-top-supabase:hover {
+  background: #10b981;
+  color: #064e3b;
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.4);
+  transform: translateY(-1px);
+}
+
+.btn-nav-supabase {
+  border-color: #10b981 !important;
+  color: #34d399 !important;
+  background: rgba(16, 185, 129, 0.1) !important;
+}
+
+.btn-nav-supabase:hover {
+  background: #10b981 !important;
+  color: #064e3b !important;
+  box-shadow: 0 0 14px rgba(16, 185, 129, 0.5) !important;
+}
+
+.floating-supabase-btn {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 30px;
+  padding: 10px 18px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 8px 24px rgba(16, 185, 129, 0.4), 0 0 16px rgba(16, 185, 129, 0.25);
+  cursor: pointer;
+  z-index: 9999;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.floating-supabase-btn:hover {
+  transform: translateY(-3px) scale(1.03);
+  box-shadow: 0 12px 30px rgba(16, 185, 129, 0.6), 0 0 22px rgba(52, 211, 153, 0.4);
+}
+
+.floating-supabase-btn i {
+  font-size: 1rem;
 }
 
 

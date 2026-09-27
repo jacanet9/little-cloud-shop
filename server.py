@@ -10,7 +10,7 @@ import time
 import urllib.request
 import urllib.error
 import urllib.parse
-from http.server import HTTPServer, SimpleHTTPRequestHandler
+from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 from datetime import datetime, timezone
 
 PORT = 3000
@@ -259,5 +259,5 @@ if __name__ == '__main__':
     print(f"[Omise Webhook API] Endpoint: http://127.0.0.1:{PORT}/api/webhook/omise")
     print(f"[Status Polling API] Endpoint: http://127.0.0.1:{PORT}/api/topup/status/<charge_id>")
     print("=======================================================")
-    server = HTTPServer(('127.0.0.1', PORT), LittleCloudHandler)
+    server = ThreadingHTTPServer(('127.0.0.1', PORT), LittleCloudHandler)
     server.serve_forever()

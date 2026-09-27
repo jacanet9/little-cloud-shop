@@ -43,35 +43,82 @@ class ShopManager {
   async getProducts() {
     return await window.supabaseManager.fetchTable('products');
   }
+  renderProductCard(p) {
+    const price = Number(p.price) || 0;
+    const stockText = p.stock > 100 ? '👁️ ไม่จำกัด' : `📦 คงเหลือ ${p.stock} ชิ้น`;
+    const isOutOfStock = p.stock <= 0;
+
+    return `
+      <div class="jelly-product-card" data-id="${p.id}">
+        <!-- Card Image (Image 3) -->
+        <div class="jelly-card-media">
+          <img src="${p.image_url || 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=600&q=80'}" alt="${p.name}" class="jelly-card-img" onerror="this.src='https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=600&q=80'">
+          <span class="jelly-stock-badge">${stockText}</span>
+        </div>
+
+        <!-- Card Body (Image 3) -->
+        <div class="jelly-card-body">
+          <h3 class="jelly-card-title" title="${p.name}">${p.name}</h3>
+
+          <div class="jelly-card-bottom">
+            <div>
+              <div class="jelly-price-label">PRICE</div>
+              <div class="jelly-price-val">
+                ${price.toLocaleString('th-TH')} <span>บาท</span>
+              </div>
+            </div>
+
+            <!-- Pink Plus Buy Button (Image 3) -->
+            <button class="btn-card-add" onclick="window.shopManager.handleDirectBuy('${p.id}')" title="สั่งซื้อทันที" ${isOutOfStock ? 'disabled style="opacity:0.4; cursor:not-allowed;"' : ''}>
+              <i class="fas fa-plus"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
 
   async renderProducts() {
     const grid = document.getElementById('jelly-products-grid');
-    if (!grid) return;
+    const homeGrid = document.getElementById('home-featured-grid');
 
-    if (!window.supabaseManager.isConnected) {
+    if (grid) {
       grid.innerHTML = `
-        <div style="grid-column: 1 / -1; text-align: center; padding: 60px 20px; background: #151620; border: 1px dashed var(--primary-pink); border-radius: 20px;">
-          <div style="font-size: 2.5rem; margin-bottom: 10px;">🔌</div>
-          <h3 style="color: #fff; margin-bottom: 6px;">กรุณาเชื่อมต่อ Supabase Database</h3>
-          <p style="color: var(--text-muted); margin-bottom: 16px;">เชื่อมต่อเพื่อดึงรายการสินค้าจากตาราง products จริง</p>
-          <button class="btn-pink" onclick="window.openSupabaseConfigModal()">
-            <i class="fas fa-plug"></i> เชื่อมต่อ Supabase
-          </button>
+        <div style="grid-column: 1 / -1; text-align: center; padding: 40px 20px; color: var(--text-muted);">
+          <i class="fas fa-spinner fa-spin" style="font-size: 1.8rem; color: #f472b6; margin-bottom: 8px;"></i>
+          <p>กำลังดึงข้อมูลสินค้าจาก Supabase...</p>
         </div>
       `;
-      return;
     }
 
-    grid.innerHTML = `
-      <div style="grid-column: 1 / -1; text-align: center; padding: 40px 20px; color: var(--text-muted);">
-        <i class="fas fa-spinner fa-spin" style="font-size: 1.8rem; color: #f472b6; margin-bottom: 8px;"></i>
-        <p>กำลังดึงข้อมูลสินค้าจาก Supabase...</p>
-      </div>
-    `;
+    if (homeGrid) {
+      homeGrid.innerHTML = `
+        <div style="grid-column: 1 / -1; text-align: center; padding: 40px 20px; color: var(--text-muted);">
+          <i class="fas fa-spinner fa-spin" style="font-size: 1.8rem; color: #f472b6; margin-bottom: 8px;"></i>
+          <p>กำลังดึงข้อมูลสินค้าจาก Supabase...</p>
+        </div>
+      `;
+    }
 
     let products = await this.getProducts();
 
-    // Filter by category
+    // Render Home Featured Grid
+    if (homeGrid) {
+      if (products.length > 0) {
+        homeGrid.innerHTML = products.slice(0, 8).map(p => this.renderProductCard(p)).join('');
+      } else {
+        homeGrid.innerHTML = `
+          <div style="grid-column: 1 / -1; text-align: center; padding: 40px 20px; color: var(--text-dim);">
+            <i class="fas fa-box-open" style="font-size: 2.5rem; margin-bottom: 10px; display: block;"></i>
+            <p>ยังไม่มีรายการสินค้าในระบบ</p>
+          </div>
+        `;
+      }
+    }
+
+    if (!grid) return;
+
+    // Filter by category for shop page
     let filtered = products.filter(p => {
       let matchCat = false;
       if (this.currentCategory === 'all') matchCat = true;
@@ -80,7 +127,7 @@ class ShopManager {
       else matchCat = p.category === this.currentCategory;
 
       const matchSearch = !this.searchQuery ||
-        p.name.toLowerCase().includes(this.searchQuery) ||
+        (p.name && p.name.toLowerCase().includes(this.searchQuery)) ||
         (p.description && p.description.toLowerCase().includes(this.searchQuery)) ||
         (p.server_tag && p.server_tag.toLowerCase().includes(this.searchQuery));
 
@@ -99,51 +146,28 @@ class ShopManager {
     if (countLabel) countLabel.textContent = `พบ ${filtered.length} รายการ`;
 
     if (filtered.length === 0) {
-      grid.innerHTML = `
-        <div style="grid-column: 1 / -1; text-align: center; padding: 60px 20px; color: var(--text-dim);">
-          <i class="fas fa-box-open" style="font-size: 2.5rem; margin-bottom: 10px; display: block;"></i>
-          <p>ไม่พบรายการสินค้าในหมวดหมู่นี้</p>
-        </div>
-      `;
+      if (this.currentCategory === 'all' && !this.searchQuery) {
+        grid.innerHTML = `
+          <div style="grid-column: 1 / -1; text-align: center; padding: 60px 20px; color: var(--text-dim); background: #151620; border: 1px solid #2d3045; border-radius: 20px;">
+            <i class="fas fa-database" style="font-size: 2.5rem; color: #34d399; margin-bottom: 15px; display: block;"></i>
+            <h3 style="color: #fff; margin-bottom: 8px;">เชื่อมต่อ Supabase สำเร็จ! แต่ยังไม่มีสินค้า</h3>
+            <p style="margin-bottom: 12px;">ในตาราง <code>products</code> ของคุณยังไม่มีข้อมูล หรือถูกปิดกั้นด้วย RLS (Row Level Security)</p>
+            <p style="font-size: 0.85rem; color: #f472b6; font-weight: bold;">👉 วิธีแก้: เข้าสู่ระบบ (แอดมิน) -> ไปที่หน้าโปรไฟล์ -> แผงควบคุมแอดมิน -> กด 'เพิ่มสินค้าใหม่'</p>
+          </div>
+        `;
+      } else {
+        grid.innerHTML = `
+          <div style="grid-column: 1 / -1; text-align: center; padding: 60px 20px; color: var(--text-dim);">
+            <i class="fas fa-box-open" style="font-size: 2.5rem; margin-bottom: 10px; display: block;"></i>
+            <p>ไม่พบรายการสินค้าในหมวดหมู่นี้</p>
+          </div>
+        `;
+      }
       return;
     }
 
-    grid.innerHTML = filtered.map(p => {
-      const price = Number(p.price) || 0;
-      const stockText = p.stock > 100 ? '👁️ ไม่จำกัด' : `📦 คงเหลือ ${p.stock} ชิ้น`;
-      const isOutOfStock = p.stock <= 0;
-
-      return `
-        <div class="jelly-product-card" data-id="${p.id}">
-          <!-- Card Image (Image 3) -->
-          <div class="jelly-card-media">
-            <img src="${p.image_url || 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=600&q=80'}" alt="${p.name}" class="jelly-card-img" onerror="this.src='https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=600&q=80'">
-            <span class="jelly-stock-badge">${stockText}</span>
-          </div>
-
-          <!-- Card Body (Image 3) -->
-          <div class="jelly-card-body">
-            <h3 class="jelly-card-title" title="${p.name}">${p.name}</h3>
-
-            <div class="jelly-card-bottom">
-              <div>
-                <div class="jelly-price-label">PRICE</div>
-                <div class="jelly-price-val">
-                  ${price.toLocaleString('th-TH')} <span>บาท</span>
-                </div>
-              </div>
-
-              <!-- Pink Plus Buy Button (Image 3) -->
-              <button class="btn-card-add" onclick="window.shopManager.handleDirectBuy('${p.id}')" title="สั่งซื้อทันที" ${isOutOfStock ? 'disabled style="opacity:0.4; cursor:not-allowed;"' : ''}>
-                <i class="fas fa-plus"></i>
-              </button>
-            </div>
-          </div>
-        </div>
-      `;
-    }).join('');
+    grid.innerHTML = filtered.map(p => this.renderProductCard(p)).join('');
   }
-
   async handleDirectBuy(productId) {
     const products = await this.getProducts();
     const product = products.find(p => String(p.id) === String(productId));
