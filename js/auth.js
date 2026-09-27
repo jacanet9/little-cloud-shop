@@ -23,6 +23,26 @@ class AuthManager {
     return null;
   }
 
+  async refreshCurrentProfile() {
+    if (!this.currentUser) return null;
+    try {
+      const profiles = await window.supabaseManager.fetchTable('profiles');
+      const user = profiles && profiles.find(p => p.id === this.currentUser.id || (p.username && p.username.toLowerCase() === this.currentUser.username.toLowerCase()));
+      if (user) {
+        this.saveCurrentUser({
+          id: user.id,
+          username: user.username,
+          role: user.role,
+          balance: Number(user.balance) || 0
+        });
+        return this.currentUser;
+      }
+    } catch (e) {
+      console.warn('refreshCurrentProfile error:', e);
+    }
+    return this.currentUser;
+  }
+
   saveCurrentUser(user) {
     this.currentUser = user;
     if (user) {

@@ -278,7 +278,7 @@ class TopupManager {
         if (response.ok) {
           const resData = await response.json();
           if (resData.success && resData.status === 'completed') {
-            this.handlePaymentCompleted({
+            await this.handlePaymentCompleted({
               amount: resData.amount || this.currentAmount,
               chargeId: chargeId,
               balanceAfter: resData.balance
@@ -292,7 +292,7 @@ class TopupManager {
             const profiles = await window.supabaseManager.fetchTable('profiles');
             const user = profiles.find(p => p.id === window.authManager.currentUser.id);
             if (user && Number(user.balance) > Number(window.authManager.currentUser.balance || 0)) {
-              this.handlePaymentCompleted({
+              await this.handlePaymentCompleted({
                 amount: Number(user.balance) - Number(window.authManager.currentUser.balance || 0),
                 chargeId: chargeId,
                 balanceAfter: Number(user.balance)
@@ -325,9 +325,20 @@ class TopupManager {
     this.closeQrBox();
 
     // Refresh User Profile & Balance across all navbar / tabs
-    await window.authManager.refreshCurrentProfile();
+    if (window.authManager && typeof window.authManager.refreshCurrentProfile === 'function') {
+      try {
+        await window.authManager.refreshCurrentProfile();
+      } catch (e) {
+        console.warn('Profile refresh warning:', e);
+      }
+    }
 
-    const newBal = balanceAfter !== undefined ? balanceAfter : (window.authManager.currentUser ? window.authManager.currentUser.balance : amount);
+    if (window.updateUserBalanceDisplays) {
+      window.updateUserBalanceDisplays();
+    }
+
+    const currentBal = (window.authManager && window.authManager.currentUser) ? window.authManager.currentUser.balance : 0;
+    const newBal = balanceAfter !== undefined ? balanceAfter : currentBal;
 
     Swal.fire({
       icon: 'success',
@@ -336,10 +347,10 @@ class TopupManager {
         <div style="text-align: left; background: #1a1b28; padding: 18px; border-radius: 12px; margin-top: 10px; border: 1px solid #2d2f45;">
           <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.88rem;">
             <span style="color: #a5a8bc;">ช่องทางชำระเงิน:</span>
-            <b style="color: #60a5fa;">Omise PromptPay Gateway</b>
+            <b style="color: #60a5fa;">PromptPay Payment Gateway</b>
           </div>
           <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.88rem;">
-            <span style="color: #a5a8bc;">รหัสธุรกรรม (Charge ID):</span>
+            <span style="color: #a5a8bc;">รหัสธุรกรรม (Reference ID):</span>
             <code style="color: #34d399; font-weight: 700; font-size: 0.82rem;">${chargeId}</code>
           </div>
           <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.88rem;">
@@ -379,16 +390,35 @@ class TopupManager {
 
   async confirmPaymentSimulation() {
     const user = window.authManager.currentUser;
-    if (!user) return;
+    if (!user) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'กรุณาเข้าสู่ระบบ',
+        text: 'กรุณาเข้าสู่ระบบก่อนทำการเติมเงิน',
+        background: '#151622',
+        color: '#fff',
+        confirmButtonColor: '#e11d48'
+      });
+      return;
+    }
 
-    const amount = this.currentAmount;
-    const chargeId = this.activeChargeId || `chrg_omise_${Date.now()}`;
+    const amount = Number(this.currentAmount) || 0;
+    if (amount <= 0) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'กรุณาระบุจำนวนเงิน',
+        text: 'ยอดเงินที่เติมต้องมากกว่า 0 บาท',
+        background: '#151622',
+        color: '#fff'
+      });
+      return;
+    }
 
     Swal.fire({
-      title: 'กำลังเชื่อมต่อ Payment Gateway...',
+      title: 'กำลังตรวจสอบการชำระเงิน...',
       html: `
         <div style="padding: 10px; text-align: center;">
-          <p style="color: #a5a8bc; font-size: 0.9rem; margin-bottom: 8px;">ระบบกำลังตรวจสอบยอดเงินและ Callback จากธนาคารแบบเรียลไทม์</p>
+          <p style="color: #a5a8bc; font-size: 0.9rem; margin-bottom: 8px;">ระบบกำลังตรวจสอบยอดเงินและบันทึกเข้ากระเป๋าของคุณแบบอัตโนมัติ</p>
           <div style="color: #f472b6; font-weight: 700; font-size: 1.1rem;">จำนวนเงิน: ฿ ${amount.toLocaleString('th-TH', { minimumFractionDigits: 2 })}</div>
         </div>
       `,
@@ -399,49 +429,23 @@ class TopupManager {
     });
 
     try {
-      // 1. Try calling Backend Webhook simulation directly
-      try {
-        const webhookResp = await fetch('/api/webhook/omise', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            object: 'event',
-            key: 'charge.complete',
-            data: {
-              object: 'charge',
-              id: chargeId,
-              status: 'successful',
-              paid: true,
-              amount: Math.round(amount * 100),
-              currency: 'THB'
-            }
-          })
-        });
-        if (webhookResp.ok) {
-          const res = await webhookResp.json();
-          if (res.success) {
-            this.handlePaymentCompleted({ amount, chargeId });
-            return;
-          }
-        }
-      } catch (e) {}
-
-      // 2. Pipeline Fallback
+      // Direct reliable topup pipeline (updates Supabase profiles & ledger)
       const result = await window.paymentGatewayEngine.processTopupPipeline({
         amount: amount,
         slipFile: this.selectedSlipFile
       });
 
-      this.handlePaymentCompleted({
-        amount: result.amount,
-        chargeId: result.referenceId,
+      await this.handlePaymentCompleted({
+        amount: result.amount || amount,
+        chargeId: result.transactionRef || result.referenceId || `PAY-${Date.now()}`,
         balanceAfter: result.balanceAfter
       });
     } catch (err) {
+      console.error('Topup confirmation error:', err);
       Swal.fire({
         icon: 'error',
         title: 'การตรวจสอบชำระเงินไม่สำเร็จ',
-        text: err.message,
+        text: err.message || 'เกิดข้อผิดพลาดในการบันทึกข้อมูล กรุณาลองใหม่อีกครั้ง',
         background: '#151622',
         color: '#fff',
         confirmButtonColor: '#ef4444'
