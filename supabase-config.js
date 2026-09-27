@@ -275,12 +275,18 @@ class SupabaseManager {
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (parsed.url && parsed.anonKey) {
+        // Ignore any stale/leftover config that doesn't belong to this shop's
+        // Supabase project (e.g. saved during earlier testing) so the page
+        // always falls back to the shop's real project.
+        if (parsed.url && parsed.anonKey && parsed.url.includes('hwzdowxjxtdhcgiylnbo')) {
           parsed.url = sanitizeSupabaseUrl(parsed.url);
           return parsed;
+        } else if (parsed.url || parsed.anonKey) {
+          localStorage.removeItem(SUPABASE_CONFIG_KEY);
         }
       } catch (e) {
         console.error('Error parsing saved Supabase config:', e);
+        localStorage.removeItem(SUPABASE_CONFIG_KEY);
       }
     }
     return {
