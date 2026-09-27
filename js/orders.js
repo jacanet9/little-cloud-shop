@@ -47,14 +47,11 @@ class OrdersManager {
           <span>รหัสออเดอร์: <code style="color: #fff;">${o.id}</code></span>
           <span>${new Date(o.created_at || Date.now()).toLocaleString('th-TH')}</span>
         </div>
-        <div style="background: #11121c; padding: 8px 12px; border-radius: 6px; border: 1px dashed rgba(228, 37, 117, 0.4); margin-top: 4px;">
-          <span style="font-size: 0.75rem; color: #a5a8bc;">ข้อมูลจัดส่ง / รหัสไอเทม:</span>
-          <div style="color: #34d399; font-family: monospace; font-size: 0.9rem; font-weight: 700; word-break: break-all; margin-top: 2px;">
-            ${o.delivery_code || 'จัดส่งเรียบร้อยแล้ว'}
-          </div>
-        </div>
-        <div style="display: flex; justify-content: flex-end; margin-top: 4px;">
-          <button type="button" class="btn-outline-dark" style="padding: 5px 12px; font-size: 0.76rem; display: flex; align-items: center; gap: 6px;" onclick="window.chatManager && window.chatManager.openChatForOrder('${o.id}', '${(o.product_name || '').replace(/'/g, "\\'")}', '${(o.delivery_code || '').replace(/'/g, "\\'")}');">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.06);">
+          <span style="font-size: 0.76rem; color: #10b981; background: rgba(16,185,129,0.12); padding: 3px 8px; border-radius: 4px; font-weight: 600; display: inline-flex; align-items: center; gap: 5px;">
+            <i class="fas fa-check-circle"></i> ชำระเงินแล้ว
+          </span>
+          <button type="button" class="btn-outline-dark" style="padding: 5px 12px; font-size: 0.76rem; display: flex; align-items: center; gap: 6px;" onclick="window.chatManager && window.chatManager.openChatForOrder('${o.id}', '${(o.product_name || '').replace(/'/g, "\\'")}');">
             <i class="fas fa-comments" style="color: #f472b6;"></i> แชทกับแอดมินสำหรับออเดอร์นี้
           </button>
         </div>

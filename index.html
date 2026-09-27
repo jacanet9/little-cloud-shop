@@ -1320,21 +1320,16 @@
       </div>
     </div>
 
-    <!-- Order Context Banner (Item Name, Item Key, Copy Button) -->
-    <div id="chat-order-context-banner" style="background: #181926; border-bottom: 1px solid #282a3d; padding: 10px 14px; font-size: 0.8rem;">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-        <div style="color: #f472b6; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px;" id="chat-order-product-name">
-          สินค้าที่สั่งซื้อ
+    <!-- Order Context Banner (Item Name, Status) -->
+    <div id="chat-order-context-banner" style="background: #181926; border-bottom: 1px solid #282a3d; padding: 10px 14px; font-size: 0.82rem;">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="color: #f472b6;"><i class="fas fa-box-open"></i></span>
+          <b style="color: #fff; font-size: 0.88rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 250px;" id="chat-order-product-name">
+            สินค้าที่สั่งซื้อ
+          </b>
         </div>
-        <span style="font-size: 0.7rem; color: #10b981; background: rgba(16,185,129,0.12); padding: 2px 6px; border-radius: 4px;">ชำระแล้ว</span>
-      </div>
-      <div style="display: flex; align-items: center; justify-content: space-between; background: #0e0f17; border: 1px dashed #e11d48; border-radius: 8px; padding: 6px 10px; margin-top: 4px;">
-        <div style="font-family: monospace; font-size: 0.78rem; color: #34d399; font-weight: 700; word-break: break-all; max-height: 40px; overflow-y: auto;" id="chat-order-delivery-code">
-          ITEM-KEY-AUTO
-        </div>
-        <button type="button" class="btn-outline-dark" style="padding: 3px 8px; font-size: 0.72rem; margin-left: 8px; flex-shrink: 0;" onclick="const code = document.getElementById('chat-order-delivery-code').innerText; navigator.clipboard.writeText(code); Swal.fire({icon:'success', title:'คัดลอกรหัสแล้ว', timer:900, showConfirmButton:false});">
-          <i class="far fa-copy"></i>
-        </button>
+        <span style="font-size: 0.72rem; color: #10b981; background: rgba(16,185,129,0.12); padding: 3px 8px; border-radius: 4px; font-weight: 600;">ชำระแล้ว</span>
       </div>
     </div>
 
@@ -1343,14 +1338,8 @@
       <button type="button" class="chat-quick-pill-item" onclick="if(window.chatManager) window.chatManager.sendQuickMessage('สวัสดีครับแอดมิน สะดวกส่งของในเกม FiveM ไหมครับ')">
         🚗 นัดรับของในเกม
       </button>
-      <button type="button" class="chat-quick-pill-item" onclick="if(window.chatManager) window.chatManager.sendQuickMessage('รหัสคีย์ใช้งานอย่างไรครับ แนะนำวิธีหน่อยครับ')">
-        🔑 วิธีใช้งานคีย์
-      </button>
       <button type="button" class="chat-quick-pill-item" onclick="if(window.chatManager) window.chatManager.sendQuickMessage('แจ้งปัญหาการใช้งาน / ขอความช่วยเหลือ')">
         ⚠️ แจ้งปัญหา
-      </button>
-      <button type="button" class="chat-quick-pill-item" onclick="if(window.chatManager) window.chatManager.sendQuickMessage('ขอลิงก์ Discord ของร้านหน่อยครับ')">
-        🎧 Discord
       </button>
     </div>
 
@@ -1400,12 +1389,12 @@
   <script src="js/auth.js?v=8.0"></script>
   <script src="js/wallet.js?v=5.0"></script>
   <script src="js/payment-gateway.js?v=6.0"></script>
-  <script src="js/shop.js?v=8.0"></script>
+  <script src="js/shop.js?v=9.0"></script>
   <script src="js/admin.js?v=5.0"></script>
-  <script src="js/chat.js?v=2.0"></script>
+  <script src="js/chat.js?v=3.0"></script>
   <script src="js/topup.js?v=7.0"></script>
   <script src="js/reviews.js?v=5.0"></script>
-  <script src="js/orders.js?v=5.0"></script>
+  <script src="js/orders.js?v=6.0"></script>
   <script src="js/main.js?v=5.0"></script>
 
 </body>

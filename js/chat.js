@@ -71,8 +71,6 @@ class ChatManager {
     const userDisplay = document.getElementById('chat-header-user-display');
     const orderTitle = document.getElementById('chat-order-product-name');
     const orderRef = document.getElementById('chat-order-ref-badge');
-    const orderKeyBox = document.getElementById('chat-order-delivery-code');
-    const orderContextBanner = document.getElementById('chat-order-context-banner');
 
     if (userDisplay) {
       userDisplay.textContent = user.username || 'member';
@@ -82,14 +80,6 @@ class ChatManager {
     }
     if (orderRef) {
       orderRef.textContent = `#${(this.activeOrderId || 'General').substring(0, 18)}`;
-    }
-    if (orderKeyBox) {
-      if (this.activeDeliveryCode) {
-        orderKeyBox.textContent = this.activeDeliveryCode;
-        if (orderContextBanner) orderContextBanner.style.display = 'block';
-      } else {
-        if (orderContextBanner) orderContextBanner.style.display = 'none';
-      }
     }
 
     // Clear and load messages
@@ -145,7 +135,7 @@ class ChatManager {
             this.activeMessages = parsed;
             this.renderMessages(isSilent);
           }
-        } catch (e) {}
+        } catch (e) { }
       }
     }
 
@@ -206,8 +196,8 @@ class ChatManager {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(welcomeMsg)
-        }).catch(() => {});
-      } catch (e) {}
+        }).catch(() => { });
+      } catch (e) { }
     } else if (this.activeMessages.length > 0) {
       this.renderMessages(isSilent);
     }
@@ -242,7 +232,7 @@ class ChatManager {
     container.innerHTML = this.activeMessages.map(m => {
       const isAdmin = m.sender_role === 'admin';
       const isSystem = m.sender_role === 'system';
-      
+
       // Determine if message belongs to ME (the current logged in member)
       // If sender_role is customer -> it belongs to Member (Right side)
       // If sender_role is admin or system -> it belongs to Admin Support (Left side)
@@ -378,7 +368,7 @@ class ChatManager {
       }).catch(err => {
         console.warn('Chat backend async notice:', err);
       });
-    } catch (e) {}
+    } catch (e) { }
 
     // 4. Smart Admin Auto-Reply Simulation (If customer is chatting)
     if (senderRole === 'customer') {
@@ -402,9 +392,9 @@ class ChatManager {
     let reply = '';
 
     if (lower.includes('นัดรับ') || lower.includes('รับของ') || lower.includes('fivem') || lower.includes('ในเกม') || lower.includes('เข้าเกม')) {
-      reply = 'แอดมินรับเรื่องแล้วครับ! รบกวนแจ้ง "ชื่อตัวละครในเกม FiveM" และ "พิกัดที่สะดวกนัดพบในเมือง" ไว้ได้เลยครับ ทีมงานแอดมินกำลังออนไลน์พร้อมส่งมอบของให้ทันทีครับ 🚗💨';
-    } else if (lower.includes('โค้ด') || lower.includes('ใช้ยังไง') || lower.includes('รหัส') || lower.includes('key') || lower.includes('วิธีใช้')) {
-      reply = `รหัสไอเทมของคุณคือ: "${this.activeDeliveryCode || 'ตามที่ระบุด้านบน'}" สามารถนำไปพิมพ์คำสั่ง /redeem ในเกม หรือแจ้งแอดมินให้ช่วยกดเติมเข้าตัวละครได้ทันทีครับ ✨`;
+      reply = 'แอดมินรับเรื่องแล้วครับ! รบกวนแจ้ง "เลข ID" "ชื่อตัวละครในเกมส์" และ "พิกัดที่สะดวกนัดพบในเมือง" ไว้ได้เลยครับ ทีมงานแอดมินกำลังออนไลน์พร้อมส่งมอบของให้ทันทีครับ 🚗💨';
+    } else if (lower.includes('โค้ด') || lower.includes('ใช้ยังไง') || lower.includes('วิธีใช้')) {
+      reply = 'สำหรับสินค้ารายการนี้ ทางแอดมินจะดำเนินการส่งมอบให้คุณในเกม FiveM โดยตรงครับ สามารถแจ้ง "เลข ID" "ชื่อตัวละคร" และจุดนัดพบในแชทนี้ได้เลยครับ 🚗✨';
     } else if (lower.includes('discord') || lower.includes('ดิสคอร์ด')) {
       reply = 'สามารถเข้าร่วม Discord ของ Little Cloud Shop เพื่อติดต่อทีมงานแบบเสียง (Voice) หรือเปิดตั๋ว Ticket รับของได้ที่: https://discord.gg/littlecloud ครับ 🎧';
     } else if (lower.includes('ปัญหา') || lower.includes('ช่วย') || lower.includes('ไม่ได้') || lower.includes('error')) {
@@ -466,8 +456,8 @@ class ChatManager {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(adminReplyObj)
-        }).catch(() => {});
-      } catch (e) {}
+        }).catch(() => { });
+      } catch (e) { }
     }, 2400);
   }
 
@@ -595,7 +585,7 @@ class ChatManager {
     const headerOrder = document.getElementById('admin-chat-header-order');
 
     if (headerTitle) headerTitle.textContent = `สนทนากับคุณ ${username}`;
-    if (headerOrder) headerOrder.textContent = `ออเดอร์: ${productName} (Key: ${deliveryCode || '-'})`;
+    if (headerOrder) headerOrder.textContent = `ออเดอร์: ${productName}`;
 
     await this.adminLoadThreadMessages();
 
@@ -657,7 +647,7 @@ class ChatManager {
           container.scrollTop = container.scrollHeight;
         }
       }
-    } catch (e) {}
+    } catch (e) { }
   }
 
   async adminSendMessage() {

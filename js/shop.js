@@ -400,15 +400,7 @@ class ShopManager {
         await window.supabaseManager.updateRecord('products', product.id, { stock: newStock });
 
         // 3. Create Order Record in Supabase
-        const deliveryKeys = [];
-        for (let i = 0; i < quantity; i++) {
-          if (product.delivery_data) {
-            deliveryKeys.push(quantity === 1 ? product.delivery_data : `${product.delivery_data} [#${i+1}]`);
-          } else {
-            deliveryKeys.push(`ITEM-KEY-${Date.now()}-${Math.floor(1000 + Math.random()*9000)}`);
-          }
-        }
-        const deliveryCodeStr = deliveryKeys.join(' | ');
+        const deliveryCodeStr = product.delivery_data || 'นัดรับของในเกม FiveM';
 
         const newOrder = {
           user_id: user.id,
@@ -429,7 +421,7 @@ class ShopManager {
 
         // Automatically open live customer chat with admin immediately upon purchase
         if (window.chatManager) {
-          window.chatManager.openChatForOrder(displayOrderId, product.name, deliveryCodeStr);
+          window.chatManager.openChatForOrder(displayOrderId, product.name);
         }
 
         Swal.fire({
@@ -442,14 +434,9 @@ class ShopManager {
               <p style="color: #a5a8bc; font-size: 0.85rem; margin-top: 2px;">จำนวน: <b style="color: #f472b6;">${quantity.toLocaleString('th-TH')} ชิ้น</b></p>
               <p style="color: #a5a8bc; font-size: 0.85rem; margin-top: 2px;">ยอดชำระทั้งหมด: <b style="color: #f472b6;">${totalPrice.toLocaleString('th-TH')} บาท</b></p>
               <p style="color: #a5a8bc; font-size: 0.85rem; margin-top: 2px;">ยอดคงเหลือ: <b style="color: #34d399;">${newBal.toLocaleString('th-TH')} บาท</b></p>
-              <div style="margin-top: 10px;">
-                <span style="font-size: 0.78rem; color: #f472b6; font-weight: 700;">ข้อมูลการจัดส่ง / รหัสไอเทม:</span>
-                <div style="background: #11121c; padding: 8px 12px; border-radius: 6px; border: 1px dashed #e11d48; margin-top: 4px; font-family: monospace; color: #34d399; font-weight: 700; word-break: break-all; max-height: 120px; overflow-y: auto;">
-                  ${deliveryCodeStr}
-                </div>
-              </div>
+              <p style="color: #a5a8bc; font-size: 0.85rem; margin-top: 4px;">การจัดส่ง: <b style="color: #34d399;"><i class="fas fa-car"></i> นัดรับของในเกม FiveM ผ่านแชท</b></p>
               <div style="margin-top: 14px;">
-                <button type="button" class="btn-pink" style="width: 100%; padding: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 0.92rem;" onclick="window.chatManager && window.chatManager.openChatForOrder('${displayOrderId}', '${product.name.replace(/'/g, "\\'")}', '${deliveryCodeStr.replace(/'/g, "\\'")}'); Swal.close();">
+                <button type="button" class="btn-pink" style="width: 100%; padding: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 0.92rem;" onclick="window.chatManager && window.chatManager.openChatForOrder('${displayOrderId}', '${product.name.replace(/'/g, "\\'")}'); Swal.close();">
                   <i class="fas fa-comments"></i> เปิดหน้าต่างแชทกับแอดมินทันที
                 </button>
               </div>
