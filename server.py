@@ -26,12 +26,12 @@ if os.path.exists('.env'):
                 ENV_VARS[key.strip()] = val.strip()
 
 OMISE_SECRET_KEY = ENV_VARS.get('OMISE_SECRET_KEY', '')
-SUPABASE_URL = ENV_VARS.get('SUPABASE_URL', 'https://syyqfckckjebwtxwqqti.supabase.co')
-SUPABASE_KEY = ENV_VARS.get('SUPABASE_SERVICE_ROLE_KEY') or ENV_VARS.get('SUPABASE_ANON_KEY', '')
+SUPABASE_URL = ENV_VARS.get('SUPABASE_URL', 'https://hwzdowxjxtdhcgiylnbo.supabase.co')
+SUPABASE_KEY = ENV_VARS.get('SUPABASE_SERVICE_ROLE_KEY') or ENV_VARS.get('SUPABASE_ANON_KEY', 'sb_publishable_5ZvVjg1viXXX_vli5gdhAA_j4lSg5j4')
 
 def call_supabase_rpc(rpc_name, params):
     """Call Supabase Stored Procedure / RPC"""
-    if not SUPABASE_KEY or 'syyqfckckjebwtxwqqti' not in SUPABASE_URL:
+    if not SUPABASE_KEY or 'hwzdowxjxtdhcgiylnbo' not in SUPABASE_URL:
         return None
     url = f"{SUPABASE_URL}/rest/v1/rpc/{rpc_name}"
     headers = {
@@ -49,7 +49,7 @@ def call_supabase_rpc(rpc_name, params):
 
 def call_supabase_rest(table, method='GET', body=None, query=''):
     """Call Supabase REST API"""
-    if not SUPABASE_KEY or 'syyqfckckjebwtxwqqti' not in SUPABASE_URL:
+    if not SUPABASE_KEY or 'hwzdowxjxtdhcgiylnbo' not in SUPABASE_URL:
         return None
     url = f"{SUPABASE_URL}/rest/v1/{table}{query}"
     headers = {

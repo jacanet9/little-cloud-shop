@@ -69,7 +69,7 @@ window.handleDirectSaveSupabase = async function (event) {
   }
 
   const success = await window.supabaseManager.saveConfig(cleanUrl, anonKey);
-  
+
   // Sync all inputs on page
   window.syncDirectSupabaseInputs();
 
