@@ -187,6 +187,21 @@ class TopupManager {
       if (qrImg) {
         qrImg.src = primaryQrUrl;
         qrImg.onerror = () => {
+          if (typeof QRCode !== 'undefined') {
+            const parent = qrImg.parentElement;
+            if (parent) {
+              parent.innerHTML = '';
+              new QRCode(parent, {
+                text: emvPayload,
+                width: 230,
+                height: 230,
+                colorDark: "#003b71",
+                colorLight: "#ffffff",
+                correctLevel: QRCode.CorrectLevel.M
+              });
+              return;
+            }
+          }
           qrImg.src = fallbackQrUrl;
         };
       }
@@ -198,7 +213,6 @@ class TopupManager {
 
       // Start Mobile Slip Upload QR Session & Real-Time Listener
       this.resetSlipSelection();
-      this.startMobileSlipSession();
 
       // 15-Minute Countdown Timer & Local status poller
       this.startCountdownTimer(900);
@@ -331,68 +345,120 @@ class TopupManager {
   }
 
   /**
+   * Render QR Code to DOM container (using local QRCode JS first, then fallback)
+   */
+  renderQrCode(targetEl, textUrl) {
+    if (!targetEl) return;
+    targetEl.innerHTML = '';
+
+    if (typeof QRCode !== 'undefined') {
+      try {
+        new QRCode(targetEl, {
+          text: textUrl,
+          width: 170,
+          height: 170,
+          colorDark: "#000000",
+          colorLight: "#ffffff",
+          correctLevel: QRCode.CorrectLevel.M
+        });
+        return;
+      } catch (err) {
+        console.warn('QRCode JS local render error:', err);
+      }
+    }
+
+    // Fallback img
+    const img = document.createElement('img');
+    img.src = `https://api.qrserver.com/v1/create-qr-code/?size=240x240&margin=4&data=${encodeURIComponent(textUrl)}`;
+    img.style.width = '170px';
+    img.style.height = '170px';
+    img.style.display = 'block';
+    img.style.margin = '0 auto';
+    img.style.objectFit = 'contain';
+    img.alt = 'Mobile Slip Upload QR';
+    img.onerror = () => {
+      img.src = `https://quickchart.io/qr?size=240&text=${encodeURIComponent(textUrl)}`;
+    };
+    targetEl.appendChild(img);
+  }
+
+  /**
    * Start Mobile QR Slip Upload Session & Poll for Image
    */
   async startMobileSlipSession() {
     this.stopMobileSlipPolling();
     this.mobileSlipSessionId = null;
 
+    const qrTarget = document.getElementById('slip-upload-qr-target');
+    const directLink = document.getElementById('slip-upload-direct-link');
+    const sessionBadge = document.getElementById('slip-qr-session-badge');
+
+    if (qrTarget) {
+      qrTarget.innerHTML = `
+        <div style="color: #94a3b8; font-size: 0.8rem; display: flex; flex-direction: column; align-items: center; gap: 8px;">
+          <i class="fas fa-spinner fa-spin" style="font-size: 1.5rem; color: #e11d48;"></i>
+          <span>กำลังสร้าง QR Code...</span>
+        </div>
+      `;
+    }
+
+    // Support both local server and file:/// protocol
+    const apiBase = window.location.protocol === 'file:' ? 'http://127.0.0.1:3000' : '';
+    let sessionId = `slip_${Date.now()}`;
+    let uploadUrl = `http://192.168.1.124:3000/upload-slip.html?session=${sessionId}`;
+    let localUrl = `http://127.0.0.1:3000/upload-slip.html?session=${sessionId}`;
+
     try {
-      const resp = await fetch('/api/slip/session/create', {
+      const resp = await fetch(`${apiBase}/api/slip/session/create`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: '{}'
       });
-      if (!resp.ok) return;
-      const data = await resp.json();
-      if (!data.success) return;
-
-      this.mobileSlipSessionId = data.session_id;
-      const uploadUrl = data.upload_url;
-      const localUrl = data.local_url;
-
-      // Update QR Code Image on Desktop Screen
-      const qrImg = document.getElementById('slip-upload-qr-img');
-      const directLink = document.getElementById('slip-upload-direct-link');
-      const sessionBadge = document.getElementById('slip-qr-session-badge');
-
-      if (qrImg) {
-        qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=240x240&margin=4&data=${encodeURIComponent(uploadUrl)}`;
-        qrImg.onerror = () => {
-          qrImg.src = `https://quickchart.io/qr?size=240&text=${encodeURIComponent(uploadUrl)}`;
-        };
-      }
-
-      if (directLink) {
-        directLink.href = localUrl || uploadUrl;
-      }
-
-      if (sessionBadge) {
-        sessionBadge.textContent = `#${data.session_id.substring(0, 16)}`;
-      }
-
-      // Start Polling for Mobile Upload
-      this.mobileSlipPollingTimer = setInterval(async () => {
-        if (!this.mobileSlipSessionId) {
-          this.stopMobileSlipPolling();
-          return;
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data.success) {
+          sessionId = data.session_id;
+          uploadUrl = data.upload_url || uploadUrl;
+          localUrl = data.local_url || localUrl;
         }
-
-        try {
-          const chkResp = await fetch(`/api/slip/check/${this.mobileSlipSessionId}`);
-          if (chkResp.ok) {
-            const chkData = await chkResp.json();
-            if (chkData.success && chkData.status === 'completed' && chkData.slip_data) {
-              this.stopMobileSlipPolling();
-              this.handleMobileSlipReceived(chkData.slip_data, chkData.filename || 'mobile_slip.jpg');
-            }
-          }
-        } catch (pollErr) {}
-      }, 1800);
-
+      }
     } catch (e) {
-      console.warn('Mobile slip session error:', e);
+      console.warn('Mobile slip session API error, using local fallback:', e);
     }
+
+    this.mobileSlipSessionId = sessionId;
+
+    // Render QR Code immediately into target box (No external network latency!)
+    if (qrTarget) {
+      this.renderQrCode(qrTarget, uploadUrl);
+    }
+
+    if (directLink) {
+      directLink.href = localUrl || uploadUrl;
+    }
+
+    if (sessionBadge) {
+      sessionBadge.textContent = `#${sessionId.substring(0, 16)}`;
+    }
+
+    // Start Polling for Mobile Upload
+    this.mobileSlipPollingTimer = setInterval(async () => {
+      if (!this.mobileSlipSessionId) {
+        this.stopMobileSlipPolling();
+        return;
+      }
+
+      try {
+        const chkResp = await fetch(`${apiBase}/api/slip/check/${this.mobileSlipSessionId}`);
+        if (chkResp.ok) {
+          const chkData = await chkResp.json();
+          if (chkData.success && chkData.status === 'completed' && chkData.slip_data) {
+            this.stopMobileSlipPolling();
+            this.handleMobileSlipReceived(chkData.slip_data, chkData.filename || 'mobile_slip.jpg');
+          }
+        }
+      } catch (pollErr) {}
+    }, 1800);
   }
 
   stopMobileSlipPolling() {
@@ -477,9 +543,6 @@ class TopupManager {
 
     // Restore active tab panel
     this.switchSlipUploadMode(this.currentSlipMode || 'qr');
-    if (this.currentSlipMode === 'qr') {
-      this.startMobileSlipSession();
-    }
   }
 
   switchSlipUploadMode(mode) {

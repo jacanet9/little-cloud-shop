@@ -423,9 +423,14 @@
                   เปิดกล้องมือถือ หรือแอป Line สแกน QR Code นี้<br>เพื่อเลือกรูปสลิปจากอัลบั้มในมือถือของคุณ
                 </div>
 
-                <!-- QR Image -->
-                <div style="background: #ffffff; border: 2px solid #e2e8f0; border-radius: 14px; padding: 10px; display: inline-block; box-shadow: 0 4px 14px rgba(0,0,0,0.06); position: relative;">
-                  <img id="slip-upload-qr-img" src="" alt="Mobile Slip Upload QR" style="width: 170px; height: 170px; display: block; margin: 0 auto; object-fit: contain;">
+                <!-- QR Code Container (Local Canvas/SVG Renderer + Fallback) -->
+                <div id="slip-upload-qr-box" style="background: #ffffff; border: 2px solid #e2e8f0; border-radius: 14px; padding: 10px; display: inline-flex; align-items: center; justify-content: center; box-shadow: 0 4px 14px rgba(0,0,0,0.06); position: relative; min-width: 180px; min-height: 180px;">
+                  <div id="slip-upload-qr-target" style="display: flex; align-items: center; justify-content: center; width: 170px; height: 170px;">
+                    <div style="color: #94a3b8; font-size: 0.8rem; display: flex; flex-direction: column; align-items: center; gap: 8px;">
+                      <i class="fas fa-spinner fa-spin" style="font-size: 1.5rem; color: #e11d48;"></i>
+                      <span>กำลังสร้าง QR Code...</span>
+                    </div>
+                  </div>
                 </div>
 
                 <!-- Live Radar Listening Indicator -->
@@ -1390,6 +1395,7 @@
 
   <!-- Scripts -->
   <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+  <script src="js/qrcode.min.js"></script>
   <script src="js/auth.js?v=8.0"></script>
   <script src="js/wallet.js?v=5.0"></script>
   <script src="js/payment-gateway.js?v=6.0"></script>
