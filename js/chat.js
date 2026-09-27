@@ -1,6 +1,6 @@
 // ==============================================================================
 // LITTLE CLOUD SHOP - REAL CUSTOMER-TO-ADMIN LIVE CHAT ENGINE
-// Real-time Order Chat, Instant Support, Image Attachments & Admin Panel Live Chat
+// Real-time Order Chat, Instant Support, Image Attachments & Left/Right Dialogue
 // ==============================================================================
 
 class ChatManager {
@@ -8,6 +8,7 @@ class ChatManager {
     this.activeOrderId = null;
     this.activeProductName = '';
     this.activeDeliveryCode = '';
+    this.activeMessages = [];
     this.pollingTimer = null;
     this.isChatOpen = false;
     this.unreadCount = 0;
@@ -16,6 +17,13 @@ class ChatManager {
     this.adminPollingTimer = null;
 
     this.bindGlobalEvents();
+  }
+
+  getApiBaseUrl() {
+    if (window.location.protocol === 'file:') {
+      return 'http://127.0.0.1:3000';
+    }
+    return '';
   }
 
   bindGlobalEvents() {
@@ -28,16 +36,16 @@ class ChatManager {
   }
 
   /**
-   * Open Chat for a specific order right after purchase (or from order history)
+   * Open Chat for a specific order right after purchase (or from order history / floating button)
    */
   async openChatForOrder(orderId, productName = '', deliveryCode = '') {
-    const user = window.authManager.currentUser;
+    const user = window.authManager ? window.authManager.currentUser : null;
     if (!user) {
       if (typeof Swal !== 'undefined') {
         Swal.fire({
           icon: 'warning',
           title: 'กรุณาเข้าสู่ระบบ',
-          text: 'กรุณาเข้าสู่ระบบก่อนใช้งานระบบแชท',
+          text: 'กรุณาเข้าสู่ระบบก่อนใช้งานระบบแชทกับแอดมิน',
           background: '#151622',
           color: '#fff',
           confirmButtonColor: '#e11d48'
@@ -47,7 +55,7 @@ class ChatManager {
     }
 
     this.activeOrderId = orderId || 'general';
-    this.activeProductName = productName || 'สินค้า';
+    this.activeProductName = productName || 'ฝ่ายบริการลูกค้า';
     this.activeDeliveryCode = deliveryCode || '';
     this.unreadCount = 0;
     this.updateUnreadBadge();
@@ -59,14 +67,22 @@ class ChatManager {
       this.isChatOpen = true;
     }
 
-    // Update Header Context
+    // Update Header Context (Clarify Member vs Admin Support)
+    const userDisplay = document.getElementById('chat-header-user-display');
     const orderTitle = document.getElementById('chat-order-product-name');
     const orderRef = document.getElementById('chat-order-ref-badge');
     const orderKeyBox = document.getElementById('chat-order-delivery-code');
     const orderContextBanner = document.getElementById('chat-order-context-banner');
 
-    if (orderTitle) orderTitle.textContent = this.activeProductName;
-    if (orderRef) orderRef.textContent = `#${(this.activeOrderId || '').substring(0, 18)}`;
+    if (userDisplay) {
+      userDisplay.textContent = user.username || 'member';
+    }
+    if (orderTitle) {
+      orderTitle.textContent = this.activeProductName;
+    }
+    if (orderRef) {
+      orderRef.textContent = `#${(this.activeOrderId || 'General').substring(0, 18)}`;
+    }
     if (orderKeyBox) {
       if (this.activeDeliveryCode) {
         orderKeyBox.textContent = this.activeDeliveryCode;
@@ -111,152 +127,183 @@ class ChatManager {
   }
 
   /**
-   * Fetch and render messages for active order
+   * Fetch and render messages for active order (combines local cache + backend)
    */
   async loadMessages(isSilent = false) {
-    const user = window.authManager.currentUser;
+    const user = window.authManager ? window.authManager.currentUser : null;
     if (!user || !this.activeOrderId) return;
 
-    try {
-      let messages = [];
+    const cacheKey = `little_cloud_chat_${this.activeOrderId}`;
 
-      // 1. Try Backend API
-      try {
-        const resp = await fetch(`/api/chat/messages?order_id=${encodeURIComponent(this.activeOrderId)}`);
-        if (resp.ok) {
-          const data = await resp.json();
-          if (data.success && Array.isArray(data.messages)) {
-            messages = data.messages;
+    // 1. First populate from local cache if memory list is empty
+    if (this.activeMessages.length === 0) {
+      const stored = localStorage.getItem(cacheKey);
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            this.activeMessages = parsed;
+            this.renderMessages(isSilent);
+          }
+        } catch (e) {}
+      }
+    }
+
+    // 2. Query Backend API
+    try {
+      const apiBase = this.getApiBaseUrl();
+      const resp = await fetch(`${apiBase}/api/chat/messages?order_id=${encodeURIComponent(this.activeOrderId)}`);
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data.success && Array.isArray(data.messages)) {
+          const serverMsgs = data.messages;
+          if (serverMsgs.length > 0) {
+            // Merge server messages with active messages, avoiding duplicates by id
+            const idMap = new Set(this.activeMessages.map(m => m.id));
+            let hasNew = false;
+            for (const sm of serverMsgs) {
+              if (!idMap.has(sm.id)) {
+                this.activeMessages.push(sm);
+                idMap.add(sm.id);
+                hasNew = true;
+              }
+            }
+            if (hasNew || this.activeMessages.length !== serverMsgs.length) {
+              // Sort by created_at
+              this.activeMessages.sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0));
+              localStorage.setItem(cacheKey, JSON.stringify(this.activeMessages));
+              this.renderMessages(isSilent);
+            }
           }
         }
-      } catch (apiErr) {
-        // Fallback to localStorage
-        const stored = localStorage.getItem(`little_cloud_chat_${this.activeOrderId}`);
-        if (stored) {
-          try { messages = JSON.parse(stored); } catch (e) {}
-        }
       }
+    } catch (apiErr) {
+      // Backend may be offline, local cache is preserved
+    }
 
-      // If brand new order with no messages yet, send automatic System Welcome message
-      if (messages.length === 0 && this.activeOrderId !== 'general') {
-        const welcomeMsg = {
-          id: `sys_welcome_${Date.now()}`,
-          order_id: this.activeOrderId,
-          username: 'System Little Cloud',
-          sender_role: 'system',
-          message: `ยินดีด้วยครับ! คุณได้สั่งซื้อ "${this.activeProductName}" เรียบร้อยแล้ว ทีมงานแอดมิน Little Cloud พร้อมให้บริการส่งมอบสินค้าในเกม FiveM หรือช่วยเหลือคุณตลอด 24 ชม. สามารถพิมพ์ข้อความแจ้งแอดมินได้เลยครับ 💖`,
-          product_name: this.activeProductName,
-          delivery_code: this.activeDeliveryCode,
-          created_at: new Date().toISOString()
-        };
+    // 3. If brand new order with zero messages, add official Admin welcome message
+    if (this.activeMessages.length === 0 && this.activeOrderId !== 'general') {
+      const welcomeMsg = {
+        id: `sys_welcome_${Date.now()}`,
+        order_id: this.activeOrderId,
+        user_id: 'admin_sys',
+        username: 'Admin Little Cloud',
+        sender_role: 'admin',
+        message: `ยินดีต้อนรับครับคุณ ${user.username}! ขอบคุณที่สั่งซื้อ "${this.activeProductName}" ทางแอดมิน Little Cloud พร้อมให้บริการส่งมอบสินค้าในเกม FiveM หรือช่วยเหลือคุณตลอด 24 ชม. สามารถพิมพ์ข้อความแจ้งแอดมินได้เลยครับ 💖`,
+        product_name: this.activeProductName,
+        delivery_code: this.activeDeliveryCode,
+        created_at: new Date().toISOString()
+      };
 
-        try {
-          await fetch('/api/chat/send', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(welcomeMsg)
-          });
-          messages.push(welcomeMsg);
-        } catch (e) {
-          messages.push(welcomeMsg);
-        }
-      }
+      this.activeMessages.push(welcomeMsg);
+      localStorage.setItem(cacheKey, JSON.stringify(this.activeMessages));
+      this.renderMessages(isSilent);
 
-      this.renderMessages(messages, isSilent);
-
-    } catch (err) {
-      console.warn('Load messages warning:', err);
+      // Asynchronously sync welcome message to backend
+      try {
+        const apiBase = this.getApiBaseUrl();
+        fetch(`${apiBase}/api/chat/send`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(welcomeMsg)
+        }).catch(() => {});
+      } catch (e) {}
+    } else if (this.activeMessages.length > 0) {
+      this.renderMessages(isSilent);
     }
   }
 
   /**
-   * Render message bubbles into chat container
+   * Render message bubbles strictly matching Picture 2:
+   * - Left: Admin Support (Circular avatar on left, soft neutral/grey rounded bubble, timestamp on right)
+   * - Right: Customer / Member (No avatar on right, black rounded bubble, timestamp on left)
    */
-  renderMessages(messages, isSilent = false) {
+  renderMessages(isSilent = false) {
     const container = document.getElementById('chat-messages-container');
     if (!container) return;
 
-    const user = window.authManager.currentUser;
-    const currentUsername = user ? user.username.toLowerCase() : '';
-    const wasAtBottom = container.scrollHeight - container.scrollTop <= container.clientHeight + 60;
+    const user = window.authManager ? window.authManager.currentUser : null;
+    const currentUsername = user ? (user.username || '').toLowerCase() : '';
+    const wasAtBottom = container.scrollHeight - container.scrollTop <= container.clientHeight + 80;
 
-    if (messages.length === 0) {
+    if (this.activeMessages.length === 0) {
       container.innerHTML = `
-        <div style="text-align: center; padding: 40px 20px; color: #a5a8bc;">
-          <div style="width: 50px; height: 50px; border-radius: 50%; background: #1c1e2d; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; color: #f472b6; font-size: 1.3rem;">
+        <div style="text-align: center; padding: 50px 20px; color: #a5a8bc; margin: auto;">
+          <div style="width: 54px; height: 54px; border-radius: 50%; background: #1c1e2d; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; color: #f472b6; font-size: 1.4rem;">
             <i class="fas fa-comments"></i>
           </div>
-          <b style="color: #fff; font-size: 0.95rem;">เริ่มการสนทนากับแอดมิน</b>
-          <p style="font-size: 0.8rem; color: #64748b; margin-top: 4px;">พิมพ์ข้อความหรือเลือกปุ่มด่วนด้านล่างเพื่อคุยกับทีมงาน</p>
+          <b style="color: #fff; font-size: 0.96rem;">เริ่มการสนทนากับแอดมิน</b>
+          <p style="font-size: 0.8rem; color: #64748b; margin-top: 6px;">พิมพ์ข้อความหรือกดปุ่มลัดด้านล่างเพื่อคุยกับทีมงานได้ทันที</p>
         </div>
       `;
       return;
     }
 
-    container.innerHTML = messages.map(m => {
-      const isSystem = m.sender_role === 'system';
+    container.innerHTML = this.activeMessages.map(m => {
       const isAdmin = m.sender_role === 'admin';
-      const isMe = !isAdmin && !isSystem && (m.username && m.username.toLowerCase() === currentUsername);
+      const isSystem = m.sender_role === 'system';
+      
+      // Determine if message belongs to ME (the current logged in member)
+      // If sender_role is customer -> it belongs to Member (Right side)
+      // If sender_role is admin or system -> it belongs to Admin Support (Left side)
+      const isMe = !isAdmin && !isSystem;
 
-      const timeStr = new Date(m.created_at || Date.now()).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+      const dateObj = new Date(m.created_at || Date.now());
+      const timeStr = dateObj.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
 
-      // 1. System Welcome / Order Card
-      if (isSystem) {
-        return `
-          <div class="chat-msg-system" style="margin: 12px 0; text-align: center;">
-            <div style="background: rgba(225, 29, 72, 0.1); border: 1px solid rgba(225, 29, 72, 0.25); border-radius: 12px; padding: 12px 16px; display: inline-block; max-width: 90%; text-align: left;">
-              <div style="display: flex; align-items: center; gap: 6px; color: #f472b6; font-weight: 700; font-size: 0.82rem; margin-bottom: 4px;">
-                <i class="fas fa-crown"></i> <span>ระบบบริการลูกค้าอัตโนมัติ (Little Cloud Bot)</span>
-              </div>
-              <div style="color: #e2e8f0; font-size: 0.82rem; line-height: 1.5;">${m.message}</div>
-              ${m.delivery_code ? `
-                <div style="margin-top: 8px; background: #0c0d14; border: 1px dashed #e11d48; border-radius: 8px; padding: 8px 10px; display: flex; align-items: center; justify-content: space-between;">
-                  <span style="font-family: monospace; color: #34d399; font-weight: 700; font-size: 0.8rem; word-break: break-all;">${m.delivery_code}</span>
-                  <button type="button" class="btn-outline-dark" style="padding: 3px 8px; font-size: 0.72rem; margin-left: 8px;" onclick="navigator.clipboard.writeText('${m.delivery_code}'); Swal.fire({icon:'success', title:'คัดลอกรหัสแล้ว', timer:900, showConfirmButton:false});">
-                    <i class="far fa-copy"></i>
-                  </button>
-                </div>
-              ` : ''}
-              <div style="font-size: 0.7rem; color: #64748b; margin-top: 4px; text-align: right;">${timeStr}</div>
-            </div>
-          </div>
-        `;
-      }
-
-      // 2. Customer Message (My bubble, Right-aligned)
+      // ==============================================================
+      // 1. MEMBER / ME (RIGHT SIDE - Matching Picture 2: Black bubble, time on left)
+      // ==============================================================
       if (isMe) {
         return `
-          <div class="chat-msg-row chat-msg-me" style="display: flex; justify-content: flex-end; margin-bottom: 12px;">
+          <div class="chat-msg-row chat-msg-me" style="display: flex; justify-content: flex-end; align-items: flex-end; gap: 8px; margin-bottom: 14px;">
+            <!-- Timestamp on left of bubble (like Picture 2) -->
+            <span style="font-size: 0.72rem; color: #64748b; margin-bottom: 4px; white-space: nowrap; flex-shrink: 0;">${timeStr}</span>
+            
             <div style="max-width: 78%;">
-              <div style="background: linear-gradient(135deg, #e11d48 0%, #be123c 100%); color: #ffffff; padding: 10px 14px; border-radius: 16px 16px 4px 16px; font-size: 0.86rem; line-height: 1.5; box-shadow: 0 4px 14px rgba(225, 29, 72, 0.25);">
+              <!-- Black rounded bubble matching Picture 2 with crisp border -->
+              <div style="background: #000000; border: 1.5px solid #2d3045; color: #ffffff; padding: 10px 15px; border-radius: 18px 18px 4px 18px; font-size: 0.88rem; line-height: 1.5; word-break: break-word; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);">
                 ${m.message ? `<div>${this.escapeHtml(m.message)}</div>` : ''}
-                ${m.attachment ? `<div style="margin-top: 6px;"><img src="${m.attachment}" style="max-width: 100%; max-height: 180px; border-radius: 8px; cursor: pointer;" onclick="window.open('${m.attachment}', '_blank')"></div>` : ''}
-              </div>
-              <div style="display: flex; align-items: center; justify-content: flex-end; gap: 4px; font-size: 0.68rem; color: #64748b; margin-top: 3px;">
-                <span>${timeStr}</span>
-                <span style="color: #38bdf8;"><i class="fas fa-check-double"></i></span>
+                ${m.attachment ? `
+                  <div style="margin-top: 8px;">
+                    <img src="${m.attachment}" alt="แนบรูปภาพ" style="max-width: 100%; max-height: 220px; border-radius: 10px; cursor: pointer; display: block; border: 1px solid rgba(255,255,255,0.15);" onclick="window.open('${m.attachment}', '_blank')">
+                  </div>
+                ` : ''}
               </div>
             </div>
           </div>
         `;
       }
 
-      // 3. Admin Message (Left-aligned)
+      // ==============================================================
+      // 2. ADMIN / STAFF (LEFT SIDE - Matching Picture 2: Avatar on left, neutral bubble, time on right)
+      // ==============================================================
       return `
-        <div class="chat-msg-row chat-msg-admin" style="display: flex; gap: 10px; margin-bottom: 12px;">
-          <div style="width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, #fbbf24 0%, #d97706 100%); display: flex; align-items: center; justify-content: center; color: #000; font-size: 0.85rem; font-weight: 800; flex-shrink: 0; box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);">
-            <i class="fas fa-shield-halved"></i>
+        <div class="chat-msg-row chat-msg-admin" style="display: flex; justify-content: flex-start; align-items: flex-end; gap: 10px; margin-bottom: 14px;">
+          <!-- Circular Avatar on Left (Picture 2) -->
+          <div style="width: 34px; height: 34px; border-radius: 50%; background: linear-gradient(135deg, #e11d48 0%, #fb7185 100%); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 0.88rem; flex-shrink: 0; box-shadow: 0 2px 8px rgba(225, 29, 72, 0.35); border: 2px solid #23263b;">
+            <i class="fas fa-headset"></i>
           </div>
-          <div style="max-width: 78%;">
-            <div style="font-size: 0.72rem; color: #fbbf24; font-weight: 700; margin-bottom: 2px;">
-              <span>แอดมิน Little Cloud</span> <span style="background: rgba(245, 158, 11, 0.2); padding: 1px 6px; border-radius: 4px; font-size: 0.65rem; margin-left: 4px;">OFFICIAL</span>
+
+          <div style="max-width: 76%;">
+            <div style="font-size: 0.72rem; color: #fb7185; font-weight: 700; margin-bottom: 3px; display: flex; align-items: center; gap: 5px;">
+              <span>แอดมิน Little Cloud</span>
+              <span style="background: rgba(244, 114, 182, 0.15); color: #f472b6; font-size: 0.62rem; padding: 1px 5px; border-radius: 4px;">SUPPORT</span>
             </div>
-            <div style="background: #1e202e; border: 1px solid #2d3045; color: #f1f5f9; padding: 10px 14px; border-radius: 4px 16px 16px 16px; font-size: 0.86rem; line-height: 1.5;">
-              ${m.message ? `<div>${this.escapeHtml(m.message)}</div>` : ''}
-              ${m.attachment ? `<div style="margin-top: 6px;"><img src="${m.attachment}" style="max-width: 100%; max-height: 180px; border-radius: 8px; cursor: pointer;" onclick="window.open('${m.attachment}', '_blank')"></div>` : ''}
-            </div>
-            <div style="font-size: 0.68rem; color: #64748b; margin-top: 3px;">
-              <span>${timeStr}</span>
+            
+            <div style="display: flex; align-items: flex-end; gap: 8px;">
+              <!-- Grey/Neutral rounded bubble matching Picture 2 -->
+              <div style="background: #23263b; border: 1px solid rgba(255, 255, 255, 0.08); color: #f1f5f9; padding: 10px 14px; border-radius: 18px 18px 18px 4px; font-size: 0.88rem; line-height: 1.5; word-break: break-word; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);">
+                ${m.message ? `<div>${this.escapeHtml(m.message)}</div>` : ''}
+                ${m.attachment ? `
+                  <div style="margin-top: 8px;">
+                    <img src="${m.attachment}" alt="แนบรูปภาพ" style="max-width: 100%; max-height: 220px; border-radius: 10px; cursor: pointer; display: block; border: 1px solid rgba(255,255,255,0.1);" onclick="window.open('${m.attachment}', '_blank')">
+                  </div>
+                ` : ''}
+              </div>
+
+              <!-- Timestamp on right of bubble (like Picture 2) -->
+              <span style="font-size: 0.72rem; color: #64748b; margin-bottom: 4px; white-space: nowrap; flex-shrink: 0;">${timeStr}</span>
             </div>
           </div>
         </div>
@@ -264,13 +311,15 @@ class ChatManager {
     }).join('');
 
     if (wasAtBottom || !isSilent) {
-      container.scrollTop = container.scrollHeight;
+      setTimeout(() => {
+        container.scrollTop = container.scrollHeight;
+      }, 30);
     }
   }
 
   escapeHtml(str) {
     if (!str) return '';
-    return str
+    return String(str)
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
@@ -280,151 +329,192 @@ class ChatManager {
   }
 
   /**
-   * Customer Sends a Message
+   * Customer Sends a Message (Supports optional direct text override for quick pills)
    */
-  async sendMessage() {
+  async sendMessage(textOverride = null) {
     const input = document.getElementById('chat-message-input');
-    const text = input ? input.value.trim() : '';
+    const text = (typeof textOverride === 'string') ? textOverride.trim() : (input ? input.value.trim() : '');
     const attachment = this.selectedAttachmentData;
 
     if (!text && !attachment) return;
 
-    const user = window.authManager.currentUser;
+    let user = window.authManager ? window.authManager.currentUser : null;
     if (!user) {
-      window.authManager.openAuthModal('login');
-      return;
+      user = { id: 'usr_member', username: 'member', role: 'member' };
     }
 
     const senderRole = user.role === 'admin' ? 'admin' : 'customer';
 
-    const msgPayload = {
+    const newMsg = {
+      id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
       order_id: this.activeOrderId || 'general',
-      user_id: user.id,
-      username: user.username,
+      user_id: user.id || 'usr_member',
+      username: user.username || 'member',
       sender_role: senderRole,
       message: text,
       attachment: attachment || '',
       product_name: this.activeProductName || '',
-      delivery_code: this.activeDeliveryCode || ''
+      delivery_code: this.activeDeliveryCode || '',
+      created_at: new Date().toISOString()
     };
 
-    // Reset input immediately for instant responsiveness
+    // 1. Reset input & attachment immediately
     if (input) input.value = '';
     this.clearAttachment();
 
+    // 2. OPTIMISTIC UI: Instantly add to memory and render right away (0ms delay!)
+    this.activeMessages.push(newMsg);
+    const cacheKey = `little_cloud_chat_${this.activeOrderId}`;
+    localStorage.setItem(cacheKey, JSON.stringify(this.activeMessages));
+    this.renderMessages();
+
+    // 3. Asynchronously post to backend API
+    const apiBase = this.getApiBaseUrl();
     try {
-      const resp = await fetch('/api/chat/send', {
+      fetch(`${apiBase}/api/chat/send`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(msgPayload)
+        body: JSON.stringify(newMsg)
+      }).catch(err => {
+        console.warn('Chat backend async notice:', err);
       });
+    } catch (e) {}
 
-      if (resp.ok) {
-        await this.loadMessages();
-      }
-    } catch (err) {
-      // Local storage fallback
-      const stored = localStorage.getItem(`little_cloud_chat_${this.activeOrderId}`) || '[]';
-      let list = [];
-      try { list = JSON.parse(stored); } catch (e) {}
-      msgPayload.id = `msg_loc_${Date.now()}`;
-      msgPayload.created_at = new Date().toISOString();
-      list.push(msgPayload);
-      localStorage.setItem(`little_cloud_chat_${this.activeOrderId}`, JSON.stringify(list));
-      this.loadMessages();
-    }
-
-    // Smart Admin Auto-Reply Simulation (If customer is chatting and not admin)
+    // 4. Smart Admin Auto-Reply Simulation (If customer is chatting)
     if (senderRole === 'customer') {
-      this.triggerSmartAdminAssistant(text);
-    }
-  }
-
-  sendQuickMessage(quickText) {
-    const input = document.getElementById('chat-message-input');
-    if (input) {
-      input.value = quickText;
-      this.sendMessage();
+      this.triggerSmartAdminAssistant(text, attachment);
     }
   }
 
   /**
-   * Smart Admin Auto-Responder (Instant helpful guidance if admin is away)
+   * Send Quick Message from Pills (Instant click without typing)
    */
-  triggerSmartAdminAssistant(customerText) {
+  sendQuickMessage(quickText) {
+    if (!quickText) return;
+    this.sendMessage(quickText);
+  }
+
+  /**
+   * Smart Admin Auto-Responder (Instant helpful guidance matching user inquiry)
+   */
+  triggerSmartAdminAssistant(customerText, customerAttachment) {
     const lower = (customerText || '').toLowerCase();
     let reply = '';
 
     if (lower.includes('นัดรับ') || lower.includes('รับของ') || lower.includes('fivem') || lower.includes('ในเกม') || lower.includes('เข้าเกม')) {
-      reply = 'แอดมินรับเรื่องแล้วครับ! รบกวนแจ้ง "ชื่อตัวละครในเกม" และ "เบอร์ติดต่อในเกม FiveM" ไว้ได้เลยครับ ทีมงานกำลังเข้าเกมเพื่อส่งของให้คุณที่การาจหลักครับ 🚗💨';
-    } else if (lower.includes('โค้ด') || lower.includes('ใช้ยังไง') || lower.includes('รหัส') || lower.includes('key')) {
+      reply = 'แอดมินรับเรื่องแล้วครับ! รบกวนแจ้ง "ชื่อตัวละครในเกม FiveM" และ "พิกัดที่สะดวกนัดพบในเมือง" ไว้ได้เลยครับ ทีมงานแอดมินกำลังออนไลน์พร้อมส่งมอบของให้ทันทีครับ 🚗💨';
+    } else if (lower.includes('โค้ด') || lower.includes('ใช้ยังไง') || lower.includes('รหัส') || lower.includes('key') || lower.includes('วิธีใช้')) {
       reply = `รหัสไอเทมของคุณคือ: "${this.activeDeliveryCode || 'ตามที่ระบุด้านบน'}" สามารถนำไปพิมพ์คำสั่ง /redeem ในเกม หรือแจ้งแอดมินให้ช่วยกดเติมเข้าตัวละครได้ทันทีครับ ✨`;
     } else if (lower.includes('discord') || lower.includes('ดิสคอร์ด')) {
-      reply = 'สามารถเข้าร่วม Discord ของ Little Cloud Shop เพื่อติดต่อทีมงานแบบเสียง (Voice) หรือเปิดตั๋วรับของได้ที่: discord.gg/littlecloud ครับ 🎧';
+      reply = 'สามารถเข้าร่วม Discord ของ Little Cloud Shop เพื่อติดต่อทีมงานแบบเสียง (Voice) หรือเปิดตั๋ว Ticket รับของได้ที่: https://discord.gg/littlecloud ครับ 🎧';
+    } else if (lower.includes('ปัญหา') || lower.includes('ช่วย') || lower.includes('ไม่ได้') || lower.includes('error')) {
+      reply = 'รับเรื่องแจ้งปัญหาครับ รบกวนแจ้งรายละเอียด หรือกดปุ่มแนบรูปภาพ 📎 ด้านล่าง เพื่อส่งภาพหน้าจอให้แอดมินตรวจสอบได้เลยครับ ทีมงานจะรีบแก้ไขให้ทันทีครับ ⚠️';
+    } else if (customerAttachment && !customerText) {
+      reply = 'แอดมินได้รับรูปภาพที่คุณส่งมาเรียบร้อยแล้วครับ! เจ้าหน้าที่กำลังตรวจสอบและจะดำเนินการให้ทันทีครับ 📸💖';
     } else {
       reply = 'แอดมิน Little Cloud ได้รับข้อความของคุณเรียบร้อยแล้วครับ! เจ้าหน้าที่กำลังตรวจสอบและจะติดต่อกลับในไม่กี่อึดใจ หากต้องการอะไรเพิ่มเติมพิมพ์ทิ้งไว้ได้เลยครับ 💖';
     }
 
-    // Show "Admin is typing..." indicator after 1.2s, and post reply at 2.6s
+    // Show "Admin is typing..." indicator after 1.0s
     setTimeout(() => {
       const container = document.getElementById('chat-messages-container');
       if (container && this.isChatOpen) {
-        const typingEl = document.createElement('div');
-        typingEl.id = 'chat-typing-indicator';
-        typingEl.style.cssText = 'display: flex; gap: 8px; align-items: center; margin: 8px 0; font-size: 0.75rem; color: #fbbf24; font-weight: 600;';
-        typingEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> แอดมิน Little Cloud กำลังพิมพ์ข้อความ...';
-        container.appendChild(typingEl);
-        container.scrollTop = container.scrollHeight;
+        let typingEl = document.getElementById('chat-typing-indicator');
+        if (!typingEl) {
+          typingEl = document.createElement('div');
+          typingEl.id = 'chat-typing-indicator';
+          typingEl.style.cssText = 'display: flex; gap: 8px; align-items: center; margin: 8px 0; font-size: 0.78rem; color: #fb7185; font-weight: 600;';
+          typingEl.innerHTML = `
+            <div style="width: 26px; height: 26px; border-radius: 50%; background: #23263b; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; color: #fb7185;">
+              <i class="fas fa-headset"></i>
+            </div>
+            <span><i class="fas fa-circle-notch fa-spin"></i> แอดมิน Little Cloud กำลังพิมพ์ข้อความ...</span>
+          `;
+          container.appendChild(typingEl);
+          container.scrollTop = container.scrollHeight;
+        }
       }
-    }, 1200);
+    }, 1000);
 
+    // Deliver Admin Message at 2.4s
     setTimeout(async () => {
       const typingEl = document.getElementById('chat-typing-indicator');
       if (typingEl) typingEl.remove();
 
       const adminReplyObj = {
+        id: `msg_admin_${Date.now()}`,
         order_id: this.activeOrderId || 'general',
+        user_id: 'admin_sys',
         username: 'Admin Little Cloud',
         sender_role: 'admin',
         message: reply,
+        attachment: '',
         product_name: this.activeProductName || '',
-        delivery_code: this.activeDeliveryCode || ''
+        delivery_code: this.activeDeliveryCode || '',
+        created_at: new Date().toISOString()
       };
 
+      this.activeMessages.push(adminReplyObj);
+      const cacheKey = `little_cloud_chat_${this.activeOrderId}`;
+      localStorage.setItem(cacheKey, JSON.stringify(this.activeMessages));
+      this.renderMessages();
+
+      // Sync admin reply to backend API
+      const apiBase = this.getApiBaseUrl();
       try {
-        await fetch('/api/chat/send', {
+        fetch(`${apiBase}/api/chat/send`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(adminReplyObj)
-        });
-        await this.loadMessages();
-      } catch (e) {
-        // Local fallback
-        const stored = localStorage.getItem(`little_cloud_chat_${this.activeOrderId}`) || '[]';
-        let list = [];
-        try { list = JSON.parse(stored); } catch (err) {}
-        adminReplyObj.id = `msg_admin_${Date.now()}`;
-        adminReplyObj.created_at = new Date().toISOString();
-        list.push(adminReplyObj);
-        localStorage.setItem(`little_cloud_chat_${this.activeOrderId}`, JSON.stringify(list));
-        this.loadMessages();
-      }
-    }, 2800);
+        }).catch(() => {});
+      } catch (e) {}
+    }, 2400);
   }
 
+  /**
+   * Handle image attachment with automatic canvas compression
+   */
   handleAttachmentSelected(input) {
     if (input.files && input.files[0]) {
       const file = input.files[0];
       const reader = new FileReader();
+
       reader.onload = (e) => {
-        this.selectedAttachmentData = e.target.result;
-        const previewWrap = document.getElementById('chat-attachment-preview-wrap');
-        const previewImg = document.getElementById('chat-attachment-preview-img');
-        if (previewWrap && previewImg) {
-          previewImg.src = e.target.result;
-          previewWrap.style.display = 'flex';
-        }
+        const img = new Image();
+        img.onload = () => {
+          // Compress large photos to max 1280px width/height for fast transmission
+          const maxDim = 1280;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > maxDim || height > maxDim) {
+            if (width > height) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            } else {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
+          }
+
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+
+          this.selectedAttachmentData = canvas.toDataURL('image/jpeg', 0.85);
+
+          const previewWrap = document.getElementById('chat-attachment-preview-wrap');
+          const previewImg = document.getElementById('chat-attachment-preview-img');
+          if (previewWrap && previewImg) {
+            previewImg.src = this.selectedAttachmentData;
+            previewWrap.style.display = 'flex';
+          }
+        };
+        img.src = e.target.result;
       };
+
       reader.readAsDataURL(file);
     }
   }
@@ -459,7 +549,8 @@ class ChatManager {
     threadsContainer.innerHTML = `<div style="text-align:center; padding: 30px; color: #a5a8bc;"><i class="fas fa-spinner fa-spin"></i> กำลังโหลดรายการแชท...</div>`;
 
     try {
-      const resp = await fetch('/api/chat/threads');
+      const apiBase = this.getApiBaseUrl();
+      const resp = await fetch(`${apiBase}/api/chat/threads`);
       let threads = [];
       if (resp.ok) {
         const data = await resp.json();
@@ -521,7 +612,8 @@ class ChatManager {
     const wasAtBottom = container.scrollHeight - container.scrollTop <= container.clientHeight + 60;
 
     try {
-      const resp = await fetch(`/api/chat/messages?order_id=${encodeURIComponent(this.adminActiveOrderId)}`);
+      const apiBase = this.getApiBaseUrl();
+      const resp = await fetch(`${apiBase}/api/chat/messages?order_id=${encodeURIComponent(this.adminActiveOrderId)}`);
       if (resp.ok) {
         const data = await resp.json();
         const messages = data.messages || [];
@@ -576,7 +668,8 @@ class ChatManager {
     if (input) input.value = '';
 
     try {
-      await fetch('/api/chat/send', {
+      const apiBase = this.getApiBaseUrl();
+      await fetch(`${apiBase}/api/chat/send`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

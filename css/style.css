@@ -1116,23 +1116,64 @@ body {
 }
 
 .chat-quick-pill-item {
-  background: #1c1d2b;
-  border: 1px solid #2e3046;
+  background: #191b29;
+  border: 1px solid rgba(255, 255, 255, 0.1);
   color: #cbd5e1;
-  padding: 4px 10px;
+  padding: 6px 12px;
   border-radius: 20px;
   font-size: 0.74rem;
-  font-weight: 500;
+  font-weight: 600;
   white-space: nowrap;
   cursor: pointer;
-  transition: all 0.15s;
+  user-select: none;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
 }
 
 .chat-quick-pill-item:hover {
-  background: rgba(225, 29, 72, 0.2);
+  background: rgba(225, 29, 72, 0.25);
   border-color: #e11d48;
-  color: #fff;
-  transform: translateY(-1px);
+  color: #ffffff;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(225, 29, 72, 0.2);
+}
+
+.chat-quick-pill-item:active {
+  transform: translateY(0);
+}
+
+#chat-messages-container::-webkit-scrollbar {
+  width: 5px;
+}
+
+#chat-messages-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+#chat-messages-container::-webkit-scrollbar-thumb {
+  background: #23263b;
+  border-radius: 10px;
+}
+
+#chat-messages-container::-webkit-scrollbar-thumb:hover {
+  background: #e11d48;
+}
+
+.chat-msg-row {
+  animation: fadeInMsg 0.2s ease-out;
+}
+
+@keyframes fadeInMsg {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .admin-chat-thread-item:hover,
@@ -1140,5 +1181,6 @@ body {
   background: #1a1c2a !important;
   border-left: 3px solid #e11d48;
 }
+
 
 
