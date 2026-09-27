@@ -18,7 +18,7 @@
 
   <!-- Supabase JS Client & Config -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/supabase-config.js?v=6.0"></script>
+  <script src="js/supabase-config.js?v=7.0"></script>
 
   <!-- Custom Design System matching Screenshots -->
   <link rel="stylesheet" href="css/style.css?v=2.0">
@@ -726,38 +726,53 @@
   <!-- ========================================================================
        MODAL: SUPABASE CONFIGURATION (Direct Connection Dialog)
        ======================================================================== -->
-  <div class="modal-overlay" id="modal-supabase-connect">
+  <div class="modal-overlay" id="modal-supabase-config">
     <div class="modal-box"
-      style="background: #151622; border: 1px solid #292b3d; border-radius: 20px; max-width: 500px; padding: 24px;">
-      <button class="modal-close-btn" onclick="window.closeSupabaseConfigModal()">
+      style="background: #151622; border: 1px solid #292b3d; border-radius: 20px; max-width: 520px; padding: 26px; box-shadow: 0 25px 60px rgba(0,0,0,0.85), 0 0 30px rgba(16, 185, 129, 0.15);">
+      <button class="modal-close-btn" onclick="window.closeSupabaseConfigModal()" type="button">
         <i class="fas fa-times"></i>
       </button>
 
-      <div style="margin-bottom: 18px;">
-        <h3 style="color: #34d399; font-size: 1.3rem; font-weight: 800;"><i class="fas fa-database"></i> เชื่อมต่อ
-          Supabase Cloud</h3>
-        <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 4px;">ระบุ URL และ Anon Key
-          เพื่อดึงข้อมูลสินค้าและสถิติจริง</p>
+      <div style="margin-bottom: 20px;">
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px;">
+          <div style="width: 38px; height: 38px; border-radius: 10px; background: rgba(16, 185, 129, 0.15); display: flex; align-items: center; justify-content: center; color: #34d399; font-size: 1.2rem;">
+            <i class="fas fa-database"></i>
+          </div>
+          <div>
+            <h3 style="color: #34d399; font-size: 1.25rem; font-weight: 800; margin: 0;">ตั้งค่าเชื่อมต่อ Supabase Database</h3>
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin: 2px 0 0 0;">เชื่อมโยงฐานข้อมูล Cloud จริงเพื่อเก็บข้อมูลสินค้า, ผู้ใช้ และออเดอร์</p>
+          </div>
+        </div>
       </div>
 
-      <form onsubmit="window.adminManager.handleSaveSupabaseConfig(event)">
+      <form onsubmit="window.handleNativeSaveSupabase(event)">
         <div style="margin-bottom: 14px;">
-          <label style="display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 6px;">Supabase
-            Project URL</label>
-          <input type="text" id="supabase-cfg-url" placeholder="https://your-project-id.supabase.co" required
-            style="background: #1a1b28; border: 1px solid #2c2e42; border-radius: 10px; padding: 12px 14px; width: 100%; color: #fff;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <label style="font-size: 0.84rem; color: #e2e8f0; font-weight: 600;">Supabase Project URL / ID</label>
+            <span style="font-size: 0.72rem; color: #94a3b8;">(ใส่ได้ทั้ง URL, Dash link หรือ ref ID)</span>
+          </div>
+          <input type="text" id="native-supa-url" placeholder="https://hwzdowxjxtdhcgiylnbo.supabase.co" required
+            style="background: #1a1b28; border: 1px solid #2c2e42; border-radius: 10px; padding: 12px 14px; width: 100%; color: #fff; font-family: monospace; font-size: 0.88rem;">
         </div>
 
-        <div style="margin-bottom: 16px;">
-          <label style="display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 6px;">Supabase
-            Public Anon Key</label>
-          <input type="text" id="supabase-cfg-key" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." required
-            style="background: #1a1b28; border: 1px solid #2c2e42; border-radius: 10px; padding: 12px 14px; width: 100%; color: #fff;">
+        <div style="margin-bottom: 18px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <label style="font-size: 0.84rem; color: #e2e8f0; font-weight: 600;">Supabase Anon / Public Key</label>
+            <span style="font-size: 0.72rem; color: #94a3b8;">(Publishable / JWT Anon Key)</span>
+          </div>
+          <textarea id="native-supa-key" rows="3" placeholder="sb_publishable_... หรือ eyJhbGciOi..." required
+            style="background: #1a1b28; border: 1px solid #2c2e42; border-radius: 10px; padding: 10px 14px; width: 100%; color: #fff; font-family: monospace; font-size: 0.82rem; resize: vertical;"></textarea>
         </div>
 
-        <button type="submit" class="btn-pink" style="width: 100%; padding: 12px;">
-          <i class="fas fa-plug"></i> บันทึกและดึงข้อมูลจริงจาก Supabase
-        </button>
+        <div style="display: grid; grid-template-columns: 1fr auto; gap: 10px; margin-bottom: 12px;">
+          <button type="submit" class="btn-pink" style="padding: 12px; background: linear-gradient(135deg, #10b981, #059669); border: none; font-weight: 700;">
+            <i class="fas fa-plug"></i> บันทึกและเชื่อมต่อ Supabase
+          </button>
+          <button type="button" onclick="window.restoreDefaultSupabaseConfig()" 
+            style="background: #1e202e; border: 1px solid #33364d; color: #94a3b8; border-radius: 10px; padding: 12px 16px; font-size: 0.85rem; font-weight: 600; cursor: pointer;">
+            <i class="fas fa-undo"></i> คืนค่าเริ่มต้น
+          </button>
+        </div>
       </form>
     </div>
   </div>

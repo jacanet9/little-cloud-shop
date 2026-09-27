@@ -38,39 +38,92 @@ function sanitizeSupabaseUrl(input) {
 }
 
 /**
- * Open Native Modal for Supabase Configuration
+ * Open Modal for Supabase Configuration (Bulletproof with Swal fallback)
  */
 window.openSupabaseConfigModal = function () {
-  const modal = document.getElementById('modal-supabase-config');
+  const modal = document.getElementById('modal-supabase-config') || document.getElementById('modal-supabase-connect');
+  const currentUrl = (window.supabaseManager && window.supabaseManager.config && window.supabaseManager.config.url) || DEFAULT_SUPABASE_URL;
+  const currentKey = (window.supabaseManager && window.supabaseManager.config && window.supabaseManager.config.anonKey) || DEFAULT_SUPABASE_ANON_KEY;
+
   if (modal) {
+    modal.style.display = 'flex';
     modal.classList.add('active');
-    const urlInput = document.getElementById('native-supa-url');
-    const keyInput = document.getElementById('native-supa-key');
-    if (urlInput && window.supabaseManager) urlInput.value = window.supabaseManager.config.url || DEFAULT_SUPABASE_URL;
-    if (keyInput && window.supabaseManager) keyInput.value = window.supabaseManager.config.anonKey || DEFAULT_SUPABASE_ANON_KEY;
+
+    const urlInput = document.getElementById('native-supa-url') || document.getElementById('supabase-cfg-url');
+    const keyInput = document.getElementById('native-supa-key') || document.getElementById('supabase-cfg-key');
+    if (urlInput) urlInput.value = currentUrl;
+    if (keyInput) keyInput.value = currentKey;
+  } else if (typeof Swal !== 'undefined') {
+    // Fallback if modal DOM element is not found
+    Swal.fire({
+      title: '<span style="color:#34d399;"><i class="fas fa-database"></i> ตั้งค่าเชื่อมต่อ Supabase</span>',
+      html: `
+        <div style="text-align: left; font-size: 0.9rem; margin-top: 10px;">
+          <label style="display:block; margin-bottom: 4px; color:#cbd5e1;">Supabase Project URL / ID:</label>
+          <input id="swal-supa-url" class="swal2-input" style="width: 100%; margin: 0 0 12px 0; background: #1a1b28; color: #fff; border: 1px solid #2c2e42;" value="${currentUrl}">
+          <label style="display:block; margin-bottom: 4px; color:#cbd5e1;">Supabase Anon Key:</label>
+          <textarea id="swal-supa-key" class="swal2-textarea" style="width: 100%; margin: 0 0 12px 0; background: #1a1b28; color: #fff; border: 1px solid #2c2e42; height: 80px;">${currentKey}</textarea>
+        </div>
+      `,
+      background: '#151622',
+      color: '#fff',
+      showCancelButton: true,
+      confirmButtonText: '<i class="fas fa-plug"></i> บันทึกและเชื่อมต่อ',
+      cancelButtonText: 'ยกเลิก',
+      confirmButtonColor: '#10b981',
+      cancelButtonColor: '#475569',
+      preConfirm: () => {
+        const url = document.getElementById('swal-supa-url').value;
+        const key = document.getElementById('swal-supa-key').value;
+        if (!url || !key) {
+          Swal.showValidationMessage('กรุณากรอกข้อมูลให้ครบถ้วน');
+          return false;
+        }
+        return { url, key };
+      }
+    }).then(async (result) => {
+      if (result.isConfirmed && result.value) {
+        const cleanUrl = sanitizeSupabaseUrl(result.value.url);
+        await window.supabaseManager.saveConfig(cleanUrl, result.value.key);
+        Swal.fire({
+          icon: 'success',
+          title: 'เชื่อมต่อ Supabase สำเร็จ!',
+          text: `เชื่อมต่อกับ ${cleanUrl} เรียบร้อยแล้ว`,
+          background: '#151622',
+          color: '#fff',
+          confirmButtonColor: '#10b981'
+        });
+      }
+    });
   }
 };
 
 window.closeSupabaseConfigModal = function () {
-  const modal = document.getElementById('modal-supabase-config');
-  if (modal) modal.classList.remove('active');
+  const modal = document.getElementById('modal-supabase-config') || document.getElementById('modal-supabase-connect');
+  if (modal) {
+    modal.classList.remove('active');
+    modal.style.display = 'none';
+  }
 };
 
 window.restoreDefaultSupabaseConfig = function () {
-  const urlInput = document.getElementById('native-supa-url');
-  const keyInput = document.getElementById('native-supa-key');
+  const urlInput = document.getElementById('native-supa-url') || document.getElementById('supabase-cfg-url');
+  const keyInput = document.getElementById('native-supa-key') || document.getElementById('supabase-cfg-key');
   if (urlInput) urlInput.value = DEFAULT_SUPABASE_URL;
   if (keyInput) keyInput.value = DEFAULT_SUPABASE_ANON_KEY;
 };
 
 window.handleNativeSaveSupabase = async function (event) {
   if (event) event.preventDefault();
-  const rawUrl = document.getElementById('native-supa-url').value;
-  const anonKey = document.getElementById('native-supa-key').value;
+  const urlInput = document.getElementById('native-supa-url') || document.getElementById('supabase-cfg-url');
+  const keyInput = document.getElementById('native-supa-key') || document.getElementById('supabase-cfg-key');
+
+  const rawUrl = urlInput ? urlInput.value.trim() : '';
+  const anonKey = keyInput ? keyInput.value.trim() : '';
 
   if (!rawUrl || !anonKey) {
     if (typeof Swal !== 'undefined') {
-      Swal.fire({ icon: 'warning', title: 'กรุณากรอกข้อมูล', text: 'ต้องใส่ทั้ง Project URL และ Anon Key' });
+      Swal.fire({ icon: 'warning', title: 'กรุณากรอกข้อมูล', text: 'ต้องใส่ทั้ง Project URL และ Anon Key', background: '#151622', color: '#fff' });
     } else {
       alert('ต้องใส่ทั้ง Project URL และ Anon Key');
     }
@@ -78,13 +131,25 @@ window.handleNativeSaveSupabase = async function (event) {
   }
 
   const cleanUrl = sanitizeSupabaseUrl(rawUrl);
+
+  if (typeof Swal !== 'undefined') {
+    Swal.fire({
+      title: 'กำลังเชื่อมต่อ Supabase...',
+      text: cleanUrl,
+      allowOutsideClick: false,
+      didOpen: () => Swal.showLoading(),
+      background: '#151622',
+      color: '#fff'
+    });
+  }
+
   const success = await window.supabaseManager.saveConfig(cleanUrl, anonKey);
   window.closeSupabaseConfigModal();
 
   if (typeof Swal !== 'undefined') {
     Swal.fire({
-      icon: 'success',
-      title: 'เชื่อมต่อ Supabase สำเร็จ!',
+      icon: success ? 'success' : 'info',
+      title: success ? 'เชื่อมต่อ Supabase สำเร็จ!' : 'บันทึกการตั้งค่าแล้ว',
       text: `เชื่อมต่อกับ ${cleanUrl} เรียบร้อยแล้ว`,
       background: '#151622',
       color: '#fff',
