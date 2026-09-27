@@ -88,7 +88,8 @@ class TopupManager {
   }
 
   /**
-   * Generates Omise PromptPay QR code via Backend API (or direct client fallback)
+   * Generates Thai QR PromptPay (EMVCo Official Standard)
+   * Scannable by all Thai mobile banking apps (K PLUS, SCB Easy, Krungthai NEXT, etc.)
    */
   async generatePromptPayQR() {
     const user = window.authManager.currentUser;
@@ -127,14 +128,17 @@ class TopupManager {
     this.currentAmount = amount;
     this.selectedSlipFile = null;
 
-    // Reset UI
+    // Reset slip file UI
     const slipLabel = document.getElementById('topup-slip-filename');
-    if (slipLabel) slipLabel.textContent = 'คลิกเพื่อเลือกไฟล์...';
+    if (slipLabel) {
+      slipLabel.textContent = 'คลิกเพื่อเลือกไฟล์ (ไม่บังคับ)...';
+      slipLabel.style.color = '#64748b';
+    }
 
-    // Show loading spinner
+    // Show brief generation status
     Swal.fire({
-      title: 'กำลังสร้าง PromptPay QR (Omise Gateway)...',
-      text: 'กรุณารอสักครู่ ระบบกำลังสื่อสารกับระบบชำระเงิน',
+      title: 'กำลังสร้าง QR Code พร้อมเพย์...',
+      text: 'ระบบกำลังสร้าง Thai QR Payment (EMVCo) สำหรับบัญชีของคุณ',
       allowOutsideClick: false,
       didOpen: () => Swal.showLoading(),
       background: '#151622',
@@ -142,62 +146,45 @@ class TopupManager {
     });
 
     try {
-      let chargeId = `chrg_omise_${Date.now()}`;
-      let qrImageUrl = '';
-      let expiresSeconds = 900; // 15 mins
-
-      // 1. Attempt to call Backend API: POST /api/topup/create
-      try {
-        const response = await fetch('/api/topup/create', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            user_id: user.id,
-            username: user.username,
-            amount: amount
-          })
-        });
-
-        if (response.ok) {
-          const apiData = await response.json();
-          if (apiData.success) {
-            chargeId = apiData.charge_id;
-            qrImageUrl = apiData.qr_code_url;
-            if (apiData.expires_at) {
-              const expTime = new Date(apiData.expires_at).getTime();
-              expiresSeconds = Math.max(60, Math.floor((expTime - Date.now()) / 1000));
-            }
-          }
-        }
-      } catch (backendErr) {
-        console.info('Backend API offline, utilizing client-side EMVCo PromptPay fallback:', backendErr.message);
-      }
-
-      // 2. Client-side PromptPay EMVCo Fallback if QR URL is empty
       const ppConfig = await this.getPromptPaySettings();
-      if (!qrImageUrl) {
-        const emvPayload = generatePromptPayPayload(ppConfig.promptpayNumber, amount);
-        qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=8&data=${encodeURIComponent(emvPayload)}`;
-      }
+      const cleanNumber = (ppConfig.promptpayNumber || '0815993194').replace(/[^0-9]/g, '');
+      const refId = `PP-${Date.now().toString().slice(-6)}-${Math.floor(100 + Math.random() * 900)}`;
 
-      this.activeChargeId = chargeId;
+      // Generate standard EMVCo payload
+      const emvPayload = generatePromptPayPayload(cleanNumber, amount);
+
+      // Primary QR image via promptpay.io, fallback via qrserver with EMVCo string
+      const primaryQrUrl = `https://promptpay.io/${cleanNumber}/${amount}.png`;
+      const fallbackQrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=8&data=${encodeURIComponent(emvPayload)}`;
+
+      this.activeChargeId = refId;
       Swal.close();
 
-      // 3. Render QR Code Result Box
+      // Format phone number for display (e.g. 081-599-3194)
+      let formattedPhone = cleanNumber;
+      if (cleanNumber.length === 10) {
+        formattedPhone = `${cleanNumber.substring(0, 3)}-${cleanNumber.substring(3, 6)}-${cleanNumber.substring(6)}`;
+      } else if (cleanNumber.length === 13) {
+        formattedPhone = `${cleanNumber.substring(0, 1)}-${cleanNumber.substring(1, 5)}-${cleanNumber.substring(5, 10)}-${cleanNumber.substring(10, 12)}-${cleanNumber.substring(12)}`;
+      }
+
+      // Render QR Code Result Box
       const resultBox = document.getElementById('topup-qr-result-box');
       const qrImg = document.getElementById('topup-generated-qr');
       const qrAmountVal = document.getElementById('topup-qr-amount-val');
       const qrReceiverName = document.getElementById('topup-qr-receiver-name');
+      const qrPhone = document.getElementById('topup-qr-phone-number');
       const qrChargeBadge = document.getElementById('topup-charge-id-badge');
 
-      if (qrReceiverName) qrReceiverName.textContent = ppConfig.promptpayName;
-      if (qrChargeBadge) qrChargeBadge.textContent = `ID: ${chargeId.substring(0, 20)}...`;
+      if (qrReceiverName) qrReceiverName.textContent = ppConfig.promptpayName || 'Little Cloud Shop Official';
+      if (qrPhone) qrPhone.textContent = formattedPhone;
+      if (qrChargeBadge) qrChargeBadge.textContent = `REF: ${refId}`;
       if (qrAmountVal) qrAmountVal.textContent = `฿ ${amount.toLocaleString('th-TH', { minimumFractionDigits: 2 })}`;
 
       if (qrImg) {
-        qrImg.src = qrImageUrl;
+        qrImg.src = primaryQrUrl;
         qrImg.onerror = () => {
-          qrImg.src = `https://promptpay.io/${ppConfig.promptpayNumber.replace(/[^0-9]/g, '')}/${amount}.png`;
+          qrImg.src = fallbackQrUrl;
         };
       }
 
@@ -206,11 +193,12 @@ class TopupManager {
         resultBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       }
 
-      // 4. Start 15-Minute Countdown Timer & Live 3-Second Polling
-      this.startCountdownTimer(expiresSeconds);
-      this.startStatusPolling(chargeId);
+      // 15-Minute Countdown Timer & Local status poller
+      this.startCountdownTimer(900);
+      this.startStatusPolling(refId);
 
     } catch (err) {
+      console.error('PromptPay QR Error:', err);
       Swal.fire({
         icon: 'error',
         title: 'เกิดข้อผิดพลาดในการสร้าง QR Code',

@@ -333,34 +333,38 @@
           <div style="background: #003b71; padding: 16px 20px; text-align: center; color: #ffffff;">
             <div style="display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 800; font-size: 1.15rem; letter-spacing: 0.5px;">
               <span style="background: #ffffff; color: #003b71; padding: 2px 8px; border-radius: 4px; font-size: 0.85rem; font-weight: 900;">THAI QR</span>
-              <span>PROMPTPAY (Omise Gateway)</span>
+              <span>PROMPTPAY · พร้อมเพย์</span>
             </div>
-            <div style="font-size: 0.78rem; opacity: 0.85; margin-top: 2px;">สแกนจ่ายได้ทุกแอปธนาคารไทย ยอดเข้าทันทีอัตโนมัติ 24 ชม.</div>
+            <div style="font-size: 0.78rem; opacity: 0.9; margin-top: 3px;">สแกนได้จริงทุกแอปธนาคารไทย (K PLUS, SCB Easy, Krungthai NEXT ฯลฯ)</div>
           </div>
 
           <!-- Card Content Body -->
           <div style="padding: 20px 24px; text-align: center;">
             
-            <!-- Live Expiry Countdown & Charge ID -->
+            <!-- Live Expiry Countdown & Reference ID -->
             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; font-size: 0.8rem;">
               <div style="background: #fef2f2; border: 1px solid #fecaca; color: #dc2626; padding: 4px 10px; border-radius: 20px; font-weight: 700; display: flex; align-items: center; gap: 6px;">
                 <i class="fas fa-stopwatch fa-spin" style="--fa-animation-duration: 4s;"></i>
                 <span>หมดอายุใน: <b id="topup-countdown-timer">15:00</b></span>
               </div>
               <div style="color: #64748b; font-size: 0.75rem; font-family: monospace;" id="topup-charge-id-badge">
-                ID: OMISE-INIT
+                REF: PP-INIT
               </div>
             </div>
 
             <!-- Receiver & Account Info -->
-            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 10px 14px; margin-bottom: 14px; text-align: left;">
-              <div style="display: flex; justify-content: space-between; font-size: 0.82rem; color: #64748b; margin-bottom: 2px;">
-                <span>ผู้รับเงิน:</span>
-                <b style="color: #0f172a;" id="topup-qr-receiver-name">Little Cloud Shop Official</b>
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px 14px; margin-bottom: 14px; text-align: left;">
+              <div style="display: flex; justify-content: space-between; font-size: 0.84rem; color: #64748b; margin-bottom: 4px;">
+                <span>ชื่อบัญชีผู้รับ:</span>
+                <b style="color: #0f172a; font-size: 0.9rem;" id="topup-qr-receiver-name">Little Cloud Shop Official</b>
               </div>
-              <div style="display: flex; justify-content: space-between; font-size: 0.82rem; color: #64748b;">
-                <span>เกตเวย์:</span>
-                <b style="color: #003b71; font-weight: 700;">Omise PromptPay Charges API</b>
+              <div style="display: flex; justify-content: space-between; font-size: 0.84rem; color: #64748b; margin-bottom: 4px;">
+                <span>เบอร์พร้อมเพย์:</span>
+                <b style="color: #003b71; font-weight: 700; font-family: monospace; font-size: 0.92rem;" id="topup-qr-phone-number">081-599-3194</b>
+              </div>
+              <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: #64748b;">
+                <span>ประเภทการชำระ:</span>
+                <b style="color: #059669; font-weight: 600;">Thai QR Payment (EMVCo Standard)</b>
               </div>
             </div>
 
@@ -373,29 +377,29 @@
             <!-- Exact Amount Display -->
             <div style="margin-bottom: 14px;">
               <div style="font-size: 0.78rem; color: #64748b; font-weight: 600; text-transform: uppercase;">ยอดเงินที่ต้องชำระ (บาท)</div>
-              <div style="font-weight: 800; font-size: 1.7rem; color: #e11d48; font-family: 'Outfit', sans-serif;" id="topup-qr-amount-val">฿ 100.00</div>
+              <div style="font-weight: 800; font-size: 1.8rem; color: #e11d48; font-family: 'Outfit', sans-serif;" id="topup-qr-amount-val">฿ 100.00</div>
             </div>
 
-            <!-- Real-time Polling Status Banner -->
-            <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px; padding: 10px; margin-bottom: 16px; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 0.83rem; color: #15803d; font-weight: 600;">
-              <span class="pulse-dot" style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #22c55e;"></span>
-              <span id="topup-poll-status-text">กำลังรอรับยอดเงินอัตโนมัติ (ตรวจสอบทุก 3 วิ)...</span>
+            <!-- Instructions Notice Banner -->
+            <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; padding: 10px 14px; margin-bottom: 14px; text-align: left; font-size: 0.8rem; color: #1e40af; line-height: 1.5;">
+              <i class="fas fa-circle-info" style="color: #2563eb; margin-right: 4px;"></i>
+              <b>วิธีทำรายการ:</b> เปิดแอปธนาคารบนมือถือ สแกน QR เพื่อตรวจยอดเงินและชื่อผู้รับ เมื่อโอนเสร็จแล้วกดปุ่ม <b>"ฉันโอนเงินแล้ว"</b> ด้านล่าง ยอดจะเข้าเว็บอัตโนมัติทันที
             </div>
 
             <!-- Slip Upload Box (Optional Fallback) -->
             <div style="background: #f1f5f9; border: 1px dashed #cbd5e1; border-radius: 12px; padding: 10px; margin-bottom: 14px; text-align: left;"
               onclick="document.getElementById('topup-slip-input').click();">
               <div style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; font-size: 0.8rem; font-weight: 700; color: #334155;">
-                <span><i class="fas fa-file-invoice-dollar" style="color: #003b71; margin-right: 6px;"></i> แนบสลิปเพื่อตรวจทันที (ถ้ามี):</span>
-                <span id="topup-slip-filename" style="color: #0284c7; font-weight: 600; font-size: 0.75rem;">คลิกเพื่อเลือกไฟล์...</span>
+                <span><i class="fas fa-file-invoice-dollar" style="color: #003b71; margin-right: 6px;"></i> แนบสลิปโอนเงิน (ถ้ามี):</span>
+                <span id="topup-slip-filename" style="color: #0284c7; font-weight: 600; font-size: 0.75rem;">คลิกเพื่อเลือกไฟล์ (ไม่บังคับ)...</span>
               </div>
               <input type="file" id="topup-slip-input" accept="image/*" style="display: none;" onchange="window.topupManager.handleSlipSelected(this)">
             </div>
 
             <!-- Action Buttons -->
-            <button class="btn-pink" style="width: 100%; padding: 12px; font-size: 0.95rem; font-weight: 700; box-shadow: 0 4px 15px rgba(225,29,72,0.35); margin-bottom: 8px;"
+            <button class="btn-pink" style="width: 100%; padding: 14px; font-size: 0.98rem; font-weight: 700; box-shadow: 0 4px 15px rgba(225,29,72,0.35); margin-bottom: 8px; display: flex; align-items: center; justify-content: center; gap: 8px;"
               onclick="window.topupManager.confirmPaymentSimulation()">
-              <i class="fas fa-check-circle"></i> ยืนยันการโอน / ตรวจสอบทันที
+              <i class="fas fa-circle-check"></i> ฉันโอนเงินแล้ว (ตรวจสอบและอัปเดตยอดทันที)
             </button>
 
             <button type="button" class="btn-outline-dark" style="width: 100%; padding: 8px; font-size: 0.85rem; color: #64748b; border-color: #cbd5e1;"
@@ -576,6 +580,7 @@
           <ul class="footer-links-list">
             <li><a href="javascript:void(0)" onclick="window.navToTab('profile')">ประวัติการซื้อ</a></li>
             <li><a href="javascript:void(0)" onclick="window.navToTab('profile')">ประวัติการเติมเงิน</a></li>
+            <li><a href="javascript:void(0)" onclick="window.adminManager.openAdminModal()"><i class="fas fa-crown" style="color: #fbbf24; margin-right: 4px;"></i> แผงควบคุมแอดมิน</a></li>
             <li><a href="javascript:void(0)" onclick="window.openSupabaseConfigModal()">เชื่อมต่อ Supabase</a></li>
           </ul>
         </div>
@@ -759,12 +764,13 @@
       </div>
 
       <div class="admin-tabs"
-        style="display: flex; gap: 8px; padding: 10px 20px; background: #10111a; border-bottom: 1px solid var(--border-subtle);">
+        style="display: flex; gap: 8px; padding: 10px 20px; background: #10111a; border-bottom: 1px solid var(--border-subtle); flex-wrap: wrap;">
         <button class="cat-pill active admin-tab-btn" data-pane="pane-admin-products">1. สินค้า (Products)</button>
         <button class="cat-pill admin-tab-btn" data-pane="pane-admin-users">2. สมาชิก (Users)</button>
         <button class="cat-pill admin-tab-btn" data-pane="pane-admin-orders">3. ออเดอร์ (Orders)</button>
-        <button class="cat-pill admin-tab-btn" data-pane="pane-admin-site">4. ปรับแต่งเว็บ (Site Customizer)</button>
-        <button class="cat-pill admin-tab-btn" data-pane="pane-admin-reconciliation">5. ตรวจสอบยอดเงิน & Gateway (Reconciliation)</button>
+        <button class="cat-pill admin-tab-btn" data-pane="pane-admin-topups">4. รายการเติมเงิน (Topups & Ledger)</button>
+        <button class="cat-pill admin-tab-btn" data-pane="pane-admin-site">5. ปรับแต่งเว็บ (Site Customizer)</button>
+        <button class="cat-pill admin-tab-btn" data-pane="pane-admin-reconciliation">6. ตรวจสอบบัญชี & Gateway</button>
       </div>
 
       <div class="admin-tab-content" style="padding: 24px; max-height: 65vh; overflow-y: auto;">
@@ -839,7 +845,57 @@
           </div>
         </div>
 
-        <!-- PANE 4: SITE SETTINGS -->
+        <!-- PANE 4: TOPUPS & WALLET LEDGER (Requirement 4) -->
+        <div class="admin-tab-pane" id="pane-admin-topups" style="display: none;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <div>
+              <h4 style="color: #fff; font-size: 1.1rem; font-weight: 800; margin: 0;">
+                <i class="fas fa-wallet" style="color: #34d399; margin-right: 6px;"></i> รายการเติมเงินทั้งหมด (Topup History & Ledger)
+              </h4>
+              <p style="font-size: 0.8rem; color: #a5a8bc; margin: 2px 0 0;">ตรวจสอบยอดเงินเข้า ประวัติการโอน พร้อมเพย์ และสถานะเครดิตแบบเรียลไทม์</p>
+            </div>
+            <button class="btn-outline-dark" style="padding: 7px 14px; font-size: 0.82rem; color: #fff;" onclick="window.adminManager.renderAdminTopupsTable()">
+              <i class="fas fa-rotate"></i> รีเฟรชข้อมูล
+            </button>
+          </div>
+
+          <!-- Topup Metric Cards -->
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 18px;">
+            <div style="background: #181926; border: 1px solid #292b3d; border-radius: 12px; padding: 14px;">
+              <span style="font-size: 0.75rem; color: #9496a8; display: block; margin-bottom: 4px;">💰 ยอดเติมเงินสะสมทั้งหมด</span>
+              <b style="font-size: 1.35rem; color: #34d399; font-family: 'Outfit', sans-serif;" id="admin-topup-total-amount">฿ 0.00</b>
+            </div>
+            <div style="background: #181926; border: 1px solid #292b3d; border-radius: 12px; padding: 14px;">
+              <span style="font-size: 0.75rem; color: #9496a8; display: block; margin-bottom: 4px;">🧾 จำนวนรายการเติมเงินสำเร็จ</span>
+              <b style="font-size: 1.35rem; color: #60a5fa; font-family: 'Outfit', sans-serif;" id="admin-topup-total-count">0 รายการ</b>
+            </div>
+            <div style="background: #181926; border: 1px solid #292b3d; border-radius: 12px; padding: 14px;">
+              <span style="font-size: 0.75rem; color: #9496a8; display: block; margin-bottom: 4px;">🟢 รายการล่าสุด</span>
+              <b style="font-size: 0.95rem; color: #f472b6; font-family: 'Outfit', sans-serif;" id="admin-topup-latest-info">-</b>
+            </div>
+          </div>
+
+          <!-- Topup Transactions Table -->
+          <div class="admin-table-wrap" style="border: 1px solid var(--border-subtle); border-radius: 12px; overflow: hidden;">
+            <table class="admin-table" style="width: 100%; border-collapse: collapse;">
+              <thead>
+                <tr style="background: #1a1b28; color: #a5a8bc; text-align: left; font-size: 0.85rem;">
+                  <th style="padding: 10px 14px;">วันที่ / เวลา</th>
+                  <th style="padding: 10px 14px;">ผู้ใช้งาน</th>
+                  <th style="padding: 10px 14px;">ยอดเงิน</th>
+                  <th style="padding: 10px 14px;">ช่องทาง</th>
+                  <th style="padding: 10px 14px;">รหัสอ้างอิงธุรกรรม</th>
+                  <th style="padding: 10px 14px;">สถานะ</th>
+                </tr>
+              </thead>
+              <tbody id="admin-topups-table-body">
+                <tr><td colspan="6" style="text-align: center; padding: 24px; color: #9496a8;">กำลังโหลดประวัติการเติมเงิน...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- PANE 5: SITE SETTINGS -->
         <div class="admin-tab-pane" id="pane-admin-site" style="display: none;">
           <form id="form-admin-site-settings">
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">

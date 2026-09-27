@@ -24,6 +24,7 @@ class AdminManager {
         if (btn.dataset.pane === 'pane-admin-site') this.loadSiteSettingsForm();
         if (btn.dataset.pane === 'pane-admin-users') this.renderAdminUsersTable();
         if (btn.dataset.pane === 'pane-admin-orders') this.renderAdminOrdersTable();
+        if (btn.dataset.pane === 'pane-admin-topups') this.renderAdminTopupsTable();
         if (btn.dataset.pane === 'pane-admin-reconciliation') this.renderReconciliationDashboard();
       });
     });
@@ -533,6 +534,145 @@ class AdminManager {
     } catch (e) {
       console.error('Reconciliation error:', e);
       if (bannerText) bannerText.textContent = `เกิดข้อผิดพลาดในการคำนวณ Reconciliation: ${e.message}`;
+    }
+  }
+
+  // ==========================================
+  // TOPUPS & INFLOW REVENUE (Requirement 4)
+  // ==========================================
+  async renderAdminTopupsTable() {
+    const tbody = document.getElementById('admin-topups-table-body');
+    const totalAmountEl = document.getElementById('admin-topup-total-amount');
+    const totalCountEl = document.getElementById('admin-topup-total-count');
+    const latestInfoEl = document.getElementById('admin-topup-latest-info');
+
+    if (tbody) {
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 24px; color: #a5a8bc;"><i class="fas fa-spinner fa-spin"></i> กำลังโหลดรายการเติมเงินจาก Supabase...</td></tr>`;
+    }
+
+    try {
+      // 1. Fetch from topups and wallet_transactions tables
+      const topups = await window.supabaseManager.fetchTable('topups');
+      const ledgerTxs = await window.supabaseManager.fetchTable('wallet_transactions');
+
+      // 2. Combine and deduplicate
+      const topupMap = new Map();
+
+      // From topups table
+      if (Array.isArray(topups)) {
+        topups.forEach(t => {
+          const key = t.transaction_ref || t.gateway_ref || t.id || `${t.username}_${t.amount}_${t.created_at}`;
+          topupMap.set(key, {
+            id: t.id,
+            username: t.username || 'Member',
+            amount: Number(t.amount) || 0,
+            payment_method: t.payment_method || 'PromptPay QR',
+            transaction_ref: t.transaction_ref || t.gateway_ref || t.id || '-',
+            status: t.status || 'approved',
+            created_at: t.created_at || new Date().toISOString()
+          });
+        });
+      }
+
+      // From wallet_transactions table (type === 'topup')
+      if (Array.isArray(ledgerTxs)) {
+        ledgerTxs.filter(l => l.type === 'topup').forEach(l => {
+          const key = l.reference_id || l.gateway_ref || l.id || `${l.username}_${l.amount}_${l.created_at}`;
+          if (!topupMap.has(key)) {
+            topupMap.set(key, {
+              id: l.id,
+              username: l.username || 'Member',
+              amount: Number(l.amount) || 0,
+              payment_method: 'PromptPay QR',
+              transaction_ref: l.reference_id || l.gateway_ref || l.id || '-',
+              status: l.status === 'completed' ? 'approved' : (l.status || 'approved'),
+              created_at: l.created_at || new Date().toISOString()
+            });
+          }
+        });
+      }
+
+      const allTopups = Array.from(topupMap.values()).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+      // 3. Compute Metrics
+      const totalInflow = allTopups.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+      const totalCount = allTopups.length;
+      const latestItem = allTopups[0];
+
+      if (totalAmountEl) {
+        totalAmountEl.textContent = `฿ ${totalInflow.toLocaleString('th-TH', { minimumFractionDigits: 2 })}`;
+      }
+      if (totalCountEl) {
+        totalCountEl.textContent = `${totalCount} รายการ`;
+      }
+      if (latestInfoEl) {
+        if (latestItem) {
+          latestInfoEl.innerHTML = `<span style="color:#fff;">${latestItem.username}</span> (+฿${Number(latestItem.amount).toLocaleString('th-TH')})`;
+        } else {
+          latestInfoEl.textContent = 'ยังไม่มีข้อมูล';
+        }
+      }
+
+      // 4. Render Table
+      if (!tbody) return;
+
+      if (allTopups.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 30px; color: #a5a8bc;"><i class="fas fa-wallet" style="font-size: 2rem; opacity: 0.4; margin-bottom: 8px; display: block;"></i> ยังไม่มีประวัติการเติมเงินในระบบ</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = allTopups.map(t => {
+        const amt = Number(t.amount) || 0;
+        const formattedDate = new Date(t.created_at || Date.now()).toLocaleString('th-TH', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+
+        return `
+          <tr>
+            <td style="font-size: 0.8rem; color: #a5a8bc; white-space: nowrap;">
+              <i class="far fa-clock" style="margin-right: 4px; opacity: 0.7;"></i> ${formattedDate}
+            </td>
+            <td>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <div style="width: 26px; height: 26px; border-radius: 50%; background: #282a3c; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; color: #f472b6;">
+                  <i class="fas fa-user"></i>
+                </div>
+                <b style="color: #fff; font-size: 0.88rem;">${t.username}</b>
+              </div>
+            </td>
+            <td>
+              <span style="color: #34d399; font-weight: 800; font-family: 'Outfit', sans-serif; font-size: 0.95rem;">
+                +฿ ${amt.toLocaleString('th-TH', { minimumFractionDigits: 2 })}
+              </span>
+            </td>
+            <td>
+              <span style="background: rgba(0, 59, 113, 0.25); color: #60a5fa; border: 1px solid rgba(96, 165, 250, 0.25); padding: 3px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
+                <i class="fas fa-qrcode"></i> ${t.payment_method || 'PromptPay QR'}
+              </span>
+            </td>
+            <td>
+              <code style="font-size: 0.78rem; color: #e2e8f0; background: #1a1b28; padding: 2px 6px; border-radius: 4px; border: 1px solid #2d2f45;">
+                ${t.transaction_ref}
+              </code>
+            </td>
+            <td>
+              <span style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid #10b981; padding: 3px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;">
+                <i class="fas fa-circle-check"></i> สำเร็จ (Approved)
+              </span>
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+    } catch (err) {
+      console.error('Error rendering admin topups:', err);
+      if (tbody) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 20px; color: #ef4444;">เกิดข้อผิดพลาดในการโหลดข้อมูล: ${err.message}</td></tr>`;
+      }
     }
   }
 

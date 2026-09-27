@@ -94,7 +94,7 @@ class PaymentGatewayEngine {
 
     return {
       success: true,
-      gateway: 'PromptPay Direct Gateway (Verified)',
+      gateway: 'PromptPay QR',
       transactionRef: bankRef,
       gatewayRef: `PROMPTPAY-${bankRef}`,
       verifiedAmount: expectedAmount,
