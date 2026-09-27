@@ -393,23 +393,78 @@
               </ol>
             </div>
 
-            <!-- Slip Upload Box (Required) -->
-            <div id="topup-slip-dropzone" style="background: #f8fafc; border: 2px dashed #94a3b8; border-radius: 12px; padding: 14px; margin-bottom: 14px; text-align: left; cursor: pointer; transition: all 0.2s;"
-              onclick="document.getElementById('topup-slip-input').click();">
-              <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.85rem; font-weight: 700; color: #1e293b;">
-                <span style="display: flex; align-items: center; gap: 8px;">
-                  <i class="fas fa-file-invoice-dollar" style="color: #e11d48; font-size: 1.15rem;"></i>
+            <!-- Dual-Mode Slip Upload Section (Mobile QR or PC Upload) -->
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px; padding: 16px; margin-bottom: 16px; text-align: left;">
+              
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                <div style="font-size: 0.88rem; font-weight: 800; color: #0f172a; display: flex; align-items: center; gap: 8px;">
+                  <i class="fas fa-file-invoice-dollar" style="color: #e11d48; font-size: 1.1rem;"></i>
                   <span>แนบรูปสลิปหลักฐานการโอน <span style="color: #ef4444; font-weight: 800;">*จำเป็น</span></span>
-                </span>
+                </div>
                 <span id="topup-slip-badge" style="background: #e2e8f0; color: #475569; font-size: 0.72rem; padding: 3px 8px; border-radius: 4px; font-weight: 600;">ยังไม่ได้แนบ</span>
               </div>
-              <div style="margin-top: 6px; font-size: 0.78rem; color: #64748b;" id="topup-slip-filename">
-                คลิกที่นี่เพื่อเลือกรูปภาพสลิปจากมือถือ / คอมพิวเตอร์...
+
+              <!-- Upload Mode Switch Tabs -->
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px;">
+                <button type="button" id="tab-slip-qr" class="cat-pill active" style="font-size: 0.8rem; padding: 8px 10px; text-align: center; background: #e11d48; color: #fff; border: 1px solid #e11d48; border-radius: 10px; cursor: pointer; font-weight: 700;" onclick="window.topupManager.switchSlipUploadMode('qr')">
+                  <i class="fas fa-qrcode"></i> 1. สแกน QR ผ่านมือถือ
+                </button>
+                <button type="button" id="tab-slip-pc" class="cat-pill" style="font-size: 0.8rem; padding: 8px 10px; text-align: center; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 10px; cursor: pointer; font-weight: 600;" onclick="window.topupManager.switchSlipUploadMode('pc')">
+                  <i class="fas fa-desktop"></i> 2. เลือกไฟล์จากคอม
+                </button>
               </div>
-              <div id="topup-slip-preview-container" style="display: none; margin-top: 10px; text-align: center;">
-                <img id="topup-slip-preview" src="" alt="Slip Preview" style="max-height: 130px; border-radius: 8px; border: 1px solid #cbd5e1; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin: 0 auto; display: block;">
+
+              <!-- MODE 1: MOBILE QR CODE UPLOAD PANEL -->
+              <div id="slip-mode-qr-panel" style="background: #ffffff; border: 2px dashed #e11d48; border-radius: 14px; padding: 16px; text-align: center;">
+                <div style="font-size: 0.85rem; font-weight: 700; color: #0f172a; margin-bottom: 4px;">
+                  📱 ใช้มือถือสแกน QR เพื่อแนบสลิปได้ทันที
+                </div>
+                <div style="font-size: 0.76rem; color: #64748b; margin-bottom: 12px; line-height: 1.4;">
+                  เปิดกล้องมือถือ หรือแอป Line สแกน QR Code นี้<br>เพื่อเลือกรูปสลิปจากอัลบั้มในมือถือของคุณ
+                </div>
+
+                <!-- QR Image -->
+                <div style="background: #ffffff; border: 2px solid #e2e8f0; border-radius: 14px; padding: 10px; display: inline-block; box-shadow: 0 4px 14px rgba(0,0,0,0.06); position: relative;">
+                  <img id="slip-upload-qr-img" src="" alt="Mobile Slip Upload QR" style="width: 170px; height: 170px; display: block; margin: 0 auto; object-fit: contain;">
+                </div>
+
+                <!-- Live Radar Listening Indicator -->
+                <div id="slip-qr-listening-indicator" style="display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 0.78rem; color: #0284c7; margin-top: 10px; font-weight: 600;">
+                  <i class="fas fa-satellite-dish fa-fade"></i>
+                  <span>กำลังรอการส่งรูปสลิปจากมือถือ...</span>
+                  <span id="slip-qr-session-badge" style="background: #e0f2fe; color: #0369a1; padding: 1px 6px; border-radius: 4px; font-family: monospace; font-size: 0.7rem;">#READY</span>
+                </div>
+
+                <!-- Test / Direct link -->
+                <div style="margin-top: 8px; font-size: 0.74rem;">
+                  <a id="slip-upload-direct-link" href="#" target="_blank" style="color: #e11d48; text-decoration: underline; font-weight: 600;">
+                    <i class="fas fa-arrow-up-right-from-square"></i> หรือคลิกที่นี่เพื่อทดสอบเปิดหน้าอัพโหลดสลิป
+                  </a>
+                </div>
               </div>
+
+              <!-- MODE 2: DESKTOP FILE DROPZONE PANEL -->
+              <div id="slip-mode-pc-panel" style="display: none; background: #ffffff; border: 2px dashed #94a3b8; border-radius: 14px; padding: 20px 14px; text-align: center; cursor: pointer; transition: all 0.2s;" onclick="document.getElementById('topup-slip-input').click();">
+                <div style="width: 48px; height: 48px; border-radius: 50%; background: #f1f5f9; color: #e11d48; display: flex; align-items: center; justify-content: center; margin: 0 auto 8px; font-size: 1.3rem;">
+                  <i class="fas fa-folder-open"></i>
+                </div>
+                <div style="font-size: 0.88rem; font-weight: 700; color: #0f172a;">คลิกเพื่อเลือกไฟล์รูปภาพจากเครื่อง</div>
+                <div style="font-size: 0.76rem; color: #64748b; margin-top: 4px;">รองรับไฟล์ .JPG, .PNG, .WEBP</div>
+              </div>
+
               <input type="file" id="topup-slip-input" accept="image/*" style="display: none;" onchange="window.topupManager.handleSlipSelected(this)">
+
+              <!-- UNIVERSAL PREVIEW BOX (Shown when slip is attached via Mobile QR or PC) -->
+              <div id="topup-slip-preview-container" style="display: none; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 14px; padding: 14px; text-align: center; margin-top: 10px;">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; font-size: 0.8rem;">
+                  <span style="color: #059669; font-weight: 700;" id="topup-slip-filename">📎 รูปภาพสลิปที่แนบแล้ว</span>
+                  <button type="button" style="background: #fef2f2; border: 1px solid #fecaca; color: #ef4444; padding: 4px 10px; border-radius: 6px; font-size: 0.74rem; cursor: pointer; font-weight: 600;" onclick="window.topupManager.resetSlipSelection()">
+                    <i class="fas fa-trash-alt"></i> ลบ / แนบรูปใหม่
+                  </button>
+                </div>
+                <img id="topup-slip-preview" src="" alt="Slip Preview" style="max-height: 180px; max-width: 100%; border-radius: 8px; border: 1px solid #cbd5e1; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin: 0 auto; display: block; object-fit: contain;">
+              </div>
+
             </div>
 
             <!-- Action Buttons -->

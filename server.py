@@ -95,6 +95,19 @@ def call_omise_charge(amount_satang, user_id, username):
 MEM_TRANSACTIONS = {}
 
 CHAT_FILE = 'chat_history.json'
+SLIP_SESSIONS = {}
+
+def get_lan_ip():
+    import socket
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect(('8.8.8.8', 80))
+        ip = s.getsockname()[0]
+    except Exception:
+        ip = '127.0.0.1'
+    finally:
+        s.close()
+    return ip
 
 def load_chat_history():
     if os.path.exists(CHAT_FILE):
@@ -270,6 +283,46 @@ class LittleCloudHandler(SimpleHTTPRequestHandler):
 
             return self._send_json(200, {"success": True, "message": msg_obj})
 
+        # 4. POST /api/slip/session/create
+        elif self.path == '/api/slip/session/create':
+            session_id = f"slip_{int(time.time()*1000)}_{int(time.time())%1000}"
+            lan_ip = get_lan_ip()
+            upload_url = f"http://{lan_ip}:{PORT}/upload-slip.html?session={session_id}"
+            local_url = f"http://127.0.0.1:{PORT}/upload-slip.html?session={session_id}"
+            SLIP_SESSIONS[session_id] = {
+                "status": "waiting",
+                "slip_data": None,
+                "filename": None,
+                "created_at": time.time()
+            }
+            return self._send_json(200, {
+                "success": True,
+                "session_id": session_id,
+                "upload_url": upload_url,
+                "local_url": local_url,
+                "lan_ip": lan_ip,
+                "port": PORT
+            })
+
+        # 5. POST /api/slip/upload
+        elif self.path == '/api/slip/upload':
+            session_id = body.get('session_id')
+            image_data = body.get('image_data')
+            filename = body.get('filename', 'mobile_slip.jpg')
+            if not session_id or not image_data:
+                return self._send_json(400, {"success": False, "message": "ข้อมูลไม่ครบถ้วน กรุณาระบุ session_id และรูปภาพ"})
+
+            SLIP_SESSIONS[session_id] = {
+                "status": "completed",
+                "slip_data": image_data,
+                "filename": filename,
+                "uploaded_at": time.time()
+            }
+            return self._send_json(200, {
+                "success": True,
+                "message": "อัพโหลดสลิปเข้าสู่ระบบสำเร็จแล้ว!"
+            })
+
         else:
             return self._send_json(404, {"error": "Endpoint not found"})
 
@@ -338,15 +391,68 @@ class LittleCloudHandler(SimpleHTTPRequestHandler):
                 })
             return self._send_json(404, {"success": False, "message": "Transaction not found"})
 
+        # 7. GET /api/slip/session/create
+        elif self.path.startswith('/api/slip/session/create'):
+            session_id = f"slip_{int(time.time()*1000)}_{int(time.time())%1000}"
+            lan_ip = get_lan_ip()
+            upload_url = f"http://{lan_ip}:{PORT}/upload-slip.html?session={session_id}"
+            local_url = f"http://127.0.0.1:{PORT}/upload-slip.html?session={session_id}"
+            SLIP_SESSIONS[session_id] = {
+                "status": "waiting",
+                "slip_data": None,
+                "filename": None,
+                "created_at": time.time()
+            }
+            return self._send_json(200, {
+                "success": True,
+                "session_id": session_id,
+                "upload_url": upload_url,
+                "local_url": local_url,
+                "lan_ip": lan_ip,
+                "port": PORT
+            })
+
+        # 8. GET /api/slip/check/<session_id>
+        elif self.path.startswith('/api/slip/check/'):
+            session_id = self.path.replace('/api/slip/check/', '').split('?')[0].strip()
+            if session_id in SLIP_SESSIONS:
+                sess = SLIP_SESSIONS[session_id]
+                return self._send_json(200, {
+                    "success": True,
+                    "session_id": session_id,
+                    "status": sess.get("status"),
+                    "slip_data": sess.get("slip_data"),
+                    "filename": sess.get("filename")
+                })
+            return self._send_json(404, {"success": False, "status": "not_found", "message": "Session not found"})
+
+        # 9. GET /api/slip/info
+        elif self.path.startswith('/api/slip/info'):
+            lan_ip = get_lan_ip()
+            return self._send_json(200, {
+                "success": True,
+                "lan_ip": lan_ip,
+                "port": PORT,
+                "base_url": f"http://{lan_ip}:{PORT}"
+            })
+
+        # 10. Rewrites for /upload-slip to /upload-slip.html
+        elif self.path == '/upload-slip' or self.path.startswith('/upload-slip?'):
+            self.path = '/upload-slip.html' + (('?' + self.path.split('?', 1)[1]) if '?' in self.path else '')
+            return super().do_GET()
+
         # Static files serving
         return super().do_GET()
 
 if __name__ == '__main__':
+    lan_ip = get_lan_ip()
     print("=======================================================")
     print(f"[Little Cloud Shop Server] Running on http://127.0.0.1:{PORT}")
+    print(f"[Mobile Slip Upload Access] Network LAN URL: http://{lan_ip}:{PORT}")
     print(f"[Omise PromptPay API] Endpoint: http://127.0.0.1:{PORT}/api/topup/create")
     print(f"[Omise Webhook API] Endpoint: http://127.0.0.1:{PORT}/api/webhook/omise")
     print(f"[Status Polling API] Endpoint: http://127.0.0.1:{PORT}/api/topup/status/<charge_id>")
+    print(f"[Mobile Slip Upload API] Endpoint: http://127.0.0.1:{PORT}/api/slip/session/create")
     print("=======================================================")
-    server = ThreadingHTTPServer(('127.0.0.1', PORT), LittleCloudHandler)
+    server = ThreadingHTTPServer(('0.0.0.0', PORT), LittleCloudHandler)
     server.serve_forever()

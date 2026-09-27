@@ -69,6 +69,9 @@ class TopupManager {
     this.pollingTimer = null;
     this.countdownTimer = null;
     this.secondsRemaining = 900; // 15 mins
+    this.currentSlipMode = 'qr';
+    this.mobileSlipSessionId = null;
+    this.mobileSlipPollingTimer = null;
   }
 
   async getPromptPaySettings() {
@@ -193,6 +196,10 @@ class TopupManager {
         resultBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       }
 
+      // Start Mobile Slip Upload QR Session & Real-Time Listener
+      this.resetSlipSelection();
+      this.startMobileSlipSession();
+
       // 15-Minute Countdown Timer & Local status poller
       this.startCountdownTimer(900);
       this.startStatusPolling(refId);
@@ -301,68 +308,202 @@ class TopupManager {
 
   closeQrBox() {
     this.stopStatusPolling();
+    this.stopMobileSlipPolling();
     if (this.countdownTimer) clearInterval(this.countdownTimer);
     const resultBox = document.getElementById('topup-qr-result-box');
     if (resultBox) resultBox.style.display = 'none';
   }
 
   /**
-   * Handle Instant Payment Completed Trigger (from Webhook or Polling)
+   * Convert Data URL (Base64) to HTML5 File Object
    */
-  async handlePaymentCompleted({ amount, chargeId, balanceAfter }) {
-    this.closeQrBox();
+  dataURLtoFile(dataurl, filename) {
+    const arr = dataurl.split(',');
+    const mimeMatch = arr[0].match(/:(.*?);/);
+    const mime = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+    const bstr = atob(arr[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while (n--) {
+      u8arr[n] = bstr.charCodeAt(n);
+    }
+    return new File([u8arr], filename || 'mobile_slip.jpg', { type: mime });
+  }
 
-    // Refresh User Profile & Balance across all navbar / tabs
-    if (window.authManager && typeof window.authManager.refreshCurrentProfile === 'function') {
-      try {
-        await window.authManager.refreshCurrentProfile();
-      } catch (e) {
-        console.warn('Profile refresh warning:', e);
+  /**
+   * Start Mobile QR Slip Upload Session & Poll for Image
+   */
+  async startMobileSlipSession() {
+    this.stopMobileSlipPolling();
+    this.mobileSlipSessionId = null;
+
+    try {
+      const resp = await fetch('/api/slip/session/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}'
+      });
+      if (!resp.ok) return;
+      const data = await resp.json();
+      if (!data.success) return;
+
+      this.mobileSlipSessionId = data.session_id;
+      const uploadUrl = data.upload_url;
+      const localUrl = data.local_url;
+
+      // Update QR Code Image on Desktop Screen
+      const qrImg = document.getElementById('slip-upload-qr-img');
+      const directLink = document.getElementById('slip-upload-direct-link');
+      const sessionBadge = document.getElementById('slip-qr-session-badge');
+
+      if (qrImg) {
+        qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=240x240&margin=4&data=${encodeURIComponent(uploadUrl)}`;
+        qrImg.onerror = () => {
+          qrImg.src = `https://quickchart.io/qr?size=240&text=${encodeURIComponent(uploadUrl)}`;
+        };
       }
+
+      if (directLink) {
+        directLink.href = localUrl || uploadUrl;
+      }
+
+      if (sessionBadge) {
+        sessionBadge.textContent = `#${data.session_id.substring(0, 16)}`;
+      }
+
+      // Start Polling for Mobile Upload
+      this.mobileSlipPollingTimer = setInterval(async () => {
+        if (!this.mobileSlipSessionId) {
+          this.stopMobileSlipPolling();
+          return;
+        }
+
+        try {
+          const chkResp = await fetch(`/api/slip/check/${this.mobileSlipSessionId}`);
+          if (chkResp.ok) {
+            const chkData = await chkResp.json();
+            if (chkData.success && chkData.status === 'completed' && chkData.slip_data) {
+              this.stopMobileSlipPolling();
+              this.handleMobileSlipReceived(chkData.slip_data, chkData.filename || 'mobile_slip.jpg');
+            }
+          }
+        } catch (pollErr) {}
+      }, 1800);
+
+    } catch (e) {
+      console.warn('Mobile slip session error:', e);
+    }
+  }
+
+  stopMobileSlipPolling() {
+    if (this.mobileSlipPollingTimer) {
+      clearInterval(this.mobileSlipPollingTimer);
+      this.mobileSlipPollingTimer = null;
+    }
+  }
+
+  handleMobileSlipReceived(dataUrl, filename) {
+    const file = this.dataURLtoFile(dataUrl, filename);
+    this.selectedSlipFile = file;
+
+    // Update UI elements
+    const badge = document.getElementById('topup-slip-badge');
+    const filenameLabel = document.getElementById('topup-slip-filename');
+    const previewContainer = document.getElementById('topup-slip-preview-container');
+    const previewImg = document.getElementById('topup-slip-preview');
+    const qrPanel = document.getElementById('slip-mode-qr-panel');
+    const pcPanel = document.getElementById('slip-mode-pc-panel');
+
+    if (badge) {
+      badge.textContent = '✅ แนบสลิปผ่านมือถือแล้ว';
+      badge.style.background = '#dcfce7';
+      badge.style.color = '#15803d';
     }
 
-    if (window.updateUserBalanceDisplays) {
-      window.updateUserBalanceDisplays();
+    if (filenameLabel) {
+      filenameLabel.textContent = `📱 ${filename} (${(file.size / 1024).toFixed(1)} KB)`;
+      filenameLabel.style.color = '#059669';
+      filenameLabel.style.fontWeight = '700';
     }
 
-    const currentBal = (window.authManager && window.authManager.currentUser) ? window.authManager.currentUser.balance : 0;
-    const newBal = balanceAfter !== undefined ? balanceAfter : currentBal;
+    if (previewImg && previewContainer) {
+      previewImg.src = dataUrl;
+      previewContainer.style.display = 'block';
+    }
+
+    if (qrPanel) qrPanel.style.display = 'none';
+    if (pcPanel) pcPanel.style.display = 'none';
 
     Swal.fire({
       icon: 'success',
-      title: '🎉 เติมเงินสำเร็จ!',
+      title: '🎉 ได้รับสลิปจากมือถือแล้ว!',
       html: `
-        <div style="text-align: left; background: #1a1b28; padding: 18px; border-radius: 12px; margin-top: 10px; border: 1px solid #2d2f45;">
-          <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.88rem;">
-            <span style="color: #a5a8bc;">ช่องทางชำระเงิน:</span>
-            <b style="color: #60a5fa;">PromptPay Payment Gateway</b>
-          </div>
-          <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.88rem;">
-            <span style="color: #a5a8bc;">รหัสธุรกรรม (Reference ID):</span>
-            <code style="color: #34d399; font-weight: 700; font-size: 0.82rem;">${chargeId}</code>
-          </div>
-          <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.88rem;">
-            <span style="color: #a5a8bc;">ยอดเงินที่เติม:</span>
-            <b style="color: #f472b6; font-size: 1.15rem; font-family: 'Outfit', sans-serif;">+฿ ${Number(amount).toLocaleString('th-TH', { minimumFractionDigits: 2 })}</b>
-          </div>
-          <div style="display: flex; justify-content: space-between; font-size: 1rem; border-top: 1px dashed #282a3c; padding-top: 10px; margin-top: 8px;">
-            <span style="color: #a5a8bc;">ยอดเงินคงเหลือใหม่:</span>
-            <b style="color: #34d399; font-size: 1.3rem; font-family: 'Outfit', sans-serif;">฿ ${Number(newBal).toLocaleString('th-TH', { minimumFractionDigits: 2 })}</b>
-          </div>
+        <div style="text-align: left; padding: 6px 0; color: #cbd5e1; font-size: 0.9rem;">
+          <p style="margin-bottom: 6px;">ระบบดึงภาพสลิปจากโทรศัพท์ของคุณเรียบร้อยแล้ว</p>
+          <p style="color: #34d399; font-weight: 700;">พร้อมให้คุณกด "ตรวจสอบสลิปและเพิ่มเครดิตทันที" ด้านล่างได้เลยครับ ✨</p>
         </div>
       `,
-      confirmButtonText: '<i class="fas fa-bag-shopping"></i> เข้าร้านค้าเพื่อช็อปทันที',
-      showCancelButton: true,
-      cancelButtonText: 'ปิดหน้าต่าง',
-      background: '#151622',
-      color: '#fff',
+      timer: 3500,
+      showConfirmButton: true,
+      confirmButtonText: 'ตกลง',
       confirmButtonColor: '#e11d48',
-      cancelButtonColor: '#374151'
-    }).then((r) => {
-      if (r.isConfirmed) {
-        window.navToTab('shop');
-      }
+      background: '#151622',
+      color: '#fff'
     });
+  }
+
+  resetSlipSelection() {
+    this.selectedSlipFile = null;
+    const badge = document.getElementById('topup-slip-badge');
+    const filenameLabel = document.getElementById('topup-slip-filename');
+    const previewContainer = document.getElementById('topup-slip-preview-container');
+    const fileInput = document.getElementById('topup-slip-input');
+
+    if (badge) {
+      badge.textContent = 'ยังไม่ได้แนบ';
+      badge.style.background = '#e2e8f0';
+      badge.style.color = '#475569';
+    }
+    if (filenameLabel) {
+      filenameLabel.textContent = 'ยังไม่มีรูปสลิป';
+      filenameLabel.style.color = '#64748b';
+    }
+    if (previewContainer) {
+      previewContainer.style.display = 'none';
+    }
+    if (fileInput) {
+      fileInput.value = '';
+    }
+
+    // Restore active tab panel
+    this.switchSlipUploadMode(this.currentSlipMode || 'qr');
+    if (this.currentSlipMode === 'qr') {
+      this.startMobileSlipSession();
+    }
+  }
+
+  switchSlipUploadMode(mode) {
+    this.currentSlipMode = mode;
+    const tabQr = document.getElementById('tab-slip-qr');
+    const tabPc = document.getElementById('tab-slip-pc');
+    const qrPanel = document.getElementById('slip-mode-qr-panel');
+    const pcPanel = document.getElementById('slip-mode-pc-panel');
+
+    if (mode === 'qr') {
+      if (tabQr) { tabQr.classList.add('active'); tabQr.style.background = '#e11d48'; tabQr.style.color = '#fff'; tabQr.style.borderColor = '#e11d48'; }
+      if (tabPc) { tabPc.classList.remove('active'); tabPc.style.background = '#f1f5f9'; tabPc.style.color = '#475569'; tabPc.style.borderColor = '#cbd5e1'; }
+      if (qrPanel) qrPanel.style.display = 'block';
+      if (pcPanel) pcPanel.style.display = 'none';
+      if (!this.mobileSlipSessionId) {
+        this.startMobileSlipSession();
+      }
+    } else {
+      if (tabPc) { tabPc.classList.add('active'); tabPc.style.background = '#e11d48'; tabPc.style.color = '#fff'; tabPc.style.borderColor = '#e11d48'; }
+      if (tabQr) { tabQr.classList.remove('active'); tabQr.style.background = '#f1f5f9'; tabQr.style.color = '#475569'; tabQr.style.borderColor = '#cbd5e1'; }
+      if (qrPanel) qrPanel.style.display = 'none';
+      if (pcPanel) pcPanel.style.display = 'block';
+      this.stopMobileSlipPolling();
+    }
   }
 
   handleSlipSelected(input) {
@@ -372,25 +513,21 @@ class TopupManager {
 
       const filenameLabel = document.getElementById('topup-slip-filename');
       const badge = document.getElementById('topup-slip-badge');
-      const dropzone = document.getElementById('topup-slip-dropzone');
       const previewContainer = document.getElementById('topup-slip-preview-container');
       const previewImg = document.getElementById('topup-slip-preview');
+      const qrPanel = document.getElementById('slip-mode-qr-panel');
+      const pcPanel = document.getElementById('slip-mode-pc-panel');
 
       if (filenameLabel) {
-        filenameLabel.textContent = `📎 ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+        filenameLabel.textContent = `💻 ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
         filenameLabel.style.color = '#059669';
-        filenameLabel.style.fontWeight = '600';
+        filenameLabel.style.fontWeight = '700';
       }
 
       if (badge) {
         badge.textContent = '✅ แนบสลิปแล้ว';
         badge.style.background = '#dcfce7';
         badge.style.color = '#15803d';
-      }
-
-      if (dropzone) {
-        dropzone.style.borderColor = '#10b981';
-        dropzone.style.background = '#f0fdf4';
       }
 
       if (previewContainer && previewImg) {
@@ -401,6 +538,9 @@ class TopupManager {
         };
         reader.readAsDataURL(file);
       }
+
+      if (qrPanel) qrPanel.style.display = 'none';
+      if (pcPanel) pcPanel.style.display = 'none';
     }
   }
 
@@ -458,10 +598,8 @@ class TopupManager {
         confirmButtonText: 'ไปแนบรูปสลิปโอนเงิน'
       });
 
-      const dropzone = document.getElementById('topup-slip-dropzone');
+      const dropzone = document.getElementById('slip-mode-qr-panel') || document.getElementById('slip-mode-pc-panel');
       if (dropzone) {
-        dropzone.style.borderColor = '#ef4444';
-        dropzone.style.background = '#fff1f2';
         dropzone.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
       return;

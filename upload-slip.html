@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>อัพโหลดสลิปผ่านมือถือ · Little Cloud Shop</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      font-family: 'Prompt', 'Outfit', sans-serif;
+      background: #0c0d14;
+      color: #f1f5f9;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 20px 16px;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    /* Ambient background glows */
+    body::before {
+      content: '';
+      position: fixed;
+      top: -100px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 320px;
+      height: 320px;
+      background: radial-gradient(circle, rgba(225, 29, 72, 0.25) 0%, rgba(12, 13, 20, 0) 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 440px;
+      z-index: 1;
+      margin: 0 auto;
+    }
+
+    /* Header */
+    .header {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .logo-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 52px;
+      height: 52px;
+      background: linear-gradient(135deg, #e11d48 0%, #fb7185 100%);
+      border-radius: 16px;
+      color: #fff;
+      font-size: 1.5rem;
+      box-shadow: 0 10px 25px rgba(225, 29, 72, 0.45);
+      margin-bottom: 12px;
+    }
+
+    .brand-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.4rem;
+      font-weight: 800;
+      color: #fff;
+      letter-spacing: -0.5px;
+    }
+
+    .brand-sub {
+      font-size: 0.82rem;
+      color: #94a3b8;
+      margin-top: 4px;
+    }
+
+    /* Session Tag */
+    .session-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #181926;
+      border: 1px solid #2d3045;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      color: #38bdf8;
+      margin-top: 8px;
+      font-family: monospace;
+      font-weight: 700;
+    }
+
+    /* Card */
+    .card {
+      background: #13141f;
+      border: 1px solid #282a3d;
+      border-radius: 22px;
+      padding: 24px 20px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+    }
+
+    /* Upload Area */
+    .upload-area {
+      border: 2px dashed #3b3e58;
+      border-radius: 18px;
+      padding: 28px 16px;
+      text-align: center;
+      background: #171826;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      position: relative;
+    }
+
+    .upload-area:active {
+      transform: scale(0.98);
+      border-color: #e11d48;
+      background: rgba(225, 29, 72, 0.08);
+    }
+
+    .upload-icon-circle {
+      width: 68px;
+      height: 68px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, rgba(225, 29, 72, 0.2) 0%, rgba(225, 29, 72, 0.05) 100%);
+      border: 1px solid rgba(225, 29, 72, 0.35);
+      color: #f472b6;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.8rem;
+      margin: 0 auto 14px;
+    }
+
+    .upload-title {
+      font-size: 1rem;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 6px;
+    }
+
+    .upload-sub {
+      font-size: 0.8rem;
+      color: #94a3b8;
+      line-height: 1.5;
+    }
+
+    .upload-btn-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #e11d48;
+      color: #fff;
+      font-size: 0.82rem;
+      font-weight: 700;
+      padding: 8px 18px;
+      border-radius: 25px;
+      margin-top: 14px;
+      box-shadow: 0 4px 12px rgba(225, 29, 72, 0.35);
+    }
+
+    /* Preview State */
+    .preview-box {
+      display: none;
+      text-align: center;
+    }
+
+    .preview-img {
+      max-width: 100%;
+      max-height: 280px;
+      border-radius: 14px;
+      border: 2px solid #2d3045;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+      object-fit: contain;
+      background: #0b0c13;
+    }
+
+    .file-meta-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 10px;
+      padding: 8px 12px;
+      background: #171826;
+      border-radius: 10px;
+      font-size: 0.78rem;
+      color: #cbd5e1;
+    }
+
+    .btn-change-photo {
+      background: transparent;
+      border: 1px solid #475569;
+      color: #94a3b8;
+      padding: 5px 12px;
+      border-radius: 8px;
+      font-size: 0.75rem;
+      cursor: pointer;
+    }
+
+    /* Submit Button */
+    .btn-submit {
+      width: 100%;
+      background: linear-gradient(135deg, #e11d48 0%, #be123c 100%);
+      color: #ffffff;
+      border: none;
+      border-radius: 14px;
+      padding: 16px;
+      font-size: 1rem;
+      font-weight: 800;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      box-shadow: 0 10px 25px rgba(225, 29, 72, 0.4);
+      margin-top: 18px;
+      transition: all 0.2s ease;
+    }
+
+    .btn-submit:active {
+      transform: scale(0.98);
+      box-shadow: 0 4px 12px rgba(225, 29, 72, 0.5);
+    }
+
+    .btn-submit:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    /* Success View */
+    .success-box {
+      display: none;
+      text-align: center;
+      padding: 24px 10px;
+    }
+
+    .success-icon-wrap {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      background: rgba(16, 185, 129, 0.15);
+      border: 2px solid #10b981;
+      color: #34d399;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2.2rem;
+      margin: 0 auto 16px;
+      box-shadow: 0 0 30px rgba(16, 185, 129, 0.35);
+      animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    @keyframes popIn {
+      from { transform: scale(0.5); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+
+    .success-title {
+      font-size: 1.25rem;
+      font-weight: 800;
+      color: #34d399;
+      margin-bottom: 8px;
+    }
+
+    .success-desc {
+      font-size: 0.85rem;
+      color: #94a3b8;
+      line-height: 1.6;
+    }
+
+    .notice-card {
+      margin-top: 16px;
+      background: #171826;
+      border: 1px solid #282a3d;
+      border-radius: 12px;
+      padding: 12px 14px;
+      font-size: 0.78rem;
+      color: #a5a8bc;
+      text-align: left;
+    }
+
+    /* Hidden file input */
+    #slip-file-input {
+      display: none;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <div class="logo-badge">
+        <i class="fas fa-cloud"></i>
+      </div>
+      <h1 class="brand-title">Little Cloud Shop</h1>
+      <p class="brand-sub">ระบบอัพโหลดสลิปโอนเงินผ่านมือถือ</p>
+      <div class="session-badge" id="session-badge-wrap">
+        <i class="fas fa-link"></i> <span id="session-display">กำลังตรวจสอบ...</span>
+      </div>
+    </div>
+
+    <!-- Main Card -->
+    <div class="card" id="main-card">
+      
+      <!-- Upload Step -->
+      <div id="upload-step-view">
+        <div class="upload-area" id="dropzone" onclick="document.getElementById('slip-file-input').click()">
+          <div class="upload-icon-circle">
+            <i class="fas fa-camera"></i>
+          </div>
+          <div class="upload-title">ถ่ายภาพสลิป หรือเลือกจากอัลบั้ม</div>
+          <div class="upload-sub">
+            แตะที่นี่เพื่อเลือกภาพถ่ายสลิปจากแอปธนาคาร<br>รองรับไฟล์ JPG, PNG, WEBP
+          </div>
+          <div class="upload-btn-chip">
+            <i class="fas fa-image"></i> เลือกรูปภาพสลิป
+          </div>
+        </div>
+
+        <input type="file" id="slip-file-input" accept="image/*" onchange="handleFilePicked(this)">
+
+        <!-- Preview Box (Appears after file selected) -->
+        <div class="preview-box" id="preview-box">
+          <img id="preview-img" class="preview-img" src="" alt="สลิปที่เลือก">
+          <div class="file-meta-row">
+            <span id="file-name-text">slip.jpg</span>
+            <button type="button" class="btn-change-photo" onclick="document.getElementById('slip-file-input').click()">
+              <i class="fas fa-rotate"></i> เปลี่ยนรูป
+            </button>
+          </div>
+        </div>
+
+        <!-- Submit Button -->
+        <button type="button" class="btn-submit" id="btn-submit-slip" onclick="submitSlipToPC()" disabled>
+          <i class="fas fa-paper-plane"></i> ส่งสลิปไปยังหน้าจอคอมพิวเตอร์
+        </button>
+
+        <div class="notice-card">
+          <div style="font-weight: 700; color: #fff; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
+            <i class="fas fa-shield-halved" style="color: #f472b6;"></i> คำแนะนำการส่งสลิป:
+          </div>
+          รูปภาพต้องเป็นสลิปโอนเงินจริงของธนาคารที่มี QR Code ชัดเจน ระบบบนคอมพิวเตอร์จะตรวจสอบความถูกต้องให้อัตโนมัติ
+        </div>
+      </div>
+
+      <!-- Success Step -->
+      <div class="success-box" id="success-step-view">
+        <div class="success-icon-wrap">
+          <i class="fas fa-check"></i>
+        </div>
+        <h2 class="success-title">ส่งสลิปเรียบร้อยแล้ว!</h2>
+        <p class="success-desc">
+          รูปสลิปของคุณถูกส่งไปยังหน้าจอคอมพิวเตอร์เรียบร้อยแล้ว
+        </p>
+
+        <div style="margin: 20px 0; background: #171826; border: 1px solid #10b981; border-radius: 14px; padding: 14px; text-align: left;">
+          <div style="color: #34d399; font-weight: 700; font-size: 0.9rem; margin-bottom: 4px;">
+            <i class="fas fa-desktop"></i> ขั้นตอนถัดไปบนคอมพิวเตอร์:
+          </div>
+          <div style="font-size: 0.82rem; color: #cbd5e1; line-height: 1.6;">
+            กลับไปที่หน้าจอคอมพิวเตอร์ แล้วกดปุ่ม <b>"ตรวจสอบสลิปและเพิ่มเครดิตทันที"</b> เพื่อรับพอยท์เข้าบัญชีของคุณได้เลยครับ 🎉
+          </div>
+        </div>
+
+        <button type="button" class="btn-submit" style="background: #1e202e; border: 1px solid #33364d; color: #94a3b8; box-shadow: none;" onclick="window.close()">
+          ปิดหน้านี้
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    // Get Session ID from URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const sessionId = urlParams.get('session') || '';
+    let selectedImageBase64 = null;
+    let selectedFileName = 'slip.jpg';
+
+    const sessionDisplay = document.getElementById('session-display');
+    if (sessionId) {
+      sessionDisplay.textContent = `SESSION: ${sessionId.substring(0, 16)}...`;
+    } else {
+      sessionDisplay.textContent = '❌ ไม่พบรหัส Session กรุณาสแกน QR ใหม่อีกครั้ง';
+      sessionDisplay.style.color = '#ef4444';
+      document.getElementById('dropzone').style.opacity = '0.5';
+      document.getElementById('dropzone').style.pointerEvents = 'none';
+    }
+
+    function handleFilePicked(input) {
+      if (!input.files || !input.files[0]) return;
+      const file = input.files[0];
+      selectedFileName = file.name || 'slip.jpg';
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const rawData = e.target.result;
+        // Compress & scale to ensure fast transmission
+        compressImage(rawData, 1200, 0.88, function(compressedData) {
+          selectedImageBase64 = compressedData;
+
+          // Update UI
+          document.getElementById('dropzone').style.display = 'none';
+          document.getElementById('preview-box').style.display = 'block';
+          document.getElementById('preview-img').src = compressedData;
+          document.getElementById('file-name-text').textContent = `📎 ${selectedFileName} (${(compressedData.length * 0.75 / 1024).toFixed(0)} KB)`;
+
+          const submitBtn = document.getElementById('btn-submit-slip');
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> ยืนยันส่งสลิปไปยังคอมพิวเตอร์';
+        });
+      };
+      reader.readAsDataURL(file);
+    }
+
+    // Client-side image compression
+    function compressImage(base64Str, maxSide, quality, callback) {
+      const img = new Image();
+      img.onload = function() {
+        let w = img.width;
+        let h = img.height;
+        if (w > maxSide || h > maxSide) {
+          if (w > h) {
+            h = Math.round((h * maxSide) / w);
+            w = maxSide;
+          } else {
+            w = Math.round((w * maxSide) / h);
+            h = maxSide;
+          }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        callback(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.src = base64Str;
+    }
+
+    async function submitSlipToPC() {
+      if (!sessionId) {
+        alert('ไม่พบรหัส Session กรุณาสแกน QR ใหม่อีกครั้ง');
+        return;
+      }
+      if (!selectedImageBase64) {
+        alert('กรุณาเลือกรูปภาพสลิปก่อนกดส่ง');
+        return;
+      }
+
+      const submitBtn = document.getElementById('btn-submit-slip');
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> กำลังส่งสลิปไปยังคอมพิวเตอร์...';
+
+      try {
+        const response = await fetch('/api/slip/upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            session_id: sessionId,
+            image_data: selectedImageBase64,
+            filename: selectedFileName
+          })
+        });
+
+        const data = await response.json();
+        if (response.ok && data.success) {
+          // Show Success View
+          document.getElementById('upload-step-view').style.display = 'none';
+          document.getElementById('success-step-view').style.display = 'block';
+        } else {
+          alert(data.message || 'ส่งสลิปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง');
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> ลองใหม่อีกครั้ง';
+        }
+      } catch (err) {
+        console.error(err);
+        alert('เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์ กรุณาตรวจสอบว่าต่อ Wi-Fi เดียวกัน');
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> ลองใหม่อีกครั้ง';
+      }
+    }
+  </script>
+
+</body>
+
+</html>
