@@ -362,14 +362,30 @@ class SupabaseManager {
           query = query.order('created_at', { ascending: false });
         }
         const { data, error } = await query;
-        if (!error && data) {
+        if (error) {
+          console.error(`Supabase Fetch Error (${tableName}):`, error.message);
+          if (error.message.includes('relation') && error.message.includes('does not exist')) {
+            if (typeof Swal !== 'undefined') {
+              Swal.fire({
+                toast: true,
+                position: 'top-end',
+                icon: 'error',
+                title: `ยังไม่ได้สร้างตาราง ${tableName} ใน Supabase!`,
+                showConfirmButton: false,
+                timer: 5000,
+                background: '#1e1b4b',
+                color: '#fff'
+              });
+            }
+          }
+          return [];
+        }
+        if (data) {
           return data;
         }
-        const fallback = await this.client.from(tableName).select('*');
-        if (!fallback.error && fallback.data) {
-          return fallback.data;
-        }
-      } catch (e) { }
+      } catch (e) {
+        console.error(`Supabase Exception (${tableName}):`, e);
+      }
     }
     return [];
   }
