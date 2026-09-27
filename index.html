@@ -37,9 +37,6 @@
         เงินเข้ากระเป๋าทันที</span>
     </div>
     <div style="display: flex; align-items: center; gap: 10px;">
-      <button type="button" class="btn-top-supabase" onclick="window.openSupabaseConfigModal()">
-        <i class="fas fa-database"></i> <span>เชื่อมต่อ Supabase</span>
-      </button>
       <span style="font-size: 0.75rem; color: #717388;"><i class="fas fa-signal"></i> 24H ONLINE</span>
     </div>
   </div>
@@ -87,11 +84,6 @@
       <!-- Right Nav Controls (Cart, Balance, User Avatar) -->
       <div class="nav-right-group">
 
-        <!-- Supabase Connect Button -->
-        <button class="btn-icon-circle btn-nav-supabase" onclick="window.openSupabaseConfigModal()" title="เชื่อมต่อ / ตั้งค่า Supabase Database">
-          <i class="fas fa-database"></i>
-        </button>
-
         <!-- Cart Button -->
         <button class="btn-icon-circle" onclick="window.openCartDrawer()" title="ตะกร้าสินค้า">
           <i class="fas fa-shopping-cart"></i>
@@ -130,61 +122,6 @@
        PAGE 1: หน้าแรก (HOME VIEW - Images 1 & 2)
        ======================================================================== -->
   <main id="view-home" class="container page-view-section">
-
-    <!-- ====================================================================
-         DIRECT SUPABASE CONNECTION BAR (Direct On-Page Inputs)
-         ==================================================================== -->
-    <section class="supabase-direct-panel" id="supabase-direct-panel"
-      style="background: linear-gradient(135deg, #13141f, #181a28); border: 1px solid #2d3045; border-radius: 16px; padding: 20px 24px; margin-bottom: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.5), 0 0 20px rgba(16, 185, 129, 0.1);">
-      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; border-bottom: 1px solid #232536; padding-bottom: 12px;">
-        <div style="display: flex; align-items: center; gap: 12px;">
-          <div style="width: 38px; height: 38px; border-radius: 10px; background: rgba(16, 185, 129, 0.15); display: flex; align-items: center; justify-content: center; color: #34d399; font-size: 1.2rem;">
-            <i class="fas fa-database"></i>
-          </div>
-          <div>
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <h3 style="color: #34d399; font-size: 1.15rem; font-weight: 800; margin: 0;">⚡ ช่องเชื่อมต่อ Supabase Database</h3>
-              <span id="direct-supa-badge" style="background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4); padding: 2px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 700;">
-                <i class="fas fa-circle-check"></i> พร้อมใช้งาน
-              </span>
-            </div>
-            <p style="font-size: 0.8rem; color: #94a3b8; margin: 2px 0 0 0;">กรอกหรือแก้ไข URL และ Key ที่นี่ได้โดยตรง แล้วกดปุ่มเขียวเพื่อเชื่อมต่อทันที</p>
-          </div>
-        </div>
-        <div>
-          <button type="button" onclick="window.restoreDirectSupabaseConfig()" 
-            style="background: #1a1b28; border: 1px solid #33364d; color: #cbd5e1; border-radius: 8px; padding: 6px 14px; font-size: 0.8rem; font-weight: 600; cursor: pointer;">
-            <i class="fas fa-rotate-left"></i> คืนค่าเริ่มต้น
-          </button>
-        </div>
-      </div>
-
-      <form onsubmit="window.handleDirectSaveSupabase(event)" style="display: grid; grid-template-columns: 1fr 1.3fr auto; gap: 12px; align-items: end;">
-        <div>
-          <label style="display: block; font-size: 0.82rem; color: #e2e8f0; font-weight: 600; margin-bottom: 6px;">
-            Supabase Project URL / ID:
-          </label>
-          <input type="text" id="direct-supa-url" placeholder="https://hwzdowxjxtdhcgiylnbo.supabase.co" required
-            style="background: #0f1017; border: 1px solid #2d3045; border-radius: 10px; padding: 10px 14px; width: 100%; color: #fff; font-family: monospace; font-size: 0.85rem;">
-        </div>
-
-        <div>
-          <label style="display: block; font-size: 0.82rem; color: #e2e8f0; font-weight: 600; margin-bottom: 6px;">
-            Supabase Public Anon Key:
-          </label>
-          <input type="text" id="direct-supa-key" placeholder="sb_publishable_... หรือ eyJhbGciOi..." required
-            style="background: #0f1017; border: 1px solid #2d3045; border-radius: 10px; padding: 10px 14px; width: 100%; color: #fff; font-family: monospace; font-size: 0.85rem;">
-        </div>
-
-        <div>
-          <button type="submit" 
-            style="background: linear-gradient(135deg, #10b981, #059669); color: #fff; border: none; border-radius: 10px; padding: 10px 20px; font-weight: 700; font-size: 0.88rem; cursor: pointer; display: flex; align-items: center; gap: 8px; white-space: nowrap; height: 42px;">
-            <i class="fas fa-plug"></i> เชื่อมต่อ Supabase
-          </button>
-        </div>
-      </form>
-      <div id="direct-supa-msg" style="margin-top: 10px; font-size: 0.82rem; color: #34d399; font-weight: 600; display: none;"></div>
-    </section>
 
     <!-- Hero Section (Two Columns) -->
     <section class="hero-two-col">
@@ -1119,11 +1056,6 @@
     </div>
   </div>
 
-  <!-- Floating Supabase Quick Connect Button -->
-  <button type="button" class="floating-supabase-btn" onclick="window.openSupabaseConfigModal()" title="เชื่อมต่อ / ตั้งค่า Supabase Database">
-    <i class="fas fa-database"></i>
-    <span>เชื่อมต่อ Supabase</span>
-  </button>
 
   <!-- Scripts -->
   <script src="js/auth.js?v=6.0"></script>
