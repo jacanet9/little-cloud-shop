@@ -411,7 +411,6 @@ class ShopManager {
         const deliveryCodeStr = deliveryKeys.join(' | ');
 
         const newOrder = {
-          id: orderRef,
           user_id: user.id,
           username: user.username,
           product_id: product.id,
@@ -421,18 +420,24 @@ class ShopManager {
           delivery_code: deliveryCodeStr,
           status: 'completed'
         };
-        await window.supabaseManager.insertRecord('orders', newOrder);
+        const createdOrder = await window.supabaseManager.insertRecord('orders', newOrder);
+        const displayOrderId = (createdOrder && createdOrder.id) ? createdOrder.id : orderRef;
 
         this.renderProducts();
         window.updateUserBalanceDisplays();
         if (window.ordersManager) window.ordersManager.loadProfileOrders();
+
+        // Automatically open live customer chat with admin immediately upon purchase
+        if (window.chatManager) {
+          window.chatManager.openChatForOrder(displayOrderId, product.name, deliveryCodeStr);
+        }
 
         Swal.fire({
           icon: 'success',
           title: '🎉 สั่งซื้อสำเร็จ!',
           html: `
             <div style="text-align: left; background: #1a1b28; padding: 14px; border-radius: 12px; margin-top: 10px; border: 1px solid #2d2f45;">
-              <p style="color: #a5a8bc; font-size: 0.85rem;">รหัสออเดอร์: <code style="color: #34d399;">${orderRef}</code></p>
+              <p style="color: #a5a8bc; font-size: 0.85rem;">รหัสออเดอร์: <code style="color: #34d399;">${displayOrderId}</code></p>
               <p style="color: #a5a8bc; font-size: 0.85rem; margin-top: 2px;">สินค้า: <b style="color: #fff;">${product.name}</b></p>
               <p style="color: #a5a8bc; font-size: 0.85rem; margin-top: 2px;">จำนวน: <b style="color: #f472b6;">${quantity.toLocaleString('th-TH')} ชิ้น</b></p>
               <p style="color: #a5a8bc; font-size: 0.85rem; margin-top: 2px;">ยอดชำระทั้งหมด: <b style="color: #f472b6;">${totalPrice.toLocaleString('th-TH')} บาท</b></p>
@@ -443,12 +448,17 @@ class ShopManager {
                   ${deliveryCodeStr}
                 </div>
               </div>
+              <div style="margin-top: 14px;">
+                <button type="button" class="btn-pink" style="width: 100%; padding: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 0.92rem;" onclick="window.chatManager && window.chatManager.openChatForOrder('${displayOrderId}', '${product.name.replace(/'/g, "\\'")}', '${deliveryCodeStr.replace(/'/g, "\\'")}'); Swal.close();">
+                  <i class="fas fa-comments"></i> เปิดหน้าต่างแชทกับแอดมินทันที
+                </button>
+              </div>
             </div>
           `,
-          confirmButtonText: 'ปิดหน้าต่าง',
+          confirmButtonText: 'ตกลง',
           background: '#151622',
           color: '#fff',
-          confirmButtonColor: '#e11d48'
+          confirmButtonColor: '#2b2d42'
         });
       } catch (err) {
         Swal.fire({ icon: 'error', title: 'การสั่งซื้อขัดข้อง', text: err.message, background: '#151622', color: '#fff' });

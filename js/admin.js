@@ -26,6 +26,7 @@ class AdminManager {
         if (btn.dataset.pane === 'pane-admin-orders') this.renderAdminOrdersTable();
         if (btn.dataset.pane === 'pane-admin-topups') this.renderAdminTopupsTable();
         if (btn.dataset.pane === 'pane-admin-reconciliation') this.renderReconciliationDashboard();
+        if (btn.dataset.pane === 'pane-admin-chat' && window.chatManager) window.chatManager.renderAdminChatPane();
       });
     });
 

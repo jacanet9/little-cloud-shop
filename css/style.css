@@ -1020,31 +1020,125 @@ body {
 
 .floating-supabase-btn {
   position: fixed;
-  bottom: 24px;
+  bottom: 84px;
   right: 24px;
   background: linear-gradient(135deg, #059669 0%, #10b981 100%);
   color: #ffffff;
   border: 1px solid rgba(255, 255, 255, 0.25);
   border-radius: 30px;
-  padding: 10px 18px;
-  font-size: 0.85rem;
+  padding: 8px 16px;
+  font-size: 0.8rem;
   font-weight: 700;
   display: flex;
   align-items: center;
   gap: 8px;
-  box-shadow: 0 8px 24px rgba(16, 185, 129, 0.4), 0 0 16px rgba(16, 185, 129, 0.25);
+  box-shadow: 0 8px 24px rgba(16, 185, 129, 0.4);
+  cursor: pointer;
+  z-index: 9998;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.floating-supabase-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 30px rgba(16, 185, 129, 0.6);
+}
+
+.floating-supabase-btn i {
+  font-size: 0.95rem;
+}
+
+/* ==========================================================================
+   LIVE ORDER CHAT WIDGET (Customer <-> Admin)
+   ========================================================================== */
+
+.floating-chat-trigger {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background: linear-gradient(135deg, #e11d48 0%, #be123c 100%);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 30px;
+  padding: 10px 20px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 0 8px 25px rgba(225, 29, 72, 0.45);
   cursor: pointer;
   z-index: 9999;
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.floating-supabase-btn:hover {
-  transform: translateY(-3px) scale(1.03);
-  box-shadow: 0 12px 30px rgba(16, 185, 129, 0.6), 0 0 22px rgba(52, 211, 153, 0.4);
+.floating-chat-trigger:hover {
+  transform: translateY(-3px) scale(1.02);
+  box-shadow: 0 12px 30px rgba(225, 29, 72, 0.6);
 }
 
-.floating-supabase-btn i {
-  font-size: 1rem;
+.chat-widget-window {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 400px;
+  height: 580px;
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 48px);
+  background: #13141f;
+  border: 1px solid #282a3d;
+  border-radius: 20px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7), 0 0 30px rgba(225, 29, 72, 0.15);
+  display: none;
+  flex-direction: column;
+  z-index: 10002;
+  overflow: hidden;
+  animation: chatSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes chatSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.chat-widget-header {
+  background: #0f1018;
+  border-bottom: 1px solid #232535;
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.chat-quick-pill-item {
+  background: #1c1d2b;
+  border: 1px solid #2e3046;
+  color: #cbd5e1;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 0.74rem;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.chat-quick-pill-item:hover {
+  background: rgba(225, 29, 72, 0.2);
+  border-color: #e11d48;
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+.admin-chat-thread-item:hover,
+.admin-chat-thread-item.active {
+  background: #1a1c2a !important;
+  border-left: 3px solid #e11d48;
 }
 
 

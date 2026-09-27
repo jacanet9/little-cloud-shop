@@ -94,6 +94,24 @@ def call_omise_charge(amount_satang, user_id, username):
 # In-memory transaction cache
 MEM_TRANSACTIONS = {}
 
+CHAT_FILE = 'chat_history.json'
+
+def load_chat_history():
+    if os.path.exists(CHAT_FILE):
+        try:
+            with open(CHAT_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception:
+            return []
+    return []
+
+def save_chat_history(chats):
+    try:
+        with open(CHAT_FILE, 'w', encoding='utf-8') as f:
+            json.dump(chats, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        print(f"[Chat Save Warning] {e}")
+
 class LittleCloudHandler(SimpleHTTPRequestHandler):
     def _send_json(self, status_code, data):
         response_bytes = json.dumps(data).encode('utf-8')
@@ -218,12 +236,83 @@ class LittleCloudHandler(SimpleHTTPRequestHandler):
 
             return self._send_json(200, {"success": True, "message": "Webhook processed"})
 
+        # 3. POST /api/chat/send
+        elif self.path == '/api/chat/send':
+            msg_id = f"msg_{int(time.time()*1000)}_{int(time.time())%1000}"
+            order_id = body.get('order_id', 'general')
+            user_id = body.get('user_id', '')
+            username = body.get('username', 'Customer')
+            sender_role = body.get('sender_role', 'customer')
+            text = body.get('message', '').strip()
+            attachment = body.get('attachment', '')
+            product_name = body.get('product_name', '')
+            delivery_code = body.get('delivery_code', '')
+
+            if not text and not attachment:
+                return self._send_json(400, {"success": False, "message": "Message or attachment is required"})
+
+            msg_obj = {
+                "id": msg_id,
+                "order_id": order_id,
+                "user_id": user_id,
+                "username": username,
+                "sender_role": sender_role,
+                "message": text,
+                "attachment": attachment,
+                "product_name": product_name,
+                "delivery_code": delivery_code,
+                "created_at": datetime.now(timezone.utc).isoformat()
+            }
+
+            chats = load_chat_history()
+            chats.append(msg_obj)
+            save_chat_history(chats)
+
+            return self._send_json(200, {"success": True, "message": msg_obj})
+
         else:
             return self._send_json(404, {"error": "Endpoint not found"})
 
     def do_GET(self):
-        # 3. GET /api/topup/status/<charge_id>
-        if self.path.startswith('/api/topup/status/'):
+        # 4. GET /api/chat/messages
+        if self.path.startswith('/api/chat/messages'):
+            parsed = urllib.parse.urlparse(self.path)
+            qs = urllib.parse.parse_qs(parsed.query)
+            order_id = qs.get('order_id', [None])[0]
+            username = qs.get('username', [None])[0]
+
+            chats = load_chat_history()
+            if order_id and order_id != 'all':
+                chats = [c for c in chats if c.get('order_id') == order_id]
+            elif username and username != 'all':
+                chats = [c for c in chats if c.get('username', '').lower() == username.lower()]
+
+            return self._send_json(200, {"success": True, "messages": chats})
+
+        # 5. GET /api/chat/threads
+        elif self.path == '/api/chat/threads':
+            chats = load_chat_history()
+            threads = {}
+            for c in chats:
+                key = c.get('order_id') or c.get('username') or 'general'
+                if key not in threads:
+                    threads[key] = {
+                        "order_id": c.get('order_id'),
+                        "username": c.get('username'),
+                        "product_name": c.get('product_name'),
+                        "delivery_code": c.get('delivery_code'),
+                        "last_message": c.get('message') or '[รูปภาพ]',
+                        "last_time": c.get('created_at'),
+                        "count": 0
+                    }
+                threads[key]["last_message"] = c.get('message') or '[รูปภาพ]'
+                threads[key]["last_time"] = c.get('created_at')
+                threads[key]["count"] += 1
+
+            return self._send_json(200, {"success": True, "threads": list(threads.values())})
+
+        # 6. GET /api/topup/status/<charge_id>
+        elif self.path.startswith('/api/topup/status/'):
             charge_id = self.path.replace('/api/topup/status/', '').split('?')[0].strip()
             
             # Check DB

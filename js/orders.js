@@ -53,6 +53,11 @@ class OrdersManager {
             ${o.delivery_code || 'จัดส่งเรียบร้อยแล้ว'}
           </div>
         </div>
+        <div style="display: flex; justify-content: flex-end; margin-top: 4px;">
+          <button type="button" class="btn-outline-dark" style="padding: 5px 12px; font-size: 0.76rem; display: flex; align-items: center; gap: 6px;" onclick="window.chatManager && window.chatManager.openChatForOrder('${o.id}', '${(o.product_name || '').replace(/'/g, "\\'")}', '${(o.delivery_code || '').replace(/'/g, "\\'")}');">
+            <i class="fas fa-comments" style="color: #f472b6;"></i> แชทกับแอดมินสำหรับออเดอร์นี้
+          </button>
+        </div>
       </div>
     `).join('');
   }
