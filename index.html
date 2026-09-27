@@ -132,8 +132,7 @@
           <span>ปลอดภัย 100%</span>
         </h1>
         <p class="hero-subtext" id="hero-subtext-desc">
-          Little Cloud Shop คือศูนย์รวมบริการ FiveM สวมบทบาทภาษาไทย เล่นฟรี มีงาน มีบ้าน มีรถ
-          ของในร้านเป็นของเสริมความสนุก ไม่ใช่ตัวตัดสินว่าใครเก่ง
+          Little Cloud Shop คือศูนย์รวมบริการและสินค้าต่างๆ ที่รวบรวมไว้ในที่เดียว
         </p>
         <button class="btn-pink" style="padding: 14px 28px; font-size: 1.05rem;" onclick="window.navToTab('shop')">
           <i class="fas fa-bag-shopping"></i> เข้าร้านค้า
@@ -151,7 +150,7 @@
             <i class="fas fa-bolt"></i>
           </div>
           <div class="hero-feature-text">
-            <b>ของทุกชิ้นเข้าตัวละครทันทีหลังกดซื้อ</b>
+            <b>แอดมินออนไลน์ 24 ชม.</b>
             <span>นัดรับสินค้าในเกมส์</span>
           </div>
         </div>
@@ -160,7 +159,8 @@
 
     <!-- Featured Products Showcase on Home Page -->
     <section class="home-featured-section" style="margin: 40px 0;">
-      <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
+      <div
+        style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
         <div>
           <span class="hero-tag-pill" style="font-size: 0.75rem; margin-bottom: 6px;">FEATURED PRODUCTS</span>
           <h2 style="font-size: 1.7rem; font-weight: 800; color: #fff; margin: 4px 0;">🔥 สินค้ายอดนิยมในร้าน</h2>
@@ -328,22 +328,28 @@
         <!-- QR Display Section (Shown after generating) -->
         <div id="topup-qr-result-box"
           style="display: none; margin-top: 20px; background: #ffffff; border-radius: 20px; overflow: hidden; box-shadow: 0 15px 35px rgba(0,0,0,0.5); color: #1e293b;">
-          
+
           <!-- Official PromptPay Header Banner -->
           <div style="background: #003b71; padding: 16px 20px; text-align: center; color: #ffffff;">
-            <div style="display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 800; font-size: 1.15rem; letter-spacing: 0.5px;">
-              <span style="background: #ffffff; color: #003b71; padding: 2px 8px; border-radius: 4px; font-size: 0.85rem; font-weight: 900;">THAI QR</span>
+            <div
+              style="display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 800; font-size: 1.15rem; letter-spacing: 0.5px;">
+              <span
+                style="background: #ffffff; color: #003b71; padding: 2px 8px; border-radius: 4px; font-size: 0.85rem; font-weight: 900;">THAI
+                QR</span>
               <span>PROMPTPAY · พร้อมเพย์</span>
             </div>
-            <div style="font-size: 0.78rem; opacity: 0.9; margin-top: 3px;">สแกนได้จริงทุกแอปธนาคารไทย (K PLUS, SCB Easy, Krungthai NEXT ฯลฯ)</div>
+            <div style="font-size: 0.78rem; opacity: 0.9; margin-top: 3px;">สแกนได้จริงทุกแอปธนาคารไทย (K PLUS, SCB
+              Easy, Krungthai NEXT ฯลฯ)</div>
           </div>
 
           <!-- Card Content Body -->
           <div style="padding: 20px 24px; text-align: center;">
-            
+
             <!-- Live Expiry Countdown & Reference ID -->
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; font-size: 0.8rem;">
-              <div style="background: #fef2f2; border: 1px solid #fecaca; color: #dc2626; padding: 4px 10px; border-radius: 20px; font-weight: 700; display: flex; align-items: center; gap: 6px;">
+            <div
+              style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; font-size: 0.8rem;">
+              <div
+                style="background: #fef2f2; border: 1px solid #fecaca; color: #dc2626; padding: 4px 10px; border-radius: 20px; font-weight: 700; display: flex; align-items: center; gap: 6px;">
                 <i class="fas fa-stopwatch fa-spin" style="--fa-animation-duration: 4s;"></i>
                 <span>หมดอายุใน: <b id="topup-countdown-timer">15:00</b></span>
               </div>
@@ -353,14 +359,18 @@
             </div>
 
             <!-- Receiver & Account Info -->
-            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px 14px; margin-bottom: 14px; text-align: left;">
-              <div style="display: flex; justify-content: space-between; font-size: 0.84rem; color: #64748b; margin-bottom: 4px;">
+            <div
+              style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px 14px; margin-bottom: 14px; text-align: left;">
+              <div
+                style="display: flex; justify-content: space-between; font-size: 0.84rem; color: #64748b; margin-bottom: 4px;">
                 <span>ชื่อบัญชีผู้รับ:</span>
                 <b style="color: #0f172a; font-size: 0.9rem;" id="topup-qr-receiver-name">Little Cloud Shop Official</b>
               </div>
-              <div style="display: flex; justify-content: space-between; font-size: 0.84rem; color: #64748b; margin-bottom: 4px;">
+              <div
+                style="display: flex; justify-content: space-between; font-size: 0.84rem; color: #64748b; margin-bottom: 4px;">
                 <span>เบอร์พร้อมเพย์:</span>
-                <b style="color: #003b71; font-weight: 700; font-family: monospace; font-size: 0.92rem;" id="topup-qr-phone-number">081-599-3194</b>
+                <b style="color: #003b71; font-weight: 700; font-family: monospace; font-size: 0.92rem;"
+                  id="topup-qr-phone-number">081-599-3194</b>
               </div>
               <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: #64748b;">
                 <span>ประเภทการชำระ:</span>
@@ -369,19 +379,23 @@
             </div>
 
             <!-- Scannable Dynamic QR Image Container -->
-            <div style="background: #ffffff; border: 2px solid #e2e8f0; border-radius: 16px; padding: 14px; display: inline-block; box-shadow: inset 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 12px;">
+            <div
+              style="background: #ffffff; border: 2px solid #e2e8f0; border-radius: 16px; padding: 14px; display: inline-block; box-shadow: inset 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 12px;">
               <img id="topup-generated-qr" src="" alt="PromptPay QR Code"
                 style="width: 230px; height: 230px; display: block; margin: 0 auto; object-fit: contain;">
             </div>
 
             <!-- Exact Amount Display -->
             <div style="margin-bottom: 14px;">
-              <div style="font-size: 0.78rem; color: #64748b; font-weight: 600; text-transform: uppercase;">ยอดเงินที่ต้องชำระ (บาท)</div>
-              <div style="font-weight: 800; font-size: 1.8rem; color: #e11d48; font-family: 'Outfit', sans-serif;" id="topup-qr-amount-val">฿ 100.00</div>
+              <div style="font-size: 0.78rem; color: #64748b; font-weight: 600; text-transform: uppercase;">
+                ยอดเงินที่ต้องชำระ (บาท)</div>
+              <div style="font-weight: 800; font-size: 1.8rem; color: #e11d48; font-family: 'Outfit', sans-serif;"
+                id="topup-qr-amount-val">฿ 100.00</div>
             </div>
 
             <!-- Instructions Notice Banner -->
-            <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; padding: 12px 14px; margin-bottom: 14px; text-align: left; font-size: 0.82rem; color: #1e40af; line-height: 1.5;">
+            <div
+              style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; padding: 12px 14px; margin-bottom: 14px; text-align: left; font-size: 0.82rem; color: #1e40af; line-height: 1.5;">
               <div style="font-weight: 700; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
                 <i class="fas fa-shield-check" style="color: #2563eb;"></i>
                 <span>ขั้นตอนการเติมเงิน (ระบบตรวจสอบสลิปอัตโนมัติ):</span>
@@ -394,28 +408,36 @@
             </div>
 
             <!-- Dual-Mode Slip Upload Section (Mobile QR or PC Upload) -->
-            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px; padding: 16px; margin-bottom: 16px; text-align: left;">
-              
+            <div
+              style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px; padding: 16px; margin-bottom: 16px; text-align: left;">
+
               <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
-                <div style="font-size: 0.88rem; font-weight: 800; color: #0f172a; display: flex; align-items: center; gap: 8px;">
+                <div
+                  style="font-size: 0.88rem; font-weight: 800; color: #0f172a; display: flex; align-items: center; gap: 8px;">
                   <i class="fas fa-file-invoice-dollar" style="color: #e11d48; font-size: 1.1rem;"></i>
                   <span>แนบรูปสลิปหลักฐานการโอน <span style="color: #ef4444; font-weight: 800;">*จำเป็น</span></span>
                 </div>
-                <span id="topup-slip-badge" style="background: #e2e8f0; color: #475569; font-size: 0.72rem; padding: 3px 8px; border-radius: 4px; font-weight: 600;">ยังไม่ได้แนบ</span>
+                <span id="topup-slip-badge"
+                  style="background: #e2e8f0; color: #475569; font-size: 0.72rem; padding: 3px 8px; border-radius: 4px; font-weight: 600;">ยังไม่ได้แนบ</span>
               </div>
 
               <!-- Upload Mode Switch Tabs -->
               <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px;">
-                <button type="button" id="tab-slip-qr" class="cat-pill active" style="font-size: 0.8rem; padding: 8px 10px; text-align: center; background: #e11d48; color: #fff; border: 1px solid #e11d48; border-radius: 10px; cursor: pointer; font-weight: 700;" onclick="window.topupManager.switchSlipUploadMode('qr')">
+                <button type="button" id="tab-slip-qr" class="cat-pill active"
+                  style="font-size: 0.8rem; padding: 8px 10px; text-align: center; background: #e11d48; color: #fff; border: 1px solid #e11d48; border-radius: 10px; cursor: pointer; font-weight: 700;"
+                  onclick="window.topupManager.switchSlipUploadMode('qr')">
                   <i class="fas fa-qrcode"></i> 1. สแกน QR ผ่านมือถือ
                 </button>
-                <button type="button" id="tab-slip-pc" class="cat-pill" style="font-size: 0.8rem; padding: 8px 10px; text-align: center; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 10px; cursor: pointer; font-weight: 600;" onclick="window.topupManager.switchSlipUploadMode('pc')">
+                <button type="button" id="tab-slip-pc" class="cat-pill"
+                  style="font-size: 0.8rem; padding: 8px 10px; text-align: center; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 10px; cursor: pointer; font-weight: 600;"
+                  onclick="window.topupManager.switchSlipUploadMode('pc')">
                   <i class="fas fa-desktop"></i> 2. เลือกไฟล์จากคอม
                 </button>
               </div>
 
               <!-- MODE 1: MOBILE QR CODE UPLOAD PANEL -->
-              <div id="slip-mode-qr-panel" style="background: #ffffff; border: 2px dashed #e11d48; border-radius: 14px; padding: 16px; text-align: center;">
+              <div id="slip-mode-qr-panel"
+                style="background: #ffffff; border: 2px dashed #e11d48; border-radius: 14px; padding: 16px; text-align: center;">
                 <div style="font-size: 0.85rem; font-weight: 700; color: #0f172a; margin-bottom: 4px;">
                   📱 ใช้มือถือสแกน QR เพื่อแนบสลิปได้ทันที
                 </div>
@@ -424,9 +446,12 @@
                 </div>
 
                 <!-- QR Code Container (Local Canvas/SVG Renderer + Fallback) -->
-                <div id="slip-upload-qr-box" style="background: #ffffff; border: 2px solid #e2e8f0; border-radius: 14px; padding: 10px; display: inline-flex; align-items: center; justify-content: center; box-shadow: 0 4px 14px rgba(0,0,0,0.06); position: relative; min-width: 180px; min-height: 180px;">
-                  <div id="slip-upload-qr-target" style="display: flex; align-items: center; justify-content: center; width: 170px; height: 170px;">
-                    <div style="color: #94a3b8; font-size: 0.8rem; display: flex; flex-direction: column; align-items: center; gap: 8px;">
+                <div id="slip-upload-qr-box"
+                  style="background: #ffffff; border: 2px solid #e2e8f0; border-radius: 14px; padding: 10px; display: inline-flex; align-items: center; justify-content: center; box-shadow: 0 4px 14px rgba(0,0,0,0.06); position: relative; min-width: 180px; min-height: 180px;">
+                  <div id="slip-upload-qr-target"
+                    style="display: flex; align-items: center; justify-content: center; width: 170px; height: 170px;">
+                    <div
+                      style="color: #94a3b8; font-size: 0.8rem; display: flex; flex-direction: column; align-items: center; gap: 8px;">
                       <i class="fas fa-spinner fa-spin" style="font-size: 1.5rem; color: #e11d48;"></i>
                       <span>กำลังสร้าง QR Code...</span>
                     </div>
@@ -434,51 +459,67 @@
                 </div>
 
                 <!-- Live Radar Listening Indicator -->
-                <div id="slip-qr-listening-indicator" style="display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 0.78rem; color: #0284c7; margin-top: 10px; font-weight: 600;">
+                <div id="slip-qr-listening-indicator"
+                  style="display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 0.78rem; color: #0284c7; margin-top: 10px; font-weight: 600;">
                   <i class="fas fa-satellite-dish fa-fade"></i>
                   <span>กำลังรอการส่งรูปสลิปจากมือถือ...</span>
-                  <span id="slip-qr-session-badge" style="background: #e0f2fe; color: #0369a1; padding: 1px 6px; border-radius: 4px; font-family: monospace; font-size: 0.7rem;">#READY</span>
+                  <span id="slip-qr-session-badge"
+                    style="background: #e0f2fe; color: #0369a1; padding: 1px 6px; border-radius: 4px; font-family: monospace; font-size: 0.7rem;">#READY</span>
                 </div>
 
                 <!-- Test / Direct link -->
                 <div style="margin-top: 8px; font-size: 0.74rem;">
-                  <a id="slip-upload-direct-link" href="#" target="_blank" style="color: #e11d48; text-decoration: underline; font-weight: 600;">
+                  <a id="slip-upload-direct-link" href="#" target="_blank"
+                    style="color: #e11d48; text-decoration: underline; font-weight: 600;">
                     <i class="fas fa-arrow-up-right-from-square"></i> หรือคลิกที่นี่เพื่อทดสอบเปิดหน้าอัพโหลดสลิป
                   </a>
                 </div>
               </div>
 
               <!-- MODE 2: DESKTOP FILE DROPZONE PANEL -->
-              <div id="slip-mode-pc-panel" style="display: none; background: #ffffff; border: 2px dashed #94a3b8; border-radius: 14px; padding: 20px 14px; text-align: center; cursor: pointer; transition: all 0.2s;" onclick="document.getElementById('topup-slip-input').click();">
-                <div style="width: 48px; height: 48px; border-radius: 50%; background: #f1f5f9; color: #e11d48; display: flex; align-items: center; justify-content: center; margin: 0 auto 8px; font-size: 1.3rem;">
+              <div id="slip-mode-pc-panel"
+                style="display: none; background: #ffffff; border: 2px dashed #94a3b8; border-radius: 14px; padding: 20px 14px; text-align: center; cursor: pointer; transition: all 0.2s;"
+                onclick="document.getElementById('topup-slip-input').click();">
+                <div
+                  style="width: 48px; height: 48px; border-radius: 50%; background: #f1f5f9; color: #e11d48; display: flex; align-items: center; justify-content: center; margin: 0 auto 8px; font-size: 1.3rem;">
                   <i class="fas fa-folder-open"></i>
                 </div>
-                <div style="font-size: 0.88rem; font-weight: 700; color: #0f172a;">คลิกเพื่อเลือกไฟล์รูปภาพจากเครื่อง</div>
+                <div style="font-size: 0.88rem; font-weight: 700; color: #0f172a;">คลิกเพื่อเลือกไฟล์รูปภาพจากเครื่อง
+                </div>
                 <div style="font-size: 0.76rem; color: #64748b; margin-top: 4px;">รองรับไฟล์ .JPG, .PNG, .WEBP</div>
               </div>
 
-              <input type="file" id="topup-slip-input" accept="image/*" style="display: none;" onchange="window.topupManager.handleSlipSelected(this)">
+              <input type="file" id="topup-slip-input" accept="image/*" style="display: none;"
+                onchange="window.topupManager.handleSlipSelected(this)">
 
               <!-- UNIVERSAL PREVIEW BOX (Shown when slip is attached via Mobile QR or PC) -->
-              <div id="topup-slip-preview-container" style="display: none; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 14px; padding: 14px; text-align: center; margin-top: 10px;">
-                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; font-size: 0.8rem;">
-                  <span style="color: #059669; font-weight: 700;" id="topup-slip-filename">📎 รูปภาพสลิปที่แนบแล้ว</span>
-                  <button type="button" style="background: #fef2f2; border: 1px solid #fecaca; color: #ef4444; padding: 4px 10px; border-radius: 6px; font-size: 0.74rem; cursor: pointer; font-weight: 600;" onclick="window.topupManager.resetSlipSelection()">
+              <div id="topup-slip-preview-container"
+                style="display: none; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 14px; padding: 14px; text-align: center; margin-top: 10px;">
+                <div
+                  style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; font-size: 0.8rem;">
+                  <span style="color: #059669; font-weight: 700;" id="topup-slip-filename">📎
+                    รูปภาพสลิปที่แนบแล้ว</span>
+                  <button type="button"
+                    style="background: #fef2f2; border: 1px solid #fecaca; color: #ef4444; padding: 4px 10px; border-radius: 6px; font-size: 0.74rem; cursor: pointer; font-weight: 600;"
+                    onclick="window.topupManager.resetSlipSelection()">
                     <i class="fas fa-trash-alt"></i> ลบ / แนบรูปใหม่
                   </button>
                 </div>
-                <img id="topup-slip-preview" src="" alt="Slip Preview" style="max-height: 180px; max-width: 100%; border-radius: 8px; border: 1px solid #cbd5e1; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin: 0 auto; display: block; object-fit: contain;">
+                <img id="topup-slip-preview" src="" alt="Slip Preview"
+                  style="max-height: 180px; max-width: 100%; border-radius: 8px; border: 1px solid #cbd5e1; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin: 0 auto; display: block; object-fit: contain;">
               </div>
 
             </div>
 
             <!-- Action Buttons -->
-            <button class="btn-pink" style="width: 100%; padding: 14px; font-size: 0.98rem; font-weight: 700; box-shadow: 0 4px 15px rgba(225,29,72,0.35); margin-bottom: 8px; display: flex; align-items: center; justify-content: center; gap: 8px;"
+            <button class="btn-pink"
+              style="width: 100%; padding: 14px; font-size: 0.98rem; font-weight: 700; box-shadow: 0 4px 15px rgba(225,29,72,0.35); margin-bottom: 8px; display: flex; align-items: center; justify-content: center; gap: 8px;"
               onclick="window.topupManager.confirmPaymentSimulation()">
               <i class="fas fa-file-circle-check"></i> ตรวจสอบสลิปและเพิ่มเครดิตทันที
             </button>
 
-            <button type="button" class="btn-outline-dark" style="width: 100%; padding: 8px; font-size: 0.85rem; color: #64748b; border-color: #cbd5e1;"
+            <button type="button" class="btn-outline-dark"
+              style="width: 100%; padding: 8px; font-size: 0.85rem; color: #64748b; border-color: #cbd5e1;"
               onclick="window.topupManager.closeQrBox()">
               <i class="fas fa-times"></i> ปิดหน้านี้
             </button>
@@ -656,7 +697,8 @@
           <ul class="footer-links-list">
             <li><a href="javascript:void(0)" onclick="window.navToTab('profile')">ประวัติการซื้อ</a></li>
             <li><a href="javascript:void(0)" onclick="window.navToTab('profile')">ประวัติการเติมเงิน</a></li>
-            <li><a href="javascript:void(0)" onclick="window.adminManager.openAdminModal()"><i class="fas fa-crown" style="color: #fbbf24; margin-right: 4px;"></i> แผงควบคุมแอดมิน</a></li>
+            <li><a href="javascript:void(0)" onclick="window.adminManager.openAdminModal()"><i class="fas fa-crown"
+                  style="color: #fbbf24; margin-right: 4px;"></i> แผงควบคุมแอดมิน</a></li>
             <li><a href="javascript:void(0)" onclick="window.openSupabaseConfigModal()">เชื่อมต่อ Supabase</a></li>
           </ul>
         </div>
@@ -781,12 +823,15 @@
 
       <div style="margin-bottom: 20px;">
         <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px;">
-          <div style="width: 38px; height: 38px; border-radius: 10px; background: rgba(16, 185, 129, 0.15); display: flex; align-items: center; justify-content: center; color: #34d399; font-size: 1.2rem;">
+          <div
+            style="width: 38px; height: 38px; border-radius: 10px; background: rgba(16, 185, 129, 0.15); display: flex; align-items: center; justify-content: center; color: #34d399; font-size: 1.2rem;">
             <i class="fas fa-database"></i>
           </div>
           <div>
-            <h3 style="color: #34d399; font-size: 1.25rem; font-weight: 800; margin: 0;">ตั้งค่าเชื่อมต่อ Supabase Database</h3>
-            <p style="font-size: 0.8rem; color: var(--text-muted); margin: 2px 0 0 0;">เชื่อมโยงฐานข้อมูล Cloud จริงเพื่อเก็บข้อมูลสินค้า, ผู้ใช้ และออเดอร์</p>
+            <h3 style="color: #34d399; font-size: 1.25rem; font-weight: 800; margin: 0;">ตั้งค่าเชื่อมต่อ Supabase
+              Database</h3>
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin: 2px 0 0 0;">เชื่อมโยงฐานข้อมูล Cloud
+              จริงเพื่อเก็บข้อมูลสินค้า, ผู้ใช้ และออเดอร์</p>
           </div>
         </div>
       </div>
@@ -811,10 +856,11 @@
         </div>
 
         <div style="display: grid; grid-template-columns: 1fr auto; gap: 10px; margin-bottom: 12px;">
-          <button type="submit" class="btn-pink" style="padding: 12px; background: linear-gradient(135deg, #10b981, #059669); border: none; font-weight: 700;">
+          <button type="submit" class="btn-pink"
+            style="padding: 12px; background: linear-gradient(135deg, #10b981, #059669); border: none; font-weight: 700;">
             <i class="fas fa-plug"></i> บันทึกและเชื่อมต่อ Supabase
           </button>
-          <button type="button" onclick="window.restoreDefaultSupabaseConfig()" 
+          <button type="button" onclick="window.restoreDefaultSupabaseConfig()"
             style="background: #1e202e; border: 1px solid #33364d; color: #94a3b8; border-radius: 10px; padding: 12px 16px; font-size: 0.85rem; font-weight: 600; cursor: pointer;">
             <i class="fas fa-undo"></i> คืนค่าเริ่มต้น
           </button>
@@ -844,7 +890,8 @@
         <button class="cat-pill active admin-tab-btn" data-pane="pane-admin-products">1. สินค้า (Products)</button>
         <button class="cat-pill admin-tab-btn" data-pane="pane-admin-users">2. สมาชิก (Users)</button>
         <button class="cat-pill admin-tab-btn" data-pane="pane-admin-orders">3. ออเดอร์ (Orders)</button>
-        <button class="cat-pill admin-tab-btn" data-pane="pane-admin-topups">4. รายการเติมเงิน (Topups & Ledger)</button>
+        <button class="cat-pill admin-tab-btn" data-pane="pane-admin-topups">4. รายการเติมเงิน (Topups &
+          Ledger)</button>
         <button class="cat-pill admin-tab-btn" data-pane="pane-admin-site">5. ปรับแต่งเว็บ (Site Customizer)</button>
         <button class="cat-pill admin-tab-btn" data-pane="pane-admin-reconciliation">6. ตรวจสอบบัญชี & Gateway</button>
         <button class="cat-pill admin-tab-btn" data-pane="pane-admin-chat" style="position: relative;">
@@ -929,11 +976,14 @@
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
             <div>
               <h4 style="color: #fff; font-size: 1.1rem; font-weight: 800; margin: 0;">
-                <i class="fas fa-wallet" style="color: #34d399; margin-right: 6px;"></i> รายการเติมเงินทั้งหมด (Topup History & Ledger)
+                <i class="fas fa-wallet" style="color: #34d399; margin-right: 6px;"></i> รายการเติมเงินทั้งหมด (Topup
+                History & Ledger)
               </h4>
-              <p style="font-size: 0.8rem; color: #a5a8bc; margin: 2px 0 0;">ตรวจสอบยอดเงินเข้า ประวัติการโอน พร้อมเพย์ และสถานะเครดิตแบบเรียลไทม์</p>
+              <p style="font-size: 0.8rem; color: #a5a8bc; margin: 2px 0 0;">ตรวจสอบยอดเงินเข้า ประวัติการโอน พร้อมเพย์
+                และสถานะเครดิตแบบเรียลไทม์</p>
             </div>
-            <button class="btn-outline-dark" style="padding: 7px 14px; font-size: 0.82rem; color: #fff;" onclick="window.adminManager.renderAdminTopupsTable()">
+            <button class="btn-outline-dark" style="padding: 7px 14px; font-size: 0.82rem; color: #fff;"
+              onclick="window.adminManager.renderAdminTopupsTable()">
               <i class="fas fa-rotate"></i> รีเฟรชข้อมูล
             </button>
           </div>
@@ -941,21 +991,28 @@
           <!-- Topup Metric Cards -->
           <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 18px;">
             <div style="background: #181926; border: 1px solid #292b3d; border-radius: 12px; padding: 14px;">
-              <span style="font-size: 0.75rem; color: #9496a8; display: block; margin-bottom: 4px;">💰 ยอดเติมเงินสะสมทั้งหมด</span>
-              <b style="font-size: 1.35rem; color: #34d399; font-family: 'Outfit', sans-serif;" id="admin-topup-total-amount">฿ 0.00</b>
+              <span style="font-size: 0.75rem; color: #9496a8; display: block; margin-bottom: 4px;">💰
+                ยอดเติมเงินสะสมทั้งหมด</span>
+              <b style="font-size: 1.35rem; color: #34d399; font-family: 'Outfit', sans-serif;"
+                id="admin-topup-total-amount">฿ 0.00</b>
             </div>
             <div style="background: #181926; border: 1px solid #292b3d; border-radius: 12px; padding: 14px;">
-              <span style="font-size: 0.75rem; color: #9496a8; display: block; margin-bottom: 4px;">🧾 จำนวนรายการเติมเงินสำเร็จ</span>
-              <b style="font-size: 1.35rem; color: #60a5fa; font-family: 'Outfit', sans-serif;" id="admin-topup-total-count">0 รายการ</b>
+              <span style="font-size: 0.75rem; color: #9496a8; display: block; margin-bottom: 4px;">🧾
+                จำนวนรายการเติมเงินสำเร็จ</span>
+              <b style="font-size: 1.35rem; color: #60a5fa; font-family: 'Outfit', sans-serif;"
+                id="admin-topup-total-count">0 รายการ</b>
             </div>
             <div style="background: #181926; border: 1px solid #292b3d; border-radius: 12px; padding: 14px;">
-              <span style="font-size: 0.75rem; color: #9496a8; display: block; margin-bottom: 4px;">🟢 รายการล่าสุด</span>
-              <b style="font-size: 0.95rem; color: #f472b6; font-family: 'Outfit', sans-serif;" id="admin-topup-latest-info">-</b>
+              <span style="font-size: 0.75rem; color: #9496a8; display: block; margin-bottom: 4px;">🟢
+                รายการล่าสุด</span>
+              <b style="font-size: 0.95rem; color: #f472b6; font-family: 'Outfit', sans-serif;"
+                id="admin-topup-latest-info">-</b>
             </div>
           </div>
 
           <!-- Topup Transactions Table -->
-          <div class="admin-table-wrap" style="border: 1px solid var(--border-subtle); border-radius: 12px; overflow: hidden;">
+          <div class="admin-table-wrap"
+            style="border: 1px solid var(--border-subtle); border-radius: 12px; overflow: hidden;">
             <table class="admin-table" style="width: 100%; border-collapse: collapse;">
               <thead>
                 <tr style="background: #1a1b28; color: #a5a8bc; text-align: left; font-size: 0.85rem;">
@@ -968,7 +1025,10 @@
                 </tr>
               </thead>
               <tbody id="admin-topups-table-body">
-                <tr><td colspan="6" style="text-align: center; padding: 24px; color: #9496a8;">กำลังโหลดประวัติการเติมเงิน...</td></tr>
+                <tr>
+                  <td colspan="6" style="text-align: center; padding: 24px; color: #9496a8;">
+                    กำลังโหลดประวัติการเติมเงิน...</td>
+                </tr>
               </tbody>
             </table>
           </div>
@@ -1002,7 +1062,8 @@
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
               <div>
                 <label
-                  style="display: block; font-size: 0.82rem; color: var(--text-muted); margin-bottom: 4px;">เบอร์พร้อมเพย์ / เลขบัตร (รับเงิน)</label>
+                  style="display: block; font-size: 0.82rem; color: var(--text-muted); margin-bottom: 4px;">เบอร์พร้อมเพย์
+                  / เลขบัตร (รับเงิน)</label>
                 <input type="text" id="site-input-promptpay-num" placeholder="เช่น 0812345678"
                   style="background: #1a1b28; border: 1px solid #2c2e42; border-radius: 8px; padding: 10px; width: 100%; color: #fff;">
               </div>
@@ -1022,14 +1083,16 @@
 
         <!-- PANE 5: RECONCILIATION & PAYMENT GATEWAY -->
         <div class="admin-tab-pane" id="pane-admin-reconciliation" style="display: none;">
-          
+
           <!-- Reconciliation Status Banner -->
-          <div id="recon-status-banner" style="padding: 14px 18px; border-radius: 12px; margin-bottom: 18px; display: flex; align-items: center; justify-content: space-between; background: rgba(16, 185, 129, 0.12); border: 1px solid #10b981; color: #34d399;">
+          <div id="recon-status-banner"
+            style="padding: 14px 18px; border-radius: 12px; margin-bottom: 18px; display: flex; align-items: center; justify-content: space-between; background: rgba(16, 185, 129, 0.12); border: 1px solid #10b981; color: #34d399;">
             <div style="display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 0.95rem;">
               <i class="fas fa-scale-balanced" style="font-size: 1.2rem;"></i>
               <span id="recon-status-text">กำลังตรวจสอบยอดเงินและการกระทบยอด...</span>
             </div>
-            <button class="btn-outline-dark" style="padding: 6px 14px; font-size: 0.8rem; color: #fff;" onclick="window.adminManager.renderReconciliationDashboard()">
+            <button class="btn-outline-dark" style="padding: 6px 14px; font-size: 0.8rem; color: #fff;"
+              onclick="window.adminManager.renderReconciliationDashboard()">
               <i class="fas fa-rotate"></i> คำนวณใหม่
             </button>
           </div>
@@ -1037,33 +1100,45 @@
           <!-- 4 Core Financial Metrics Grid -->
           <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px;">
             <div style="background: #181926; border: 1px solid #292b3d; border-radius: 12px; padding: 14px;">
-              <span style="font-size: 0.75rem; color: #9496a8; display: block; margin-bottom: 4px;">💰 ยอดเงินเข้าจริง (Inflow)</span>
-              <b style="font-size: 1.2rem; color: #34d399; font-family: 'Outfit', sans-serif;" id="recon-val-inflow">฿ 0.00</b>
+              <span style="font-size: 0.75rem; color: #9496a8; display: block; margin-bottom: 4px;">💰 ยอดเงินเข้าจริง
+                (Inflow)</span>
+              <b style="font-size: 1.2rem; color: #34d399; font-family: 'Outfit', sans-serif;" id="recon-val-inflow">฿
+                0.00</b>
             </div>
             <div style="background: #181926; border: 1px solid #292b3d; border-radius: 12px; padding: 14px;">
-              <span style="font-size: 0.75rem; color: #9496a8; display: block; margin-bottom: 4px;">🏷️ เครดิตออกทั้งหมด</span>
-              <b style="font-size: 1.2rem; color: #f472b6; font-family: 'Outfit', sans-serif;" id="recon-val-issued">฿ 0.00</b>
+              <span style="font-size: 0.75rem; color: #9496a8; display: block; margin-bottom: 4px;">🏷️
+                เครดิตออกทั้งหมด</span>
+              <b style="font-size: 1.2rem; color: #f472b6; font-family: 'Outfit', sans-serif;" id="recon-val-issued">฿
+                0.00</b>
             </div>
             <div style="background: #181926; border: 1px solid #292b3d; border-radius: 12px; padding: 14px;">
-              <span style="font-size: 0.75rem; color: #9496a8; display: block; margin-bottom: 4px;">🛍️ เครดิตถูกใช้ซื้อของ</span>
-              <b style="font-size: 1.2rem; color: #fbbf24; font-family: 'Outfit', sans-serif;" id="recon-val-spent">฿ 0.00</b>
+              <span style="font-size: 0.75rem; color: #9496a8; display: block; margin-bottom: 4px;">🛍️
+                เครดิตถูกใช้ซื้อของ</span>
+              <b style="font-size: 1.2rem; color: #fbbf24; font-family: 'Outfit', sans-serif;" id="recon-val-spent">฿
+                0.00</b>
             </div>
             <div style="background: #181926; border: 1px solid #292b3d; border-radius: 12px; padding: 14px;">
-              <span style="font-size: 0.75rem; color: #9496a8; display: block; margin-bottom: 4px;">👛 หนี้สินเครดิตคงค้าง</span>
-              <b style="font-size: 1.2rem; color: #60a5fa; font-family: 'Outfit', sans-serif;" id="recon-val-balance">฿ 0.00</b>
+              <span style="font-size: 0.75rem; color: #9496a8; display: block; margin-bottom: 4px;">👛
+                หนี้สินเครดิตคงค้าง</span>
+              <b style="font-size: 1.2rem; color: #60a5fa; font-family: 'Outfit', sans-serif;" id="recon-val-balance">฿
+                0.00</b>
             </div>
           </div>
 
           <!-- Payment Gateway API Settings Accordion -->
-          <div style="background: #181926; border: 1px solid #292b3d; border-radius: 14px; padding: 18px; margin-bottom: 20px;">
+          <div
+            style="background: #181926; border: 1px solid #292b3d; border-radius: 14px; padding: 18px; margin-bottom: 20px;">
             <h5 style="color: #fff; font-size: 0.95rem; font-weight: 700; margin-bottom: 12px;">
-              <i class="fas fa-network-wired" style="color: #f472b6;"></i> ตั้งค่า Payment Gateway API (รับเงินจริง & SlipOK)
+              <i class="fas fa-network-wired" style="color: #f472b6;"></i> ตั้งค่า Payment Gateway API (รับเงินจริง &
+              SlipOK)
             </h5>
             <form id="form-admin-gateway-settings" onsubmit="window.adminManager.handleSaveGatewaySettings(event)">
               <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
                 <div>
-                  <label style="display: block; font-size: 0.8rem; color: #9496a8; margin-bottom: 4px;">Payment Gateway Provider</label>
-                  <select id="gateway-input-provider" style="background: #12131c; border: 1px solid #2c2e42; border-radius: 8px; padding: 10px; width: 100%; color: #fff;">
+                  <label style="display: block; font-size: 0.8rem; color: #9496a8; margin-bottom: 4px;">Payment Gateway
+                    Provider</label>
+                  <select id="gateway-input-provider"
+                    style="background: #12131c; border: 1px solid #2c2e42; border-radius: 8px; padding: 10px; width: 100%; color: #fff;">
                     <option value="omise_promptpay">Omise (Opn Payments) Charges PromptPay</option>
                     <option value="promptpay_slipok">SlipOK API (ตรวจสอบสลิปอัตโนมัติ 24 ชม.)</option>
                     <option value="promptpay_auto">PromptPay Dynamic QR (Auto-Verify Callback)</option>
@@ -1072,19 +1147,25 @@
                   </select>
                 </div>
                 <div>
-                  <label style="display: block; font-size: 0.8rem; color: #9496a8; margin-bottom: 4px;">SlipOK Branch ID (รหัสสาขา)</label>
-                  <input type="text" id="gateway-input-branch" placeholder="เช่น 12345" style="background: #12131c; border: 1px solid #2c2e42; border-radius: 8px; padding: 10px; width: 100%; color: #fff;">
+                  <label style="display: block; font-size: 0.8rem; color: #9496a8; margin-bottom: 4px;">SlipOK Branch ID
+                    (รหัสสาขา)</label>
+                  <input type="text" id="gateway-input-branch" placeholder="เช่น 12345"
+                    style="background: #12131c; border: 1px solid #2c2e42; border-radius: 8px; padding: 10px; width: 100%; color: #fff;">
                 </div>
               </div>
 
               <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px;">
                 <div>
-                  <label style="display: block; font-size: 0.8rem; color: #9496a8; margin-bottom: 4px;">SlipOK API Key (x-authorization)</label>
-                  <input type="password" id="gateway-input-key" placeholder="SLIPOK_API_KEY_..." style="background: #12131c; border: 1px solid #2c2e42; border-radius: 8px; padding: 10px; width: 100%; color: #fff;">
+                  <label style="display: block; font-size: 0.8rem; color: #9496a8; margin-bottom: 4px;">SlipOK API Key
+                    (x-authorization)</label>
+                  <input type="password" id="gateway-input-key" placeholder="SLIPOK_API_KEY_..."
+                    style="background: #12131c; border: 1px solid #2c2e42; border-radius: 8px; padding: 10px; width: 100%; color: #fff;">
                 </div>
                 <div>
-                  <label style="display: block; font-size: 0.8rem; color: #9496a8; margin-bottom: 4px;">Webhook Secret Token</label>
-                  <input type="text" id="gateway-input-secret" placeholder="WH_SECRET_KEY" style="background: #12131c; border: 1px solid #2c2e42; border-radius: 8px; padding: 10px; width: 100%; color: #fff;">
+                  <label style="display: block; font-size: 0.8rem; color: #9496a8; margin-bottom: 4px;">Webhook Secret
+                    Token</label>
+                  <input type="text" id="gateway-input-secret" placeholder="WH_SECRET_KEY"
+                    style="background: #12131c; border: 1px solid #2c2e42; border-radius: 8px; padding: 10px; width: 100%; color: #fff;">
                 </div>
               </div>
 
@@ -1096,9 +1177,11 @@
 
           <!-- Immutable Ledger Audit Logs Table -->
           <h5 style="color: #fff; font-size: 0.95rem; font-weight: 700; margin-bottom: 12px;">
-            <i class="fas fa-list-check" style="color: #34d399;"></i> ประวัติธุรกรรมเครดิต (Immutable Ledger & Transaction Logs)
+            <i class="fas fa-list-check" style="color: #34d399;"></i> ประวัติธุรกรรมเครดิต (Immutable Ledger &
+            Transaction Logs)
           </h5>
-          <div class="admin-table-wrap" style="border: 1px solid var(--border-subtle); border-radius: 12px; overflow: hidden;">
+          <div class="admin-table-wrap"
+            style="border: 1px solid var(--border-subtle); border-radius: 12px; overflow: hidden;">
             <table class="admin-table" style="width: 100%; border-collapse: collapse;">
               <thead>
                 <tr style="background: #1a1b28; color: #a5a8bc; text-align: left; font-size: 0.82rem;">
@@ -1111,7 +1194,9 @@
                 </tr>
               </thead>
               <tbody id="admin-ledger-table-body">
-                <tr><td colspan="6" style="text-align: center; padding: 20px; color: #9496a8;">กำลังโหลด Ledger...</td></tr>
+                <tr>
+                  <td colspan="6" style="text-align: center; padding: 20px; color: #9496a8;">กำลังโหลด Ledger...</td>
+                </tr>
               </tbody>
             </table>
           </div>
@@ -1122,22 +1207,27 @@
         <div class="admin-tab-pane" id="pane-admin-chat" style="display: none;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
             <div>
-              <h4 style="color: #fff; font-size: 1.05rem; font-weight: 800; display: flex; align-items: center; gap: 8px;">
-                <i class="fas fa-comments" style="color: #f472b6;"></i> ศูนย์จัดการแชทลูกค้าสด (Customer Live Chat Console)
+              <h4
+                style="color: #fff; font-size: 1.05rem; font-weight: 800; display: flex; align-items: center; gap: 8px;">
+                <i class="fas fa-comments" style="color: #f472b6;"></i> ศูนย์จัดการแชทลูกค้าสด (Customer Live Chat
+                Console)
               </h4>
               <p style="font-size: 0.8rem; color: #9496a8; margin-top: 2px;">
                 สนทนาเรียลไทม์กับลูกค้า ส่งมอบไอเทม สรุปปัญหา และบริการหลังการขาย
               </p>
             </div>
-            <button type="button" class="btn-outline-dark" style="padding: 6px 14px; font-size: 0.82rem; color: #fff;" onclick="window.chatManager && window.chatManager.renderAdminChatPane()">
+            <button type="button" class="btn-outline-dark" style="padding: 6px 14px; font-size: 0.82rem; color: #fff;"
+              onclick="window.chatManager && window.chatManager.renderAdminChatPane()">
               <i class="fas fa-rotate"></i> รีเฟรชแชท
             </button>
           </div>
 
-          <div style="display: grid; grid-template-columns: 290px 1fr; gap: 14px; background: #10111a; border: 1px solid #232536; border-radius: 14px; height: 530px; overflow: hidden;">
+          <div
+            style="display: grid; grid-template-columns: 290px 1fr; gap: 14px; background: #10111a; border: 1px solid #232536; border-radius: 14px; height: 530px; overflow: hidden;">
             <!-- Threads List Sidebar -->
             <div style="border-right: 1px solid #232536; display: flex; flex-direction: column; background: #0f1017;">
-              <div style="padding: 12px 14px; background: #161724; border-bottom: 1px solid #232536; font-size: 0.82rem; font-weight: 700; color: #cbd5e1; display: flex; justify-content: space-between; align-items: center;">
+              <div
+                style="padding: 12px 14px; background: #161724; border-bottom: 1px solid #232536; font-size: 0.82rem; font-weight: 700; color: #cbd5e1; display: flex; justify-content: space-between; align-items: center;">
                 <span><i class="fas fa-inbox" style="color: #f472b6;"></i> ห้องสนทนาลูกค้า</span>
               </div>
               <div id="admin-chat-threads-list" style="flex: 1; overflow-y: auto;">
@@ -1150,36 +1240,45 @@
             <!-- Active Chat Conversation View -->
             <div style="display: flex; flex-direction: column; height: 100%; position: relative; background: #141520;">
               <!-- Header info -->
-              <div style="padding: 12px 16px; background: #171826; border-bottom: 1px solid #232536; display: flex; justify-content: space-between; align-items: center;">
+              <div
+                style="padding: 12px 16px; background: #171826; border-bottom: 1px solid #232536; display: flex; justify-content: space-between; align-items: center;">
                 <div>
-                  <div style="font-size: 0.92rem; font-weight: 800; color: #fff;" id="admin-chat-header-title">เลือกลูกค้าเพื่อเริ่มสนทนา</div>
-                  <div style="font-size: 0.75rem; color: #9496a8;" id="admin-chat-header-order">คลิกเลือกห้องสนทนาจากรายการด้านซ้าย</div>
+                  <div style="font-size: 0.92rem; font-weight: 800; color: #fff;" id="admin-chat-header-title">
+                    เลือกลูกค้าเพื่อเริ่มสนทนา</div>
+                  <div style="font-size: 0.75rem; color: #9496a8;" id="admin-chat-header-order">
+                    คลิกเลือกห้องสนทนาจากรายการด้านซ้าย</div>
                 </div>
                 <div style="display: flex; gap: 6px;">
-                  <button type="button" class="btn-outline-dark" style="padding: 4px 10px; font-size: 0.74rem;" onclick="window.chatManager && window.chatManager.adminSendQuick('✅ ดำเนินการส่งมอบไอเทมเรียบร้อยแล้วครับ ขอบคุณที่ใช้บริการ Little Cloud!')">
+                  <button type="button" class="btn-outline-dark" style="padding: 4px 10px; font-size: 0.74rem;"
+                    onclick="window.chatManager && window.chatManager.adminSendQuick('✅ ดำเนินการส่งมอบไอเทมเรียบร้อยแล้วครับ ขอบคุณที่ใช้บริการ Little Cloud!')">
                     🚀 ส่งมอบแล้ว
                   </button>
-                  <button type="button" class="btn-outline-dark" style="padding: 4px 10px; font-size: 0.74rem;" onclick="window.chatManager && window.chatManager.adminSendQuick('กรุณารอสักครู่ แอดมินกำลังเช็คสต็อกและส่งของในเกม FiveM ให้ครับ 🚗')">
+                  <button type="button" class="btn-outline-dark" style="padding: 4px 10px; font-size: 0.74rem;"
+                    onclick="window.chatManager && window.chatManager.adminSendQuick('กรุณารอสักครู่ แอดมินกำลังเช็คสต็อกและส่งของในเกม FiveM ให้ครับ 🚗')">
                     ⏳ รอสักครู่
                   </button>
-                  <button type="button" class="btn-outline-dark" style="padding: 4px 10px; font-size: 0.74rem;" onclick="window.chatManager && window.chatManager.adminSendQuick('รบกวนลูกค้าแจ้งชื่อตัวละครในเกม FiveM และจุดที่ยืนอยู่ตอนนี้ด้วยครับ ✨')">
+                  <button type="button" class="btn-outline-dark" style="padding: 4px 10px; font-size: 0.74rem;"
+                    onclick="window.chatManager && window.chatManager.adminSendQuick('รบกวนลูกค้าแจ้งชื่อตัวละครในเกม FiveM และจุดที่ยืนอยู่ตอนนี้ด้วยครับ ✨')">
                     👤 ขอชื่อตัวละคร
                   </button>
                 </div>
               </div>
 
               <!-- Message Stream -->
-              <div id="admin-chat-messages-box" style="flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column;">
+              <div id="admin-chat-messages-box"
+                style="flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column;">
                 <div style="text-align: center; color: #64748b; font-size: 0.85rem; margin: auto;">
-                  <i class="fas fa-hand-pointer" style="font-size: 2rem; margin-bottom: 10px; display: block; opacity: 0.4;"></i>
+                  <i class="fas fa-hand-pointer"
+                    style="font-size: 2rem; margin-bottom: 10px; display: block; opacity: 0.4;"></i>
                   เลือกห้องสนทนาทางด้านซ้ายเพื่อพูดคุยกับลูกค้า
                 </div>
               </div>
 
               <!-- Admin Input Area -->
               <div style="padding: 12px 16px; background: #171826; border-top: 1px solid #232536;">
-                <form onsubmit="event.preventDefault(); window.chatManager && window.chatManager.adminSendMessage();" style="display: flex; gap: 8px;">
-                  <input type="text" id="admin-chat-input-text" placeholder="พิมพ์ข้อความตอบกลับลูกค้า..." 
+                <form onsubmit="event.preventDefault(); window.chatManager && window.chatManager.adminSendMessage();"
+                  style="display: flex; gap: 8px;">
+                  <input type="text" id="admin-chat-input-text" placeholder="พิมพ์ข้อความตอบกลับลูกค้า..."
                     style="flex: 1; background: #0e0f17; border: 1px solid #2a2c3f; border-radius: 8px; padding: 10px 14px; color: #fff; font-size: 0.88rem;">
                   <button type="submit" class="btn-pink" style="padding: 10px 20px; font-weight: 700;">
                     <i class="fas fa-paper-plane"></i> ส่ง
@@ -1282,10 +1381,12 @@
 
 
   <!-- Floating Customer Live Chat Trigger -->
-  <button id="floating-chat-trigger" class="floating-chat-trigger" onclick="window.chatManager && window.chatManager.toggleChat()" title="คุยสดกับแอดมิน Little Cloud">
+  <button id="floating-chat-trigger" class="floating-chat-trigger"
+    onclick="window.chatManager && window.chatManager.toggleChat()" title="คุยสดกับแอดมิน Little Cloud">
     <i class="fas fa-headset" style="font-size: 1.15rem;"></i>
     <span>แชทกับแอดมิน</span>
-    <span id="chat-unread-count" style="display: none; background: #fff; color: #e11d48; font-size: 0.72rem; padding: 2px 7px; border-radius: 99px; font-weight: 800; margin-left: 2px;">0</span>
+    <span id="chat-unread-count"
+      style="display: none; background: #fff; color: #e11d48; font-size: 0.72rem; padding: 2px 7px; border-radius: 99px; font-weight: 800; margin-left: 2px;">0</span>
   </button>
 
   <!-- ========================================================================
@@ -1296,86 +1397,111 @@
     <div class="chat-widget-header">
       <div style="display: flex; align-items: center; gap: 10px;">
         <div style="position: relative;">
-          <div style="width: 38px; height: 38px; border-radius: 50%; background: linear-gradient(135deg, #e11d48 0%, #fb7185 100%); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 1.05rem; box-shadow: 0 4px 10px rgba(225, 29, 72, 0.4);">
+          <div
+            style="width: 38px; height: 38px; border-radius: 50%; background: linear-gradient(135deg, #e11d48 0%, #fb7185 100%); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 1.05rem; box-shadow: 0 4px 10px rgba(225, 29, 72, 0.4);">
             <i class="fas fa-headset"></i>
           </div>
-          <span style="position: absolute; bottom: 0; right: 0; width: 10px; height: 10px; background: #10b981; border: 2px solid #0f1018; border-radius: 50%;"></span>
+          <span
+            style="position: absolute; bottom: 0; right: 0; width: 10px; height: 10px; background: #10b981; border: 2px solid #0f1018; border-radius: 50%;"></span>
         </div>
         <div>
           <div style="display: flex; align-items: center; gap: 6px;">
             <b style="color: #fff; font-size: 0.92rem;">แอดมิน Little Cloud (Support)</b>
-            <span style="background: rgba(16, 185, 129, 0.15); color: #34d399; font-size: 0.65rem; padding: 1px 6px; border-radius: 4px; font-weight: 700;">ONLINE 24H</span>
+            <span
+              style="background: rgba(16, 185, 129, 0.15); color: #34d399; font-size: 0.65rem; padding: 1px 6px; border-radius: 4px; font-weight: 700;">ONLINE
+              24H</span>
           </div>
-          <div style="font-size: 0.74rem; color: #9496a8; display: flex; align-items: center; gap: 5px; flex-wrap: wrap;">
-            <span>คุยกับคุณ: <b id="chat-header-user-display" style="color: #fb7185;">member</b> <span style="font-size: 0.62rem; background: rgba(244, 114, 182, 0.15); color: #f472b6; padding: 1px 5px; border-radius: 4px; font-weight: 700;">Member</span></span>
+          <div
+            style="font-size: 0.74rem; color: #9496a8; display: flex; align-items: center; gap: 5px; flex-wrap: wrap;">
+            <span>คุยกับคุณ: <b id="chat-header-user-display" style="color: #fb7185;">member</b> <span
+                style="font-size: 0.62rem; background: rgba(244, 114, 182, 0.15); color: #f472b6; padding: 1px 5px; border-radius: 4px; font-weight: 700;">Member</span></span>
             <span>•</span>
-            <span id="chat-order-ref-badge" style="color: #38bdf8; font-family: monospace; font-weight: 600;">#General</span>
+            <span id="chat-order-ref-badge"
+              style="color: #38bdf8; font-family: monospace; font-weight: 600;">#General</span>
           </div>
         </div>
       </div>
       <div style="display: flex; align-items: center; gap: 8px;">
-        <button type="button" class="modal-close-btn" style="position: static; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: #1c1d2d; color: #9496a8; cursor: pointer;" onclick="window.chatManager && window.chatManager.closeChat()">
+        <button type="button" class="modal-close-btn"
+          style="position: static; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: #1c1d2d; color: #9496a8; cursor: pointer;"
+          onclick="window.chatManager && window.chatManager.closeChat()">
           <i class="fas fa-times"></i>
         </button>
       </div>
     </div>
 
     <!-- Order Context Banner (Item Name, Status) -->
-    <div id="chat-order-context-banner" style="background: #181926; border-bottom: 1px solid #282a3d; padding: 10px 14px; font-size: 0.82rem;">
+    <div id="chat-order-context-banner"
+      style="background: #181926; border-bottom: 1px solid #282a3d; padding: 10px 14px; font-size: 0.82rem;">
       <div style="display: flex; justify-content: space-between; align-items: center;">
         <div style="display: flex; align-items: center; gap: 8px;">
           <span style="color: #f472b6;"><i class="fas fa-box-open"></i></span>
-          <b style="color: #fff; font-size: 0.88rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 250px;" id="chat-order-product-name">
+          <b style="color: #fff; font-size: 0.88rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 250px;"
+            id="chat-order-product-name">
             สินค้าที่สั่งซื้อ
           </b>
         </div>
-        <span style="font-size: 0.72rem; color: #10b981; background: rgba(16,185,129,0.12); padding: 3px 8px; border-radius: 4px; font-weight: 600;">ชำระแล้ว</span>
+        <span
+          style="font-size: 0.72rem; color: #10b981; background: rgba(16,185,129,0.12); padding: 3px 8px; border-radius: 4px; font-weight: 600;">ชำระแล้ว</span>
       </div>
     </div>
 
     <!-- Quick Action Suggestions (Pills) -->
-    <div style="background: #141522; border-bottom: 1px solid #232537; padding: 8px 12px; display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none;">
-      <button type="button" class="chat-quick-pill-item" onclick="if(window.chatManager) window.chatManager.sendQuickMessage('สวัสดีครับแอดมิน สะดวกส่งของในเกม FiveM ไหมครับ')">
+    <div
+      style="background: #141522; border-bottom: 1px solid #232537; padding: 8px 12px; display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none;">
+      <button type="button" class="chat-quick-pill-item"
+        onclick="if(window.chatManager) window.chatManager.sendQuickMessage('สวัสดีครับแอดมิน สะดวกส่งของในเกม FiveM ไหมครับ')">
         🚗 นัดรับของในเกม
       </button>
-      <button type="button" class="chat-quick-pill-item" onclick="if(window.chatManager) window.chatManager.sendQuickMessage('แจ้งปัญหาการใช้งาน / ขอความช่วยเหลือ')">
+      <button type="button" class="chat-quick-pill-item"
+        onclick="if(window.chatManager) window.chatManager.sendQuickMessage('แจ้งปัญหาการใช้งาน / ขอความช่วยเหลือ')">
         ⚠️ แจ้งปัญหา
       </button>
     </div>
 
     <!-- Message Stream -->
-    <div id="chat-messages-container" style="flex: 1; overflow-y: auto; padding: 14px 16px; display: flex; flex-direction: column;">
+    <div id="chat-messages-container"
+      style="flex: 1; overflow-y: auto; padding: 14px 16px; display: flex; flex-direction: column;">
       <div style="text-align: center; color: #64748b; font-size: 0.85rem; margin: auto;">
         กำลังเชื่อมต่อห้องสนทนากับแอดมิน...
       </div>
     </div>
 
     <!-- Attachment Preview Area -->
-    <div id="chat-attachment-preview-wrap" style="display: none; padding: 8px 14px; background: #161726; border-top: 1px solid #232537; align-items: center; justify-content: space-between;">
+    <div id="chat-attachment-preview-wrap"
+      style="display: none; padding: 8px 14px; background: #161726; border-top: 1px solid #232537; align-items: center; justify-content: space-between;">
       <div style="display: flex; align-items: center; gap: 8px;">
-        <img id="chat-attachment-preview-img" src="" style="width: 44px; height: 44px; object-fit: cover; border-radius: 6px; border: 1px solid #e11d48;">
+        <img id="chat-attachment-preview-img" src=""
+          style="width: 44px; height: 44px; object-fit: cover; border-radius: 6px; border: 1px solid #e11d48;">
         <span style="font-size: 0.78rem; color: #cbd5e1;">แนบรูปภาพแล้ว</span>
       </div>
-      <button type="button" class="modal-close-btn" style="position: static; font-size: 0.85rem; color: #ef4444;" onclick="window.chatManager && window.chatManager.clearAttachment()">
+      <button type="button" class="modal-close-btn" style="position: static; font-size: 0.85rem; color: #ef4444;"
+        onclick="window.chatManager && window.chatManager.clearAttachment()">
         <i class="fas fa-trash-alt"></i>
       </button>
     </div>
 
     <!-- Input Bar -->
     <div style="padding: 10px 14px; background: #0f1018; border-top: 1px solid #232535;">
-      <form onsubmit="event.preventDefault(); window.chatManager && window.chatManager.sendMessage();" style="display: flex; align-items: center; gap: 8px;">
+      <form onsubmit="event.preventDefault(); window.chatManager && window.chatManager.sendMessage();"
+        style="display: flex; align-items: center; gap: 8px;">
         <!-- Upload file button -->
-        <label for="chat-file-input" style="cursor: pointer; color: #9496a8; padding: 8px; border-radius: 8px; transition: all 0.2s;" title="แนบรูปภาพสลิปหรือภาพในเกม" onmouseover="this.style.color='#f472b6'" onmouseout="this.style.color='#9496a8'">
+        <label for="chat-file-input"
+          style="cursor: pointer; color: #9496a8; padding: 8px; border-radius: 8px; transition: all 0.2s;"
+          title="แนบรูปภาพสลิปหรือภาพในเกม" onmouseover="this.style.color='#f472b6'"
+          onmouseout="this.style.color='#9496a8'">
           <i class="fas fa-paperclip" style="font-size: 1.1rem;"></i>
         </label>
-        <input type="file" id="chat-file-input" accept="image/*" style="display: none;" onchange="window.chatManager && window.chatManager.handleAttachmentSelected(this)">
+        <input type="file" id="chat-file-input" accept="image/*" style="display: none;"
+          onchange="window.chatManager && window.chatManager.handleAttachmentSelected(this)">
 
         <!-- Message input -->
         <input type="text" id="chat-message-input" placeholder="พิมพ์ข้อความคุยกับแอดมินที่นี่..." autocomplete="off"
           style="flex: 1; background: #181926; border: 1px solid #2b2d42; border-radius: 20px; padding: 10px 16px; color: #fff; font-size: 0.88rem; outline: none;">
 
         <!-- Send Button -->
-        <button type="submit" class="btn-pink" style="width: 40px; height: 40px; border-radius: 50%; padding: 0; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+        <button type="submit" class="btn-pink"
+          style="width: 40px; height: 40px; border-radius: 50%; padding: 0; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
           <i class="fas fa-paper-plane" style="font-size: 0.95rem; margin-left: -2px;"></i>
         </button>
       </form>
