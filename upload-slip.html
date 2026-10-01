@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="th">
 
 <head>
@@ -434,23 +434,31 @@
     function compressImage(base64Str, maxSide, quality, callback) {
       const img = new Image();
       img.onload = function() {
-        let w = img.width;
-        let h = img.height;
-        if (w > maxSide || h > maxSide) {
-          if (w > h) {
-            h = Math.round((h * maxSide) / w);
-            w = maxSide;
-          } else {
-            w = Math.round((w * maxSide) / h);
-            h = maxSide;
+        try {
+          let w = img.width;
+          let h = img.height;
+          if (w > maxSide || h > maxSide) {
+            if (w > h) {
+              h = Math.round((h * maxSide) / w);
+              w = maxSide;
+            } else {
+              w = Math.round((w * maxSide) / h);
+              h = maxSide;
+            }
           }
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, w, h);
+          callback(canvas.toDataURL('image/jpeg', quality));
+        } catch (e) {
+          console.warn('Canvas compress error, fallback to raw:', e);
+          callback(base64Str);
         }
-        const canvas = document.createElement('canvas');
-        canvas.width = w;
-        canvas.height = h;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, w, h);
-        callback(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = function() {
+        callback(base64Str);
       };
       img.src = base64Str;
     }
@@ -469,30 +477,49 @@
       submitBtn.disabled = true;
       submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> กำลังส่งสลิปไปยังคอมพิวเตอร์...';
 
-      try {
-        const response = await fetch('/api/slip/upload', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            session_id: sessionId,
-            image_data: selectedImageBase64,
-            filename: selectedFileName
-          })
-        });
+      const payload = JSON.stringify({
+        session_id: sessionId,
+        image_data: selectedImageBase64,
+        filename: selectedFileName
+      });
 
-        const data = await response.json();
-        if (response.ok && data.success) {
-          // Show Success View
-          document.getElementById('upload-step-view').style.display = 'none';
-          document.getElementById('success-step-view').style.display = 'block';
-        } else {
-          alert(data.message || 'ส่งสลิปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง');
-          submitBtn.disabled = false;
-          submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> ลองใหม่อีกครั้ง';
+      // Try list of candidate endpoints
+      const candidateEndpoints = [
+        '/api/slip/upload',
+        (window.location.origin || '') + '/api/slip/upload',
+        'http://192.168.1.124:3000/api/slip/upload',
+        'http://127.0.0.1:3000/api/slip/upload'
+      ];
+
+      let lastError = null;
+      let success = false;
+
+      for (const endpoint of candidateEndpoints) {
+        try {
+          const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: payload
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            if (data.success) {
+              success = true;
+              document.getElementById('upload-step-view').style.display = 'none';
+              document.getElementById('success-step-view').style.display = 'block';
+              break;
+            } else {
+              lastError = data.message;
+            }
+          }
+        } catch (err) {
+          lastError = err.message;
         }
-      } catch (err) {
-        console.error(err);
-        alert('เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์ กรุณาตรวจสอบว่าต่อ Wi-Fi เดียวกัน');
+      }
+
+      if (!success) {
+        alert(lastError ? `ส่งสลิปไม่สำเร็จ: ${lastError}` : 'ส่งสลิปไม่สำเร็จ กรุณาตรวจสอบว่าเชื่อมต่อ Wi-Fi เดียวกันกับคอมพิวเตอร์');
         submitBtn.disabled = false;
         submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> ลองใหม่อีกครั้ง';
       }
