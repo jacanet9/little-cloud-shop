@@ -128,49 +128,27 @@ body {
 .brand-logo {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   text-decoration: none;
   cursor: pointer;
 }
 .logo-badge {
-  width: 44px;
-  height: 44px;
-  border-radius: 13px;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
   background: var(--primary-gradient);
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 15px rgba(228, 37, 117, 0.4);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  flex-shrink: 0;
-  overflow: hidden;
-  position: relative;
+  font-weight: 800;
+  font-size: 1.2rem;
+  color: #fff;
+  box-shadow: 0 4px 15px rgba(228, 37, 117, 0.35);
+  transition: all 0.25s ease;
 }
 .brand-logo:hover .logo-badge {
   transform: translateY(-2px) scale(1.05);
-  box-shadow: 0 6px 22px rgba(228, 37, 117, 0.55);
-}
-.brand-logo-img {
-  width: 36px;
-  height: auto;
-  max-height: 28px;
-  object-fit: contain;
-  filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.25));
-  transition: transform 0.3s ease;
-  display: block;
-  pointer-events: none;
-  animation: cloudHover 3s ease-in-out infinite;
-}
-.brand-logo:hover .brand-logo-img {
-  transform: scale(1.1);
-}
-@keyframes cloudHover {
-  0%, 100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-2px);
-  }
+  box-shadow: 0 6px 20px rgba(228, 37, 117, 0.5);
 }
 .brand-title {
   font-size: 1.2rem;
