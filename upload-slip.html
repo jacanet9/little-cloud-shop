@@ -5,6 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>อัพโหลดสลิปผ่านมือถือ · Little Cloud Shop</title>
+  <link rel="icon" type="image/png" href="images/logo.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -63,14 +64,27 @@
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      width: 52px;
-      height: 52px;
-      background: linear-gradient(135deg, #e11d48 0%, #fb7185 100%);
-      border-radius: 16px;
-      color: #fff;
-      font-size: 1.5rem;
-      box-shadow: 0 10px 25px rgba(225, 29, 72, 0.45);
+      width: 58px;
+      height: 58px;
+      background: linear-gradient(135deg, rgba(225, 29, 72, 0.25) 0%, rgba(168, 85, 247, 0.2) 100%);
+      border: 1px solid rgba(251, 113, 133, 0.4);
+      border-radius: 18px;
+      box-shadow: 0 10px 25px rgba(225, 29, 72, 0.35);
       margin-bottom: 12px;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
+    .logo-badge img {
+      width: 48px;
+      height: auto;
+      max-height: 40px;
+      object-fit: contain;
+      filter: drop-shadow(0 4px 8px rgba(225, 29, 72, 0.35));
+      animation: cloudFloat 3s ease-in-out infinite;
+    }
+    @keyframes cloudFloat {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-3px); }
     }
 
     .brand-title {
@@ -305,7 +319,7 @@
     <!-- Header -->
     <div class="header">
       <div class="logo-badge">
-        <i class="fas fa-cloud"></i>
+        <img src="images/logo.png" alt="Little Cloud">
       </div>
       <h1 class="brand-title">Little Cloud Shop</h1>
       <p class="brand-sub">ระบบอัพโหลดสลิปโอนเงินผ่านมือถือ</p>
