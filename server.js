@@ -5,7 +5,6 @@
 
 require('dotenv').config();
 const express = require('express');
-const cors = require('cors');
 const axios = require('axios');
 const path = require('path');
 const os = require('os');
@@ -24,40 +23,70 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 const OMISE_SECRET_KEY = process.env.OMISE_SECRET_KEY || '';
 const OMISE_PUBLIC_KEY = process.env.OMISE_PUBLIC_KEY || '';
 
+// Universal CORS & Private Network Access Middleware (Supports file://, localhost, LAN IP)
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept');
+  res.setHeader('Access-Control-Allow-Private-Network', 'true');
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(204);
+  }
+  next();
+});
+
 // Middlewares - Support large image uploads (up to 50MB base64)
-app.use(cors());
 app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ limit: '50mb', extended: true }));
-app.use(express.static(path.join(__dirname, './')));
+app.use(express.static(path.join(__dirname, './'), {
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.js') || filePath.endsWith('.html') || filePath.endsWith('.css')) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    }
+  }
+}));
 
 // In-memory Mobile Slip Sessions Store
+const SLIP_CACHE_FILE = path.join(__dirname, 'latest_slip.json');
 const SLIP_SESSIONS = {};
 
-// Clean up expired slip sessions (older than 30 mins)
+// Load persisted slip cache if exists
+try {
+  if (fs.existsSync(SLIP_CACHE_FILE)) {
+    const raw = fs.readFileSync(SLIP_CACHE_FILE, 'utf-8');
+    const cached = JSON.parse(raw);
+    if (cached && cached.session_id) {
+      SLIP_SESSIONS[cached.session_id] = cached;
+      SLIP_SESSIONS['_latest'] = cached;
+    }
+  }
+} catch (e) {
+  console.warn('Could not read slip cache file:', e.message);
+}
+
+// Clean up expired slip sessions (keep active for at least 2 hours)
 setInterval(() => {
   const now = Date.now();
   for (const sid in SLIP_SESSIONS) {
-    if (now - (SLIP_SESSIONS[sid].created_at || 0) > 30 * 60 * 1000) {
+    if (sid === '_latest') continue;
+    const sessionTime = SLIP_SESSIONS[sid].uploaded_at || SLIP_SESSIONS[sid].created_at || now;
+    if (now - sessionTime > 2 * 60 * 60 * 1000) {
       delete SLIP_SESSIONS[sid];
     }
   }
-}, 5 * 60 * 1000);
+}, 10 * 60 * 1000);
 
 // Helper: Detect Active LAN IPv4 Address
 function getLanIp() {
   const interfaces = os.networkInterfaces();
-  // Preferred interfaces first
   for (const name of Object.keys(interfaces)) {
     for (const iface of interfaces[name]) {
       if (iface.family === 'IPv4' && !iface.internal) {
-        // Prioritize standard local subnet IPs (192.168.x.x, 10.x.x.x, 172.16-31.x.x)
         if (iface.address.startsWith('192.168.') || iface.address.startsWith('10.') || /^172\.(1[6-9]|2\d|3[01])\./.test(iface.address)) {
           return iface.address;
         }
       }
     }
   }
-  // Secondary fallback for any non-internal IPv4
   for (const name of Object.keys(interfaces)) {
     for (const iface of interfaces[name]) {
       if (iface.family === 'IPv4' && !iface.internal) {
@@ -96,6 +125,7 @@ const handleCreateSlipSession = (req, res) => {
     const localUrl = `http://127.0.0.1:${PORT}/upload-slip.html?session=${sessionId}`;
 
     SLIP_SESSIONS[sessionId] = {
+      session_id: sessionId,
       status: 'waiting',
       slip_data: null,
       filename: null,
@@ -133,12 +163,23 @@ app.post('/api/slip/upload', (req, res) => {
       });
     }
 
-    SLIP_SESSIONS[session_id] = {
+    const now = Date.now();
+    const sessionObj = {
+      session_id: session_id,
       status: 'completed',
       slip_data: image_data,
       filename: filename || 'mobile_slip.jpg',
-      uploaded_at: Date.now()
+      created_at: (SLIP_SESSIONS[session_id] && SLIP_SESSIONS[session_id].created_at) || now,
+      uploaded_at: now
     };
+
+    SLIP_SESSIONS[session_id] = sessionObj;
+    SLIP_SESSIONS['_latest'] = sessionObj;
+
+    // Persist to disk for high reliability
+    try {
+      fs.writeFileSync(SLIP_CACHE_FILE, JSON.stringify(sessionObj), 'utf-8');
+    } catch (e) {}
 
     console.log(`[Slip Uploaded] Session: ${session_id} (${filename || 'mobile_slip.jpg'}, ${(image_data.length / 1024).toFixed(1)} KB)`);
     return res.status(200).json({
@@ -159,16 +200,103 @@ app.get('/api/slip/check/:session_id', (req, res) => {
   if (!session) {
     return res.status(404).json({
       success: false,
+      status: 'not_found',
       message: 'ไม่พบ Session นี้ หรือ Session หมดอายุแล้ว'
     });
   }
 
+  // If session is still waiting, strictly return waiting (DO NOT return older slip!)
+  if (session.status !== 'completed' || !session.slip_data) {
+    return res.status(200).json({
+      success: true,
+      status: 'waiting',
+      message: 'Waiting for mobile upload'
+    });
+  }
+
+  // Session has completed its own upload!
+  console.log(`[Slip Check] Session ${session_id} is COMPLETED (${session.filename}, ${(session.slip_data.length / 1024).toFixed(1)} KB)`);
+
   return res.status(200).json({
     success: true,
-    status: session.status,
+    status: 'completed',
     slip_data: session.slip_data,
     filename: session.filename
   });
+});
+
+// Latest Slip Endpoint (For manual pull button)
+app.get('/api/slip/latest', (req, res) => {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  let latest = SLIP_SESSIONS['_latest'];
+  if ((!latest || !latest.slip_data) && fs.existsSync(SLIP_CACHE_FILE)) {
+    try {
+      latest = JSON.parse(fs.readFileSync(SLIP_CACHE_FILE, 'utf-8'));
+      if (latest && latest.slip_data) {
+        SLIP_SESSIONS['_latest'] = latest;
+        if (latest.session_id) SLIP_SESSIONS[latest.session_id] = latest;
+      }
+    } catch (e) {}
+  }
+
+  if (latest && latest.slip_data) {
+    return res.status(200).json({
+      success: true,
+      status: 'completed',
+      session_id: latest.session_id || 'latest',
+      slip_data: latest.slip_data,
+      filename: latest.filename || 'mobile_slip.jpg',
+      uploaded_at: latest.uploaded_at || Date.now()
+    });
+  }
+
+  return res.status(404).json({
+    success: false,
+    message: 'ยังไม่มีสลิปที่อัพโหลดล่าสุด'
+  });
+});
+
+// Server-side QR Inspector endpoint (Fallback for tricky images)
+app.post('/api/slip/inspect', (req, res) => {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  try {
+    const { image_data } = req.body;
+    if (!image_data) {
+      return res.status(400).json({ success: false, message: 'Missing image_data' });
+    }
+
+    const base64Data = image_data.replace(/^data:image\/\w+;base64,/, '');
+    const buffer = Buffer.from(base64Data, 'base64');
+
+    let rawImageData = null;
+    try {
+      const jpeg = require('jpeg-js');
+      rawImageData = jpeg.decode(buffer, { useTArray: true });
+    } catch (jpegErr) {
+      console.warn('Server jpeg decode warning:', jpegErr.message);
+    }
+
+    if (rawImageData && rawImageData.data) {
+      const jsQR = require('jsqr');
+      const code = jsQR(rawImageData.data, rawImageData.width, rawImageData.height, {
+        inversionAttempts: 'attemptBoth'
+      });
+
+      if (code && code.data) {
+        return res.status(200).json({
+          success: true,
+          qrData: code.data
+        });
+      }
+    }
+
+    return res.status(200).json({
+      success: false,
+      message: 'No QR found via server inspection'
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
 });
 
 // ==============================================================================

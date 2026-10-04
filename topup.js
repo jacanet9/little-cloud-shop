@@ -516,6 +516,13 @@ class TopupManager {
    * Manual Pull Latest Slip (If user wants to instantly pull uploaded slip)
    */
   async fetchLatestMobileSlip() {
+    const pullBtn = document.querySelector('button[onclick*="fetchLatestMobileSlip"]');
+    const originalBtnText = pullBtn ? pullBtn.innerHTML : '';
+    if (pullBtn) {
+      pullBtn.disabled = true;
+      pullBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> กำลังดึงรูปสลิป...';
+    }
+
     let apiBase = '';
     if (window.location.protocol === 'file:' || (window.location.port && window.location.port !== '3000')) {
       apiBase = 'http://127.0.0.1:3000';
@@ -523,33 +530,68 @@ class TopupManager {
 
     const endpoints = [
       `${apiBase}/api/slip/latest`,
-      `http://127.0.0.1:3000/api/slip/latest`,
-      `http://192.168.1.124:3000/api/slip/latest`
+      '/api/slip/latest',
+      'http://127.0.0.1:3000/api/slip/latest',
+      'http://localhost:3000/api/slip/latest',
+      'http://192.168.1.124:3000/api/slip/latest'
     ];
 
+    if (this.mobileSlipSessionId) {
+      endpoints.unshift(`${apiBase}/api/slip/check/${this.mobileSlipSessionId}`);
+      endpoints.unshift(`/api/slip/check/${this.mobileSlipSessionId}`);
+    }
+
+    let foundData = null;
     for (const ep of endpoints) {
       try {
-        const resp = await fetch(ep);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 2000);
+        const resp = await fetch(ep, { signal: controller.signal, cache: 'no-store' });
+        clearTimeout(timeoutId);
+
         if (resp.ok) {
           const data = await resp.json();
-          if (data.success && data.status === 'completed' && data.slip_data) {
-            console.log('✅ Latest slip pulled manually:', data.filename);
-            this.stopMobileSlipPolling();
-            this.handleMobileSlipReceived(data.slip_data, data.filename || 'mobile_slip.jpg');
-            return true;
+          if (data && data.success && data.status === 'completed' && data.slip_data) {
+            foundData = data;
+            break;
           }
         }
       } catch (e) {}
+    }
+
+    if (pullBtn) {
+      pullBtn.disabled = false;
+      pullBtn.innerHTML = originalBtnText;
+    }
+
+    if (foundData) {
+      console.log('✅ Latest slip pulled manually:', foundData.filename);
+      this.stopMobileSlipPolling();
+      this.handleMobileSlipReceived(foundData.slip_data, foundData.filename || 'mobile_slip.jpg');
+      return true;
     }
 
     if (typeof Swal !== 'undefined') {
       Swal.fire({
         icon: 'info',
         title: 'ยังไม่พบรูปสลิปจากมือถือ',
-        text: 'กรุณาเปิดมือถือ สแกน QR Code แล้วกดส่งสลิปก่อนครับ',
+        html: `
+          <div style="text-align: left; padding: 6px 0; color: #cbd5e1; font-size: 0.88rem; line-height: 1.6;">
+            <p style="margin-bottom: 8px;">ระบบยังไม่พบรูปสลิปที่ส่งมาจากมือถือในขณะนี้ครับ</p>
+            <div style="background: #181926; border: 1px solid #282a3d; border-radius: 10px; padding: 10px; font-size: 0.82rem;">
+              <b style="color: #f472b6;">วิธีใช้งาน:</b>
+              <ol style="margin: 4px 0 0; padding-left: 18px; color: #9496a8;">
+                <li>ใช้มือถือสแกน <b>QR Code</b> ด้านบน</li>
+                <li>เลือกรูปสลิปจากอัลบั้มแล้วกด <b>"ส่งสลิปไปยังคอมพิวเตอร์"</b></li>
+                <li>หรือคลิกแท็บ <b>"อัพโหลดจากเครื่อง"</b> ด้านบน เพื่อเลือกไฟล์รูปภาพโดยตรงได้ทันที</li>
+              </ol>
+            </div>
+          </div>
+        `,
         background: '#151622',
         color: '#fff',
-        confirmButtonColor: '#e11d48'
+        confirmButtonColor: '#e11d48',
+        confirmButtonText: 'รับทราบ'
       });
     }
     return false;
@@ -558,12 +600,14 @@ class TopupManager {
   handleMobileSlipReceived(dataUrl, filename) {
     if (!dataUrl) return;
     console.log('📸 handleMobileSlipReceived called with filename:', filename);
+    
     let file = null;
     try {
-      file = this.dataURLtoFile(dataUrl, filename);
+      file = this.dataURLtoFile(dataUrl, filename || 'mobile_slip.jpg');
     } catch (e) {
       console.warn('File conversion error:', e);
     }
+
     this.selectedSlipFile = file;
     this.selectedSlipDataUrl = dataUrl;
 
@@ -605,11 +649,11 @@ class TopupManager {
     if (typeof Swal !== 'undefined') {
       Swal.fire({
         icon: 'success',
-        title: '🎉 ได้รับสลิปจากมือถือแล้ว!',
+        title: '🎉 ได้รับสลิปเรียบร้อยแล้ว!',
         html: `
           <div style="text-align: left; padding: 6px 0; color: #cbd5e1; font-size: 0.9rem;">
             <p style="margin-bottom: 6px;">ระบบดึงภาพสลิปจากโทรศัพท์ของคุณเรียบร้อยแล้ว</p>
-            <p style="color: #34d399; font-weight: 700;">พร้อมให้คุณกด "ตรวจสอบสลิปและเพิ่มเครดิตทันที" ด้านล่างได้เลยครับ ✨</p>
+            <p style="color: #34d399; font-weight: 700;">กรุณากดปุ่ม <b>"ตรวจสอบสลิปและเพิ่มเครดิตทันที"</b> ด้านล่างเพื่อรับพอยท์เข้ากระเป๋าได้เลยครับ ✨</p>
           </div>
         `,
         timer: 3500,
@@ -739,8 +783,13 @@ class TopupManager {
       return;
     }
 
+    // Reconstruct File from DataURL if needed
+    if (!this.selectedSlipFile && this.selectedSlipDataUrl) {
+      this.selectedSlipFile = this.dataURLtoFile(this.selectedSlipDataUrl, 'mobile_slip.jpg');
+    }
+
     // STRICT VALIDATION: You CANNOT pass without uploading a genuine bank slip!
-    if (!this.selectedSlipFile) {
+    if (!this.selectedSlipFile && !this.selectedSlipDataUrl) {
       Swal.fire({
         icon: 'warning',
         title: 'ยังไม่ได้แนบสลิปการโอนเงิน',
@@ -754,9 +803,9 @@ class TopupManager {
               <b style="color: #f472b6;">ขั้นตอน:</b>
               <ol style="margin: 4px 0 0; padding-left: 18px; color: #a5a8bc; font-size: 0.85rem;">
                 <li>สแกน QR Code พร้อมเพย์ด้านบนและโอนเงิน</li>
-                <li>คลิกที่กล่อง <b>"แนบรูปสลิปหลักฐานการโอน"</b></li>
+                <li>ใช้มือถือสแกนกล่อง QR เพื่อส่งรูป หรือคลิกที่แท็บ <b>"อัพโหลดจากเครื่อง"</b></li>
                 <li>เลือกรูปภาพสลิปที่ได้จากแอปธนาคาร</li>
-                <li>กดปุ่มยืนยันอีกครั้งเพื่อให้ระบบตรวจสอบ QR Code บนสลิป</li>
+                <li>กดปุ่ม <b>"ตรวจสอบสลิปและเพิ่มเครดิตทันที"</b> อีกครั้งเพื่อรับพอยท์</li>
               </ol>
             </div>
           </div>
@@ -804,7 +853,8 @@ class TopupManager {
       await this.handlePaymentCompleted({
         amount: result.amount || amount,
         chargeId: result.transactionRef || result.referenceId || `PAY-${Date.now()}`,
-        balanceAfter: result.balanceAfter
+        balanceAfter: result.balanceAfter,
+        alreadyCredited: result.alreadyCredited
       });
     } catch (err) {
       console.error('Topup verification failed:', err);
@@ -817,6 +867,70 @@ class TopupManager {
         confirmButtonColor: '#ef4444'
       });
     }
+  }
+
+  /**
+   * Handle Successful Payment Completion & Celebration
+   */
+  async handlePaymentCompleted({ amount, chargeId, balanceAfter, alreadyCredited = false }) {
+    this.stopStatusPolling();
+    this.stopMobileSlipPolling();
+    if (this.countdownTimer) clearInterval(this.countdownTimer);
+
+    // Close QR Box & Reset selection
+    this.closeQrBox();
+    this.resetSlipSelection();
+
+    // Update balances across UI
+    if (typeof window.updateUserBalanceDisplays === 'function') {
+      window.updateUserBalanceDisplays();
+    }
+    if (window.authManager && window.authManager.currentUser) {
+      if (balanceAfter !== undefined && balanceAfter !== null) {
+        window.authManager.currentUser.balance = Number(balanceAfter);
+        window.authManager.saveCurrentUser(window.authManager.currentUser);
+      }
+    }
+
+    // Refresh transactions
+    if (window.ordersManager && typeof window.ordersManager.loadProfileTopups === 'function') {
+      try { await window.ordersManager.loadProfileTopups(); } catch (e) {}
+    }
+    if (window.adminManager && typeof window.adminManager.renderAdminTopupsTable === 'function') {
+      try { window.adminManager.renderAdminTopupsTable(); } catch (e) {}
+    }
+
+    const numAmount = Number(amount) || 0;
+    const finalBalance = balanceAfter !== undefined ? Number(balanceAfter) : (window.authManager && window.authManager.currentUser ? window.authManager.currentUser.balance : numAmount);
+
+    Swal.fire({
+      icon: 'success',
+      title: alreadyCredited ? '🎉 สลิปนี้ได้รับการเติมเงินสำเร็จแล้ว' : '🎉 เติมเงินสำเร็จเรียบร้อย!',
+      html: `
+        <div style="padding: 10px 0; text-align: center; color: #cbd5e1;">
+          <div style="font-size: 2.2rem; font-weight: 800; color: #34d399; font-family: 'Outfit', sans-serif; margin: 8px 0;">
+            +฿ ${numAmount.toLocaleString('th-TH', { minimumFractionDigits: 2 })}
+          </div>
+          <p style="font-size: 0.95rem; margin-bottom: 12px; color: #e2e8f0;">
+            ${alreadyCredited ? 'ยอดเงินในสลิปนี้ถูกบันทึกเข้ากระเป๋าของคุณเรียบร้อยแล้ว' : 'ยอดเงินเข้าสู่กระเป๋าเครดิตของคุณเรียบร้อยแล้ว'}
+          </p>
+          <div style="background: #181926; border: 1px solid #282a3d; border-radius: 12px; padding: 12px 16px; display: flex; flex-direction: column; gap: 8px; font-size: 0.84rem; text-align: left;">
+            <div style="display: flex; justify-content: space-between;">
+              <span style="color: #9496a8;">รหัสอ้างอิงธุรกรรม:</span>
+              <code style="color: #facc15; font-size: 0.8rem;">${chargeId || '-'}</code>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+              <span style="color: #9496a8;">ยอดเงินคงเหลือปัจจุบัน:</span>
+              <b style="color: #34d399; font-size: 0.95rem;">฿ ${Number(finalBalance).toLocaleString('th-TH', { minimumFractionDigits: 2 })}</b>
+            </div>
+          </div>
+        </div>
+      `,
+      confirmButtonText: '<i class="fas fa-shopping-bag"></i> ไปเลือกซื้อสินค้า',
+      confirmButtonColor: '#e11d48',
+      background: '#12131d',
+      color: '#fff'
+    });
   }
 }
 
@@ -844,3 +958,8 @@ window.setTopupAmount = function(amt, fromInput) {
     }
   });
 };
+
+window.fetchLatestMobileSlip = function() {
+  if (window.topupManager) return window.topupManager.fetchLatestMobileSlip();
+};
+
