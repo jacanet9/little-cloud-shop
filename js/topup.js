@@ -65,6 +65,7 @@ class TopupManager {
   constructor() {
     this.currentAmount = 100;
     this.selectedSlipFile = null;
+    this.selectedSlipDataUrl = null;
     this.activeChargeId = null;
     this.pollingTimer = null;
     this.countdownTimer = null;
@@ -95,22 +96,39 @@ class TopupManager {
    * Scannable by all Thai mobile banking apps (K PLUS, SCB Easy, Krungthai NEXT, etc.)
    */
   async generatePromptPayQR() {
-    const user = window.authManager.currentUser;
+    let user = window.authManager ? window.authManager.currentUser : null;
     if (!user) {
-      Swal.fire({
-        icon: 'warning',
-        title: 'กรุณาเข้าสู่ระบบ',
-        text: 'คุณต้องเข้าสู่ระบบหรือสมัครสมาชิกก่อนทำการเติมเงิน',
+      const promptRes = await Swal.fire({
+        icon: 'info',
+        title: 'กรุณาเข้าสู่ระบบก่อนเติมเงิน',
+        text: 'เข้าสู่ระบบเพื่อบันทึกเครดิตเข้าบัญชี หรือต้องการสร้าง QR ทดสอบในฐานะ Guest?',
         showCancelButton: true,
+        showDenyButton: true,
         confirmButtonText: 'เข้าสู่ระบบ',
+        denyButtonText: 'ทดสอบในฐานะ Guest',
         cancelButtonText: 'ยกเลิก',
+        confirmButtonColor: '#e11d48',
+        denyButtonColor: '#3b82f6',
         background: '#151622',
-        color: '#fff',
-        confirmButtonColor: '#e11d48'
-      }).then(r => {
-        if (r.isConfirmed) window.authManager.openAuthModal('login');
+        color: '#fff'
       });
-      return;
+
+      if (promptRes.isConfirmed) {
+        if (window.authManager) window.authManager.openAuthModal('login');
+        return;
+      } else if (promptRes.isDenied) {
+        user = {
+          id: 'guest_' + Date.now(),
+          username: 'Guest Member',
+          role: 'member',
+          balance: 0
+        };
+        if (window.authManager) {
+          window.authManager.saveCurrentUser(user);
+        }
+      } else {
+        return;
+      }
     }
 
     const input = document.getElementById('topup-amount-input');
@@ -332,16 +350,23 @@ class TopupManager {
    * Convert Data URL (Base64) to HTML5 File Object
    */
   dataURLtoFile(dataurl, filename) {
-    const arr = dataurl.split(',');
-    const mimeMatch = arr[0].match(/:(.*?);/);
-    const mime = mimeMatch ? mimeMatch[1] : 'image/jpeg';
-    const bstr = atob(arr[1]);
-    let n = bstr.length;
-    const u8arr = new Uint8Array(n);
-    while (n--) {
-      u8arr[n] = bstr.charCodeAt(n);
+    if (!dataurl || typeof dataurl !== 'string') return null;
+    try {
+      const arr = dataurl.split(',');
+      const mimeMatch = (arr[0] || '').match(/:(.*?);/);
+      const mime = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+      const cleanB64 = (arr[1] || arr[0]).replace(/\s/g, '');
+      const bstr = atob(cleanB64);
+      let n = bstr.length;
+      const u8arr = new Uint8Array(n);
+      while (n--) {
+        u8arr[n] = bstr.charCodeAt(n);
+      }
+      return new File([u8arr], filename || 'mobile_slip.jpg', { type: mime });
+    } catch (e) {
+      console.warn('dataURLtoFile manual decode fallback:', e);
+      return new File([new Uint8Array(0)], filename || 'mobile_slip.jpg', { type: 'image/jpeg' });
     }
-    return new File([u8arr], filename || 'mobile_slip.jpg', { type: mime });
   }
 
   /**
@@ -392,6 +417,7 @@ class TopupManager {
     const qrTarget = document.getElementById('slip-upload-qr-target');
     const directLink = document.getElementById('slip-upload-direct-link');
     const sessionBadge = document.getElementById('slip-qr-session-badge');
+    const urlHint = document.getElementById('slip-qr-url-hint');
 
     if (qrTarget) {
       qrTarget.innerHTML = `
@@ -402,8 +428,12 @@ class TopupManager {
       `;
     }
 
-    // Support both local server and file:/// protocol
-    const apiBase = window.location.protocol === 'file:' ? 'http://127.0.0.1:3000' : '';
+    // Support both local server, live-server and file:/// protocol
+    let apiBase = '';
+    if (window.location.protocol === 'file:' || (window.location.port && window.location.port !== '3000')) {
+      apiBase = 'http://127.0.0.1:3000';
+    }
+
     let sessionId = `slip_${Date.now()}`;
     let uploadUrl = `http://192.168.1.124:3000/upload-slip.html?session=${sessionId}`;
     let localUrl = `http://127.0.0.1:3000/upload-slip.html?session=${sessionId}`;
@@ -428,7 +458,7 @@ class TopupManager {
 
     this.mobileSlipSessionId = sessionId;
 
-    // Render QR Code immediately into target box (No external network latency!)
+    // Render QR Code immediately into target box
     if (qrTarget) {
       this.renderQrCode(qrTarget, uploadUrl);
     }
@@ -441,24 +471,38 @@ class TopupManager {
       sessionBadge.textContent = `#${sessionId.substring(0, 16)}`;
     }
 
-    // Start Polling for Mobile Upload
+    if (urlHint) {
+      urlHint.textContent = uploadUrl.replace('http://', '');
+    }
+
+    // Start Polling for Mobile Upload (every 1.0s for instant response)
     this.mobileSlipPollingTimer = setInterval(async () => {
       if (!this.mobileSlipSessionId) {
         this.stopMobileSlipPolling();
         return;
       }
 
-      try {
-        const chkResp = await fetch(`${apiBase}/api/slip/check/${this.mobileSlipSessionId}`);
-        if (chkResp.ok) {
-          const chkData = await chkResp.json();
-          if (chkData.success && chkData.status === 'completed' && chkData.slip_data) {
-            this.stopMobileSlipPolling();
-            this.handleMobileSlipReceived(chkData.slip_data, chkData.filename || 'mobile_slip.jpg');
+      const endpoints = [
+        `${apiBase}/api/slip/check/${this.mobileSlipSessionId}`,
+        `http://127.0.0.1:3000/api/slip/check/${this.mobileSlipSessionId}`,
+        `http://192.168.1.124:3000/api/slip/check/${this.mobileSlipSessionId}`
+      ];
+
+      for (const ep of endpoints) {
+        try {
+          const chkResp = await fetch(ep);
+          if (chkResp.ok) {
+            const chkData = await chkResp.json();
+            if (chkData.success && chkData.status === 'completed' && chkData.slip_data) {
+              console.log('✅ Slip received from endpoint:', ep);
+              this.stopMobileSlipPolling();
+              this.handleMobileSlipReceived(chkData.slip_data, chkData.filename || 'mobile_slip.jpg');
+              break;
+            }
           }
-        }
-      } catch (pollErr) {}
-    }, 1800);
+        } catch (pollErr) {}
+      }
+    }, 1000);
   }
 
   stopMobileSlipPolling() {
@@ -468,9 +512,104 @@ class TopupManager {
     }
   }
 
+  /**
+   * Manual Pull Latest Slip (If user wants to instantly pull uploaded slip)
+   */
+  async fetchLatestMobileSlip() {
+    const pullBtn = document.querySelector('button[onclick*="fetchLatestMobileSlip"]');
+    const originalBtnText = pullBtn ? pullBtn.innerHTML : '';
+    if (pullBtn) {
+      pullBtn.disabled = true;
+      pullBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> กำลังดึงรูปสลิป...';
+    }
+
+    let apiBase = '';
+    if (window.location.protocol === 'file:' || (window.location.port && window.location.port !== '3000')) {
+      apiBase = 'http://127.0.0.1:3000';
+    }
+
+    const endpoints = [
+      `${apiBase}/api/slip/latest`,
+      '/api/slip/latest',
+      'http://127.0.0.1:3000/api/slip/latest',
+      'http://localhost:3000/api/slip/latest',
+      'http://192.168.1.124:3000/api/slip/latest'
+    ];
+
+    if (this.mobileSlipSessionId) {
+      endpoints.unshift(`${apiBase}/api/slip/check/${this.mobileSlipSessionId}`);
+      endpoints.unshift(`/api/slip/check/${this.mobileSlipSessionId}`);
+    }
+
+    let foundData = null;
+    for (const ep of endpoints) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 2000);
+        const resp = await fetch(ep, { signal: controller.signal, cache: 'no-store' });
+        clearTimeout(timeoutId);
+
+        if (resp.ok) {
+          const data = await resp.json();
+          if (data && data.success && data.status === 'completed' && data.slip_data) {
+            foundData = data;
+            break;
+          }
+        }
+      } catch (e) {}
+    }
+
+    if (pullBtn) {
+      pullBtn.disabled = false;
+      pullBtn.innerHTML = originalBtnText;
+    }
+
+    if (foundData) {
+      console.log('✅ Latest slip pulled manually:', foundData.filename);
+      this.stopMobileSlipPolling();
+      this.handleMobileSlipReceived(foundData.slip_data, foundData.filename || 'mobile_slip.jpg');
+      return true;
+    }
+
+    if (typeof Swal !== 'undefined') {
+      Swal.fire({
+        icon: 'info',
+        title: 'ยังไม่พบรูปสลิปจากมือถือ',
+        html: `
+          <div style="text-align: left; padding: 6px 0; color: #cbd5e1; font-size: 0.88rem; line-height: 1.6;">
+            <p style="margin-bottom: 8px;">ระบบยังไม่พบรูปสลิปที่ส่งมาจากมือถือในขณะนี้ครับ</p>
+            <div style="background: #181926; border: 1px solid #282a3d; border-radius: 10px; padding: 10px; font-size: 0.82rem;">
+              <b style="color: #f472b6;">วิธีใช้งาน:</b>
+              <ol style="margin: 4px 0 0; padding-left: 18px; color: #9496a8;">
+                <li>ใช้มือถือสแกน <b>QR Code</b> ด้านบน</li>
+                <li>เลือกรูปสลิปจากอัลบั้มแล้วกด <b>"ส่งสลิปไปยังคอมพิวเตอร์"</b></li>
+                <li>หรือคลิกแท็บ <b>"อัพโหลดจากเครื่อง"</b> ด้านบน เพื่อเลือกไฟล์รูปภาพโดยตรงได้ทันที</li>
+              </ol>
+            </div>
+          </div>
+        `,
+        background: '#151622',
+        color: '#fff',
+        confirmButtonColor: '#e11d48',
+        confirmButtonText: 'รับทราบ'
+      });
+    }
+    return false;
+  }
+
   handleMobileSlipReceived(dataUrl, filename) {
-    const file = this.dataURLtoFile(dataUrl, filename);
+    if (!dataUrl) return;
+    console.log('📸 handleMobileSlipReceived called with filename:', filename);
+    
+    let file = null;
+    try {
+      file = this.dataURLtoFile(dataUrl, filename || 'mobile_slip.jpg');
+    } catch (e) {
+      console.warn('File conversion error:', e);
+    }
+
     this.selectedSlipFile = file;
+    this.selectedSlipDataUrl = dataUrl;
 
     // Update UI elements
     const badge = document.getElementById('topup-slip-badge');
@@ -487,39 +626,49 @@ class TopupManager {
     }
 
     if (filenameLabel) {
-      filenameLabel.textContent = `📱 ${filename} (${(file.size / 1024).toFixed(1)} KB)`;
+      const kb = file && file.size ? (file.size / 1024).toFixed(1) : (dataUrl.length * 0.75 / 1024).toFixed(1);
+      filenameLabel.innerHTML = `<i class="fas fa-check-circle" style="color: #10b981;"></i> 📱 ${filename || 'สลิปจากมือถือ'} (${kb} KB)`;
       filenameLabel.style.color = '#059669';
       filenameLabel.style.fontWeight = '700';
     }
 
-    if (previewImg && previewContainer) {
+    if (previewImg) {
       previewImg.src = dataUrl;
+    }
+
+    if (previewContainer) {
       previewContainer.style.display = 'block';
+      setTimeout(() => {
+        previewContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }, 100);
     }
 
     if (qrPanel) qrPanel.style.display = 'none';
     if (pcPanel) pcPanel.style.display = 'none';
 
-    Swal.fire({
-      icon: 'success',
-      title: '🎉 ได้รับสลิปจากมือถือแล้ว!',
-      html: `
-        <div style="text-align: left; padding: 6px 0; color: #cbd5e1; font-size: 0.9rem;">
-          <p style="margin-bottom: 6px;">ระบบดึงภาพสลิปจากโทรศัพท์ของคุณเรียบร้อยแล้ว</p>
-          <p style="color: #34d399; font-weight: 700;">พร้อมให้คุณกด "ตรวจสอบสลิปและเพิ่มเครดิตทันที" ด้านล่างได้เลยครับ ✨</p>
-        </div>
-      `,
-      timer: 3500,
-      showConfirmButton: true,
-      confirmButtonText: 'ตกลง',
-      confirmButtonColor: '#e11d48',
-      background: '#151622',
-      color: '#fff'
-    });
+    if (typeof Swal !== 'undefined') {
+      Swal.fire({
+        icon: 'success',
+        title: '🎉 ได้รับสลิปเรียบร้อยแล้ว!',
+        html: `
+          <div style="text-align: left; padding: 6px 0; color: #cbd5e1; font-size: 0.9rem;">
+            <p style="margin-bottom: 6px;">ระบบดึงภาพสลิปจากโทรศัพท์ของคุณเรียบร้อยแล้ว</p>
+            <p style="color: #34d399; font-weight: 700;">กรุณากดปุ่ม <b>"ตรวจสอบสลิปและเพิ่มเครดิตทันที"</b> ด้านล่างเพื่อรับพอยท์เข้ากระเป๋าได้เลยครับ ✨</p>
+          </div>
+        `,
+        timer: 3500,
+        showConfirmButton: true,
+        confirmButtonText: 'ตกลง',
+        confirmButtonColor: '#e11d48',
+        background: '#151622',
+        color: '#fff'
+      });
+    }
   }
 
   resetSlipSelection() {
     this.selectedSlipFile = null;
+    this.selectedSlipDataUrl = null;
     const badge = document.getElementById('topup-slip-badge');
     const filenameLabel = document.getElementById('topup-slip-filename');
     const previewContainer = document.getElementById('topup-slip-preview-container');
@@ -597,6 +746,7 @@ class TopupManager {
         const reader = new FileReader();
         reader.onload = (e) => {
           previewImg.src = e.target.result;
+          this.selectedSlipDataUrl = e.target.result;
           previewContainer.style.display = 'block';
         };
         reader.readAsDataURL(file);
@@ -633,8 +783,13 @@ class TopupManager {
       return;
     }
 
+    // Reconstruct File from DataURL if needed
+    if (!this.selectedSlipFile && this.selectedSlipDataUrl) {
+      this.selectedSlipFile = this.dataURLtoFile(this.selectedSlipDataUrl, 'mobile_slip.jpg');
+    }
+
     // STRICT VALIDATION: You CANNOT pass without uploading a genuine bank slip!
-    if (!this.selectedSlipFile) {
+    if (!this.selectedSlipFile && !this.selectedSlipDataUrl) {
       Swal.fire({
         icon: 'warning',
         title: 'ยังไม่ได้แนบสลิปการโอนเงิน',
@@ -648,9 +803,9 @@ class TopupManager {
               <b style="color: #f472b6;">ขั้นตอน:</b>
               <ol style="margin: 4px 0 0; padding-left: 18px; color: #a5a8bc; font-size: 0.85rem;">
                 <li>สแกน QR Code พร้อมเพย์ด้านบนและโอนเงิน</li>
-                <li>คลิกที่กล่อง <b>"แนบรูปสลิปหลักฐานการโอน"</b></li>
+                <li>ใช้มือถือสแกนกล่อง QR เพื่อส่งรูป หรือคลิกที่แท็บ <b>"อัพโหลดจากเครื่อง"</b></li>
                 <li>เลือกรูปภาพสลิปที่ได้จากแอปธนาคาร</li>
-                <li>กดปุ่มยืนยันอีกครั้งเพื่อให้ระบบตรวจสอบ QR Code บนสลิป</li>
+                <li>กดปุ่ม <b>"ตรวจสอบสลิปและเพิ่มเครดิตทันที"</b> อีกครั้งเพื่อรับพอยท์</li>
               </ol>
             </div>
           </div>
@@ -691,13 +846,15 @@ class TopupManager {
       // Process full topup pipeline with real slip inspection
       const result = await window.paymentGatewayEngine.processTopupPipeline({
         amount: amount,
-        slipFile: this.selectedSlipFile
+        slipFile: this.selectedSlipFile,
+        slipDataUrl: this.selectedSlipDataUrl
       });
 
       await this.handlePaymentCompleted({
         amount: result.amount || amount,
         chargeId: result.transactionRef || result.referenceId || `PAY-${Date.now()}`,
-        balanceAfter: result.balanceAfter
+        balanceAfter: result.balanceAfter,
+        alreadyCredited: result.alreadyCredited
       });
     } catch (err) {
       console.error('Topup verification failed:', err);
@@ -711,20 +868,104 @@ class TopupManager {
       });
     }
   }
+
+  /**
+   * Handle Successful Payment Completion & Celebration
+   */
+  async handlePaymentCompleted({ amount, chargeId, balanceAfter, alreadyCredited = false }) {
+    this.stopStatusPolling();
+    this.stopMobileSlipPolling();
+    if (this.countdownTimer) clearInterval(this.countdownTimer);
+
+    // Close QR Box & Reset selection
+    this.closeQrBox();
+    this.resetSlipSelection();
+
+    // Update balances across UI
+    if (typeof window.updateUserBalanceDisplays === 'function') {
+      window.updateUserBalanceDisplays();
+    }
+    if (window.authManager && window.authManager.currentUser) {
+      if (balanceAfter !== undefined && balanceAfter !== null) {
+        window.authManager.currentUser.balance = Number(balanceAfter);
+        window.authManager.saveCurrentUser(window.authManager.currentUser);
+      }
+    }
+
+    // Refresh transactions
+    if (window.ordersManager && typeof window.ordersManager.loadProfileTopups === 'function') {
+      try { await window.ordersManager.loadProfileTopups(); } catch (e) {}
+    }
+    if (window.adminManager && typeof window.adminManager.renderAdminTopupsTable === 'function') {
+      try { window.adminManager.renderAdminTopupsTable(); } catch (e) {}
+    }
+
+    const numAmount = Number(amount) || 0;
+    const finalBalance = balanceAfter !== undefined ? Number(balanceAfter) : (window.authManager && window.authManager.currentUser ? window.authManager.currentUser.balance : numAmount);
+
+    Swal.fire({
+      icon: 'success',
+      title: alreadyCredited ? '🎉 สลิปนี้ได้รับการเติมเงินสำเร็จแล้ว' : '🎉 เติมเงินสำเร็จเรียบร้อย!',
+      html: `
+        <div style="padding: 10px 0; text-align: center; color: #cbd5e1;">
+          <div style="font-size: 2.2rem; font-weight: 800; color: #34d399; font-family: 'Outfit', sans-serif; margin: 8px 0;">
+            +฿ ${numAmount.toLocaleString('th-TH', { minimumFractionDigits: 2 })}
+          </div>
+          <p style="font-size: 0.95rem; margin-bottom: 12px; color: #e2e8f0;">
+            ${alreadyCredited ? 'ยอดเงินในสลิปนี้ถูกบันทึกเข้ากระเป๋าของคุณเรียบร้อยแล้ว' : 'ยอดเงินเข้าสู่กระเป๋าเครดิตของคุณเรียบร้อยแล้ว'}
+          </p>
+          <div style="background: #181926; border: 1px solid #282a3d; border-radius: 12px; padding: 12px 16px; display: flex; flex-direction: column; gap: 8px; font-size: 0.84rem; text-align: left;">
+            <div style="display: flex; justify-content: space-between;">
+              <span style="color: #9496a8;">รหัสอ้างอิงธุรกรรม:</span>
+              <code style="color: #facc15; font-size: 0.8rem;">${chargeId || '-'}</code>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+              <span style="color: #9496a8;">ยอดเงินคงเหลือปัจจุบัน:</span>
+              <b style="color: #34d399; font-size: 0.95rem;">฿ ${Number(finalBalance).toLocaleString('th-TH', { minimumFractionDigits: 2 })}</b>
+            </div>
+          </div>
+        </div>
+      `,
+      confirmButtonText: '<i class="fas fa-shopping-bag"></i> ไปเลือกซื้อสินค้า',
+      confirmButtonColor: '#e11d48',
+      background: '#12131d',
+      color: '#fff'
+    });
+  }
 }
 
 window.topupManager = new TopupManager();
 
-window.setTopupAmount = function(amt) {
+window.setTopupAmount = function(amt, fromInput, clickedEl) {
+  const numAmt = parseFloat(amt);
   const input = document.getElementById('topup-amount-input');
-  if (input) input.value = amt;
-  window.topupManager.currentAmount = amt;
+  if (input && !fromInput) {
+    input.value = !isNaN(numAmt) ? numAmt : '';
+  }
+  if (window.topupManager && !isNaN(numAmt)) {
+    window.topupManager.currentAmount = numAmt;
+  }
 
-  document.querySelectorAll('#view-topup .cat-pill').forEach(pill => {
-    if (pill.textContent.includes(String(amt))) {
+  // Strictly target only the quick-amount buttons inside #quick-amount-pills
+  const pills = document.querySelectorAll('#quick-amount-pills button');
+  pills.forEach(pill => {
+    // If user clicked this exact button directly, activate only it
+    if (clickedEl && pill === clickedEl) {
+      pill.classList.add('active');
+      return;
+    }
+    const rawVal = pill.getAttribute('data-amount') || pill.textContent.replace(/[^0-9]/g, '');
+    const pillVal = parseInt(rawVal, 10);
+    // Strict numeric equality: 50 !== 500
+    if (!isNaN(pillVal) && !isNaN(numAmt) && pillVal === numAmt) {
       pill.classList.add('active');
     } else {
       pill.classList.remove('active');
     }
   });
 };
+
+window.fetchLatestMobileSlip = function() {
+  if (window.topupManager) return window.topupManager.fetchLatestMobileSlip();
+};
+

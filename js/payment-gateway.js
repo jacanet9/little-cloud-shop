@@ -37,70 +37,126 @@ class PaymentGatewayEngine {
    * Inspect and decode QR Code from uploaded Thai bank slip image
    * Validates Bank of Thailand (BOT) Standard for e-Slip QR payloads
    */
-  async inspectBankSlip(slipFile) {
-    if (!slipFile) {
+  async inspectBankSlip(slipInput, fallbackDataUrl) {
+    let imgSrc = '';
+    if (typeof slipInput === 'string' && slipInput.startsWith('data:image')) {
+      imgSrc = slipInput;
+    } else if (slipInput instanceof Blob || slipInput instanceof File) {
+      imgSrc = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target.result);
+        reader.onerror = () => reject(new Error('ไม่สามารถอ่านไฟล์รูปภาพได้'));
+        reader.readAsDataURL(slipInput);
+      });
+    } else if (fallbackDataUrl && typeof fallbackDataUrl === 'string' && fallbackDataUrl.startsWith('data:image')) {
+      imgSrc = fallbackDataUrl;
+    }
+
+    if (!imgSrc) {
       throw new Error('กรุณาแนบรูปภาพสลิปหลักฐานการโอนเงินเพื่อทำการตรวจสอบ');
     }
 
-    // 1. Validate file type
-    if (!slipFile.type.startsWith('image/')) {
-      throw new Error('ไฟล์ที่แนบไม่ใช่รูปภาพ กรุณาแนบไฟล์รูปภาพสลิป (.jpg, .png, .jpeg)');
-    }
-
-    // 2. Load image into HTML Canvas
+    // Load image into HTML Canvas
     const imgBitmap = await new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const img = new Image();
-        img.onload = () => resolve(img);
-        img.onerror = () => reject(new Error('ไม่สามารถอ่านไฟล์รูปภาพได้ กรุณาตรวจสอบไฟล์'));
-        img.src = e.target.result;
-      };
-      reader.onerror = () => reject(new Error('เกิดข้อผิดพลาดในการอ่านไฟล์'));
-      reader.readAsDataURL(slipFile);
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error('ไม่สามารถประมวลผลรูปภาพได้ กรุณาตรวจสอบไฟล์รูปภาพ'));
+      img.src = imgSrc;
     });
 
-    if (typeof window.jsQR !== 'function') {
-      console.warn('jsQR library not ready, waiting or attempting dynamic load...');
-    }
-
-    // 3. Scan QR Code using Canvas and jsQR (Multi-resolution passes for high accuracy)
     let qrResult = null;
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
-    if (window.jsQR) {
-      const scales = [1.0, 0.75, 0.5, 1.25];
+    // Multi-pass scanning for maximum detection rate across all Thai banks
+    if (typeof window.jsQR === 'function') {
+      const w = imgBitmap.width;
+      const h = imgBitmap.height;
+
+      // Pass 1: Full image at different scales
+      const scales = [1.0, 0.75, 0.5, 0.4, 1.25];
       for (const scale of scales) {
-        const targetW = Math.round(imgBitmap.width * scale);
-        const targetH = Math.round(imgBitmap.height * scale);
-        
-        // Skip extreme resolutions
-        if (targetW > 2500 || targetW < 300) continue;
+        const targetW = Math.round(w * scale);
+        const targetH = Math.round(h * scale);
+        if (targetW > 2500 || targetW < 250) continue;
 
         canvas.width = targetW;
         canvas.height = targetH;
         ctx.drawImage(imgBitmap, 0, 0, targetW, targetH);
 
         const imgData = ctx.getImageData(0, 0, targetW, targetH);
-        qrResult = window.jsQR(imgData.data, targetW, targetH, {
-          inversionAttempts: 'attemptBoth'
-        });
+        qrResult = window.jsQR(imgData.data, targetW, targetH, { inversionAttempts: 'attemptBoth' });
+        if (qrResult && qrResult.data && qrResult.data.trim()) break;
+      }
 
-        if (qrResult && qrResult.data) {
-          break;
-        }
+      // Pass 2: Top-right quadrant (Krungthai, K-Bank, SCB, Bangkok Bank)
+      if (!qrResult || !qrResult.data) {
+        const cropX = Math.round(w * 0.45);
+        const cropY = 0;
+        const cropW = Math.round(w * 0.55);
+        const cropH = Math.round(h * 0.5);
+        canvas.width = cropW;
+        canvas.height = cropH;
+        ctx.drawImage(imgBitmap, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
+
+        const imgData = ctx.getImageData(0, 0, cropW, cropH);
+        qrResult = window.jsQR(imgData.data, cropW, cropH, { inversionAttempts: 'attemptBoth' });
+      }
+
+      // Pass 3: Top half (standard Thai e-Slips)
+      if (!qrResult || !qrResult.data) {
+        const cropW = w;
+        const cropH = Math.round(h * 0.55);
+        canvas.width = cropW;
+        canvas.height = cropH;
+        ctx.drawImage(imgBitmap, 0, 0, cropW, cropH, 0, 0, cropW, cropH);
+
+        const imgData = ctx.getImageData(0, 0, cropW, cropH);
+        qrResult = window.jsQR(imgData.data, cropW, cropH, { inversionAttempts: 'attemptBoth' });
+      }
+
+      // Pass 4: Bottom-right quadrant (Some mobile banking formats)
+      if (!qrResult || !qrResult.data) {
+        const cropX = Math.round(w * 0.4);
+        const cropY = Math.round(h * 0.45);
+        const cropW = Math.round(w * 0.6);
+        const cropH = Math.round(h * 0.55);
+        canvas.width = cropW;
+        canvas.height = cropH;
+        ctx.drawImage(imgBitmap, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
+
+        const imgData = ctx.getImageData(0, 0, cropW, cropH);
+        qrResult = window.jsQR(imgData.data, cropW, cropH, { inversionAttempts: 'attemptBoth' });
       }
     }
 
-    // 4. Strict QR Code Existence Check
+    // Pass 5: Server-side High-Precision Inspector Fallback
+    if (!qrResult || !qrResult.data) {
+      try {
+        const srvResp = await fetch('/api/slip/inspect', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image_data: imgSrc })
+        });
+        if (srvResp.ok) {
+          const srvData = await srvResp.json();
+          if (srvData && srvData.success && srvData.qrData) {
+            qrResult = { data: srvData.qrData };
+          }
+        }
+      } catch (srvErr) {
+        console.warn('Server slip inspection fallback warning:', srvErr);
+      }
+    }
+
+    // Strict QR Code Existence Check
     if (!qrResult || !qrResult.data || !qrResult.data.trim()) {
       throw new Error('❌ ตรวจสอบไม่ผ่าน: ไม่พบ QR Code บนรูปภาพ หรือรูปภาพไม่ใช่สลิปโอนเงินของธนาคาร กรุณาใช้สลิปจริงที่ได้จากแอปธนาคาร');
     }
 
     const payload = qrResult.data.trim();
 
-    // 5. Parse TLV (Tag-Length-Value) standard format for Thai Bank e-Slips
+    // Parse TLV (Tag-Length-Value) standard format for Thai Bank e-Slips
     const parseTLV = (str) => {
       const tags = {};
       let i = 0;
@@ -141,12 +197,21 @@ class PaymentGatewayEngine {
       }
     }
 
-    // 6. Strict Format Validation
+    // Regex fallback for non-standard TLV with clear transaction reference
+    if (!transRef) {
+      const refMatch = payload.match(/02([0-9]{2})([A-Za-z0-9_-]+)/);
+      if (refMatch && refMatch[2]) {
+        isBankSlip = true;
+        transRef = refMatch[2];
+      }
+    }
+
+    // Strict Format Validation
     if (!isBankSlip || !transRef) {
       throw new Error('❌ ตรวจสอบไม่ผ่าน: QR Code บนรูปภาพไม่ใช่สลิปโอนเงินของธนาคาร (ตรวจพบ QR แต่ไม่ใช่ Thai Bank e-Slip) กรุณาใช้สลิปโอนเงินจริง');
     }
 
-    // Bank Mapping for nice display
+    // Comprehensive Thai Bank Mapping
     const bankNames = {
       '004': 'ธนาคารกสิกรไทย (K-Bank)',
       '014': 'ธนาคารไทยพาณิชย์ (SCB)',
@@ -155,7 +220,12 @@ class PaymentGatewayEngine {
       '011': 'ธนาคารทหารไทยธนชาต (ttb)',
       '025': 'ธนาคารกรุงศรีอยุธยา (BAY)',
       '030': 'ธนาคารออมสิน (GSB)',
-      '034': 'ธนาคาร ธ.ก.ส. (BAAC)'
+      '034': 'ธนาคาร ธ.ก.ส. (BAAC)',
+      '069': 'ธนาคารเกียรตินาคินภัทร (KKP)',
+      '022': 'ธนาคารซีไอเอ็มบีไทย (CIMBT)',
+      '067': 'ธนาคารทิสโก้ (TISCO)',
+      '073': 'ธนาคารแลนด์ แอนด์ เฮ้าส์ (LH Bank)',
+      '070': 'ธนาคารไอซีบีซี (ไทย)'
     };
 
     return {
@@ -163,43 +233,70 @@ class PaymentGatewayEngine {
       transRef: transRef,
       bankCode: bankCode,
       bankName: bankNames[bankCode] || 'ธนาคารพาณิชย์ไทย',
-      rawPayload: payload
+      rawPayload: payload,
+      imgSrc: imgSrc
     };
   }
 
   /**
    * Real Slip Verification via Bank Slip QR Inspection + Duplicate Guard + Optional SlipOK API
    */
-  async verifyPayment({ amount, slipFile, user }) {
-    // 1. STRICT: Require Slip File! Cannot proceed without a slip!
-    if (!slipFile) {
+  async verifyPayment({ amount, slipFile, slipDataUrl, user }) {
+    if (!slipFile && !slipDataUrl) {
       throw new Error('กรุณาแนบรูปภาพสลิปหลักฐานการโอนเงินเพื่อทำการตรวจสอบ (ไม่สามารถผ่านได้โดยไม่มีสลิป)');
     }
 
     const config = await this.getGatewayConfig();
     const expectedAmount = Number(amount);
 
-    // 2. Client-side Real Slip QR Code Decoding & Authenticity Verification
-    const slipInspection = await this.inspectBankSlip(slipFile);
+    // Client-side Real Slip QR Code Decoding & Authenticity Verification
+    const slipInspection = await this.inspectBankSlip(slipFile, slipDataUrl);
     const transRef = slipInspection.transRef;
 
-    // 3. STRICT ANTI-FRAUD: Check if this slip transaction reference has ALREADY been used!
+    // ANTI-FRAUD & IDEMPOTENCY: Check if this slip transaction reference has ALREADY been used!
     const existingTransactions = await window.supabaseManager.fetchTable('wallet_transactions');
     const existingTopups = await window.supabaseManager.fetchTable('topups');
 
-    const isDuplicate = 
-      existingTransactions.some(t => t.reference_id === transRef || t.gateway_ref === transRef || t.gateway_ref === `SLIP-${transRef}`) ||
-      existingTopups.some(t => t.transaction_ref === transRef || t.gateway_ref === transRef);
+    const duplicateTxn = existingTransactions.find(t => 
+      t.reference_id === transRef || t.gateway_ref === transRef || t.gateway_ref === `SLIP-${transRef}`
+    );
+    const duplicateTopup = existingTopups.find(t => 
+      t.transaction_ref === transRef || t.gateway_ref === transRef
+    );
 
-    if (isDuplicate) {
-      throw new Error(`⚠️ สลิปนี้ถูกใช้งานไปแล้วในระบบ (รหัสอ้างอิง: ${transRef}) ไม่สามารถใช้สลิปซ้ำได้เพื่อความปลอดภัย`);
+    if (duplicateTxn || duplicateTopup) {
+      const match = duplicateTxn || duplicateTopup;
+      const currentUserId = user ? user.id : '';
+      const currentUsername = user ? user.username.toLowerCase() : '';
+      const matchUserId = match.user_id || '';
+      const matchUsername = (match.username || '').toLowerCase();
+
+      // IF this slip was ALREADY credited to THIS USER: Return alreadyCredited = true!
+      if ((matchUserId && matchUserId === currentUserId) || (matchUsername && matchUsername === currentUsername)) {
+        console.log('✅ Slip was already processed and credited to current user:', transRef);
+        return {
+          success: true,
+          alreadyCredited: true,
+          gateway: match.description || match.payment_method || `PromptPay QR (${slipInspection.bankName})`,
+          transactionRef: transRef,
+          gatewayRef: match.gateway_ref || `SLIP-${transRef}`,
+          verifiedAmount: Number(match.amount) || expectedAmount,
+          sender: user ? user.username : 'PromptPay Payer',
+          bankName: slipInspection.bankName
+        };
+      }
+
+      // IF this slip was used by a DIFFERENT user: Reject strictly!
+      throw new Error(`⚠️ สลิปนี้ถูกใช้งานไปแล้วในระบบโดยผู้ใช้อื่น (รหัสอ้างอิง: ${transRef}) ไม่สามารถใช้สลิปซ้ำได้เพื่อความปลอดภัย`);
     }
 
-    // 4. If Admin configured active SlipOK API -> verify with SlipOK API as well
+    // If Admin configured active SlipOK API -> verify with SlipOK API as well
     if (config.apiKey && config.branchId && !config.apiKey.includes('SLIPOKM1QT19D')) {
       try {
         const formData = new FormData();
-        formData.append('files', slipFile);
+        if (slipFile instanceof File || slipFile instanceof Blob) {
+          formData.append('files', slipFile);
+        }
         if (expectedAmount) formData.append('amount', expectedAmount);
 
         const response = await fetch(`https://api.slipok.com/api/line/apikey/${config.branchId}`, {
@@ -224,7 +321,8 @@ class PaymentGatewayEngine {
             gatewayRef: `SLIPOK-${slip.transRef || transRef}`,
             verifiedAmount: verifiedAmt,
             sender: slip.sender ? slip.sender.displayName : (user ? user.username : 'Verified Payer'),
-            bankName: slipInspection.bankName
+            bankName: slipInspection.bankName,
+            imgSrc: slipInspection.imgSrc
           };
         } else if (resData.message) {
           throw new Error(resData.message);
@@ -237,15 +335,17 @@ class PaymentGatewayEngine {
       }
     }
 
-    // 5. Verification Passed with Genuine Thai Bank e-Slip QR
+    // Verification Passed with Genuine Thai Bank e-Slip QR
     return {
       success: true,
+      alreadyCredited: false,
       gateway: `PromptPay QR (${slipInspection.bankName})`,
       transactionRef: transRef,
       gatewayRef: `SLIP-${transRef}`,
       verifiedAmount: expectedAmount,
       sender: user ? user.username : 'PromptPay Payer',
       bankName: slipInspection.bankName,
+      imgSrc: slipInspection.imgSrc,
       raw: {
         transRef: transRef,
         bankCode: slipInspection.bankCode,
@@ -255,17 +355,97 @@ class PaymentGatewayEngine {
   }
 
   /**
+   * Helper: Convert/compress slip image file to optimized Data URL
+   */
+  async getSlipDataUrl(slipFile, fallbackDataUrl) {
+    if (fallbackDataUrl && typeof fallbackDataUrl === 'string' && fallbackDataUrl.startsWith('data:image')) {
+      return fallbackDataUrl;
+    }
+    if (!slipFile) return '';
+    if (typeof slipFile === 'string' && slipFile.startsWith('data:image')) {
+      return slipFile;
+    }
+    return new Promise((resolve) => {
+      try {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const img = new Image();
+          img.onload = () => {
+            try {
+              const canvas = document.createElement('canvas');
+              const maxDim = 900;
+              let w = img.width;
+              let h = img.height;
+              if (w > maxDim || h > maxDim) {
+                if (w > h) {
+                  h = Math.round((h * maxDim) / w);
+                  w = maxDim;
+                } else {
+                  w = Math.round((w * maxDim) / h);
+                  h = maxDim;
+                }
+              }
+              canvas.width = w;
+              canvas.height = h;
+              const ctx = canvas.getContext('2d');
+              ctx.drawImage(img, 0, 0, w, h);
+              resolve(canvas.toDataURL('image/jpeg', 0.82));
+            } catch (err) {
+              resolve(e.target.result);
+            }
+          };
+          img.onerror = () => resolve('');
+          img.src = e.target.result;
+        };
+        reader.onerror = () => resolve('');
+        reader.readAsDataURL(slipFile);
+      } catch (e) {
+        resolve('');
+      }
+    });
+  }
+
+  /**
    * Process Full Payment & Credit Wallet Pipeline
    */
-  async processTopupPipeline({ amount, slipFile }) {
+  async processTopupPipeline({ amount, slipFile, slipDataUrl }) {
     const user = window.authManager.currentUser;
     if (!user) throw new Error('กรุณาเข้าสู่ระบบก่อนทำรายการ');
 
     // 1. Verify Payment with Payment Gateway & Bank Slip Inspector
-    const verification = await this.verifyPayment({ amount, slipFile, user });
+    const verification = await this.verifyPayment({ amount, slipFile, slipDataUrl, user });
 
     if (!verification.success) {
       throw new Error('การตรวจสอบการชำระเงินไม่ผ่าน');
+    }
+
+    // Convert/compress slip image to Data URL
+    let resolvedSlipUrl = verification.imgSrc || '';
+    if (!resolvedSlipUrl) {
+      try {
+        resolvedSlipUrl = await this.getSlipDataUrl(slipFile, slipDataUrl);
+      } catch (e) {}
+    }
+
+    if (resolvedSlipUrl && verification.transactionRef) {
+      try {
+        localStorage.setItem(`cloud_slip_${verification.transactionRef}`, resolvedSlipUrl);
+      } catch (storageErr) {}
+    }
+
+    // If slip was already credited to this user in a previous step, avoid duplicate credit & return current balance
+    if (verification.alreadyCredited) {
+      console.log('✅ Slip already credited to this user, returning current balance...');
+      if (window.updateUserBalanceDisplays) window.updateUserBalanceDisplays();
+      return {
+        success: true,
+        alreadyCredited: true,
+        amount: verification.verifiedAmount || amount,
+        transactionRef: verification.transactionRef,
+        gateway: verification.gateway,
+        bankName: verification.bankName,
+        balanceAfter: user.balance
+      };
     }
 
     // 2. Idempotent Credit via Wallet Ledger Engine
@@ -276,7 +456,7 @@ class PaymentGatewayEngine {
       referenceId: verification.transactionRef,
       gatewayRef: verification.gatewayRef,
       paymentMethod: verification.gateway,
-      slipUrl: slipFile ? slipFile.name : '',
+      slipUrl: resolvedSlipUrl || (slipFile ? slipFile.name : ''),
       description: `เติมเงินสำเร็จผ่าน ${verification.gateway} (Ref: ${verification.transactionRef})`
     });
 

@@ -940,7 +940,8 @@ body {
 }
 
 .modal-box-large {
-  max-width: 880px;
+  max-width: 1040px;
+  width: 95vw;
 }
 
 .modal-overlay.active .modal-box {
@@ -1187,5 +1188,68 @@ body {
   border-left: 3px solid #e11d48;
 }
 
+/* ==============================================================================
+   ADMIN TOPUP SLIP VIEWER & CONTROLS
+   ============================================================================== */
+.btn-slip-view {
+  background: linear-gradient(135deg, rgba(225, 29, 72, 0.18), rgba(244, 114, 182, 0.18));
+  color: #f472b6;
+  border: 1px solid rgba(244, 114, 182, 0.35);
+  padding: 5px 12px;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+.btn-slip-view:hover {
+  background: linear-gradient(135deg, rgba(225, 29, 72, 0.35), rgba(244, 114, 182, 0.35));
+  border-color: #f472b6;
+  color: #ffffff;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(225, 29, 72, 0.25);
+}
+.btn-slip-view.empty {
+  background: rgba(30, 32, 48, 0.6);
+  color: #71758e;
+  border-color: rgba(113, 117, 142, 0.25);
+  font-weight: 600;
+}
+.btn-slip-view.empty:hover {
+  background: rgba(45, 48, 70, 0.8);
+  color: #cbd5e1;
+  border-color: #94a3b8;
+  transform: translateY(-1px);
+  box-shadow: none;
+}
+#modal-admin-slip-viewer {
+  z-index: 100050 !important;
+}
+#modal-admin-slip-viewer.active {
+  z-index: 100050 !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+  display: flex !important;
+}
+#modal-admin-slip-viewer .modal-box {
+  max-width: 860px;
+}
+@media (max-width: 768px) {
+  #admin-slip-content-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
 
+/* Ensure SweetAlert2 always appears on top of any modal */
+.swal2-container {
+  z-index: 2000000 !important;
+}
+.swal2-popup {
+  z-index: 2000001 !important;
+}
 

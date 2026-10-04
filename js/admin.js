@@ -6,6 +6,10 @@
 class AdminManager {
   constructor() {
     this.editingProductId = null;
+    this.currentTopups = [];
+    this.activeSlipTopup = null;
+    this.slipRotation = 0;
+    this.slipZoomed = false;
     this.bindEvents();
   }
 
@@ -92,13 +96,17 @@ class AdminManager {
       return;
     }
 
-    tbody.innerHTML = products.map(p => `
+    tbody.innerHTML = products.map(p => {
+      const desc = p.description || '';
+      const hasMedia = desc.includes('[VIDEO:') || desc.includes('[GIF:') || (p.video_url && p.video_url.trim().length > 0);
+      return `
       <tr>
         <td style="width: 60px;">
           <img src="${p.image_url || 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=600&q=80'}" style="width: 50px; height: 35px; object-fit: cover; border-radius: 6px; border: 1px solid #3c1e6d;" onerror="this.src='https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=600&q=80'">
         </td>
         <td>
           <b style="color: #fff;">${p.name}</b>
+          ${hasMedia ? `<span style="background: rgba(244, 114, 182, 0.2); color: #f472b6; border: 1px solid rgba(244, 114, 182, 0.4); border-radius: 4px; padding: 1px 6px; font-size: 0.68rem; margin-left: 6px;"><i class="fas fa-video"></i> มีวิดีโอ/GIF</span>` : ''}
           <div style="font-size: 0.75rem; color: #a79bb7;">${p.server_tag || '-'}</div>
         </td>
         <td><span class="product-category-tag" style="position: static;">${p.category}</span></td>
@@ -113,7 +121,7 @@ class AdminManager {
           </button>
         </td>
       </tr>
-    `).join('');
+    `}).join('');
   }
 
   openAddProductModal() {
@@ -122,6 +130,10 @@ class AdminManager {
     if (form) form.reset();
     const title = document.getElementById('admin-product-modal-title');
     if (title) title.textContent = 'เพิ่มรายการสินค้าใหม่';
+    const videoInput = document.getElementById('prod-input-video');
+    if (videoInput) videoInput.value = '';
+    const descInput = document.getElementById('prod-input-desc');
+    if (descInput) descInput.value = '';
     const modal = document.getElementById('modal-admin-add-product');
     if (modal) modal.classList.add('active');
   }
@@ -150,15 +162,22 @@ class AdminManager {
         if (el) el.value = (val !== undefined && val !== null) ? val : '';
       };
 
+      // Extract video/gif url if present in description or video_url
+      const desc = p.description || '';
+      const videoMatch = desc.match(/\[(?:VIDEO|GIF):([^\]]+)\]/i);
+      const videoUrl = videoMatch ? videoMatch[1].trim() : (p.video_url || '');
+      const cleanDesc = desc.replace(/\[(?:VIDEO|GIF):([^\]]+)\]/gi, '').trim();
+
       setVal('prod-input-name', p.name);
       setVal('prod-input-category', p.category || 'เงิน M');
       setVal('prod-input-price', p.price || 0);
       setVal('prod-input-original-price', p.original_price);
       setVal('prod-input-stock', p.stock || 0);
       setVal('prod-input-image', p.image_url);
+      setVal('prod-input-video', videoUrl);
       setVal('prod-input-badge', p.badge_text);
       setVal('prod-input-server', p.server_tag);
-      setVal('prod-input-desc', p.description);
+      setVal('prod-input-desc', cleanDesc);
       setVal('prod-input-delivery', p.delivery_data);
 
       const modal = document.getElementById('modal-admin-add-product');
@@ -195,15 +214,20 @@ class AdminManager {
     const originalPrice = parseFloat(getVal('prod-input-original-price')) || null;
     const stock = parseInt(getVal('prod-input-stock')) || 0;
     const imageUrl = getVal('prod-input-image') || 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=600&q=80';
+    const videoUrl = getVal('prod-input-video');
     const badgeText = getVal('prod-input-badge');
     const serverTag = getVal('prod-input-server');
-    const description = getVal('prod-input-desc');
+    const rawDesc = getVal('prod-input-desc');
     const deliveryData = getVal('prod-input-delivery');
 
     if (!name || price <= 0) {
       Swal.fire({ icon: 'warning', title: 'กรุณากรอกข้อมูล', text: 'กรุณาระบุชื่อสินค้าและราคาที่ถูกต้อง', background: '#180a2f', color: '#fff' });
       return;
     }
+
+    // Embed videoUrl cleanly into description if present
+    const cleanDesc = rawDesc.replace(/\[(?:VIDEO|GIF):([^\]]+)\]/gi, '').trim();
+    const finalDesc = videoUrl ? `${cleanDesc}\n[VIDEO:${videoUrl}]` : cleanDesc;
 
     const productPayload = {
       name,
@@ -214,7 +238,7 @@ class AdminManager {
       image_url: imageUrl,
       badge_text: badgeText,
       server_tag: serverTag,
-      description,
+      description: finalDesc,
       delivery_data: deliveryData
     };
 
@@ -548,7 +572,7 @@ class AdminManager {
     const latestInfoEl = document.getElementById('admin-topup-latest-info');
 
     if (tbody) {
-      tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 24px; color: #a5a8bc;"><i class="fas fa-spinner fa-spin"></i> กำลังโหลดรายการเติมเงินจาก Supabase...</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 24px; color: #a5a8bc;"><i class="fas fa-spinner fa-spin"></i> กำลังโหลดรายการเติมเงินจาก Supabase...</td></tr>`;
     }
 
     try {
@@ -565,10 +589,14 @@ class AdminManager {
           const key = t.transaction_ref || t.gateway_ref || t.id || `${t.username}_${t.amount}_${t.created_at}`;
           topupMap.set(key, {
             id: t.id,
+            user_id: t.user_id,
             username: t.username || 'Member',
             amount: Number(t.amount) || 0,
             payment_method: t.payment_method || 'PromptPay QR',
             transaction_ref: t.transaction_ref || t.gateway_ref || t.id || '-',
+            gateway_ref: t.gateway_ref || '',
+            slip_url: t.slip_url || '',
+            verified_by: t.verified_by || 'Payment Gateway Webhook',
             status: t.status || 'approved',
             created_at: t.created_at || new Date().toISOString()
           });
@@ -582,10 +610,14 @@ class AdminManager {
           if (!topupMap.has(key)) {
             topupMap.set(key, {
               id: l.id,
+              user_id: l.user_id,
               username: l.username || 'Member',
               amount: Number(l.amount) || 0,
               payment_method: 'PromptPay QR',
               transaction_ref: l.reference_id || l.gateway_ref || l.id || '-',
+              gateway_ref: l.gateway_ref || '',
+              slip_url: '',
+              verified_by: 'Wallet Ledger',
               status: l.status === 'completed' ? 'approved' : (l.status || 'approved'),
               created_at: l.created_at || new Date().toISOString()
             });
@@ -594,6 +626,7 @@ class AdminManager {
       }
 
       const allTopups = Array.from(topupMap.values()).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      this.currentTopups = allTopups;
 
       // 3. Compute Metrics
       const totalInflow = allTopups.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
@@ -618,7 +651,7 @@ class AdminManager {
       if (!tbody) return;
 
       if (allTopups.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 30px; color: #a5a8bc;"><i class="fas fa-wallet" style="font-size: 2rem; opacity: 0.4; margin-bottom: 8px; display: block;"></i> ยังไม่มีประวัติการเติมเงินในระบบ</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 30px; color: #a5a8bc;"><i class="fas fa-wallet" style="font-size: 2rem; opacity: 0.4; margin-bottom: 8px; display: block;"></i> ยังไม่มีประวัติการเติมเงินในระบบ</td></tr>`;
         return;
       }
 
@@ -631,6 +664,9 @@ class AdminManager {
           hour: '2-digit',
           minute: '2-digit'
         });
+
+        // Determine if slip exists or can be resolved
+        const hasSlip = !!(t.slip_url && (t.slip_url.trim().length > 0));
 
         return `
           <tr>
@@ -665,6 +701,17 @@ class AdminManager {
                 <i class="fas fa-circle-check"></i> สำเร็จ (Approved)
               </span>
             </td>
+            <td style="text-align: center; white-space: nowrap; min-width: 135px; padding: 10px 14px;">
+              ${hasSlip ? `
+                <button type="button" class="btn-slip-view" onclick="window.viewTopupSlip('${encodeURIComponent(t.id || t.transaction_ref)}')" title="คลิกเพื่อดูรูปภาพสลิปที่แนบ">
+                  <i class="fas fa-file-invoice-dollar"></i> ดูสลิปที่แนบ
+                </button>
+              ` : `
+                <button type="button" class="btn-slip-view empty" onclick="window.viewTopupSlip('${encodeURIComponent(t.id || t.transaction_ref)}')" title="ไม่มีรูปสลิปแนบ (คลิกเพื่อดูรายละเอียดหรือแนบสลิป)">
+                  <i class="fas fa-receipt"></i> ตรวจสอบ
+                </button>
+              `}
+            </td>
           </tr>
         `;
       }).join('');
@@ -672,8 +719,555 @@ class AdminManager {
     } catch (err) {
       console.error('Error rendering admin topups:', err);
       if (tbody) {
-        tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 20px; color: #ef4444;">เกิดข้อผิดพลาดในการโหลดข้อมูล: ${err.message}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 20px; color: #ef4444;">เกิดข้อผิดพลาดในการโหลดข้อมูล: ${err.message}</td></tr>`;
       }
+    }
+  }
+
+  // ==========================================
+  // SLIP VIEWER & ACTIONS (Guaranteed Instant Popup)
+  // ==========================================
+  viewTopupSlipFromHeader() {
+    if (Array.isArray(this.currentTopups) && this.currentTopups.length > 0) {
+      const topupWithSlip = this.currentTopups.find(t => t.slip_url && t.slip_url.trim().length > 0);
+      if (topupWithSlip) {
+        this.viewTopupSlip(topupWithSlip.id || topupWithSlip.transaction_ref);
+        return;
+      }
+      this.viewTopupSlip(this.currentTopups[0].id || this.currentTopups[0].transaction_ref);
+      return;
+    }
+    this.viewLatestServerSlip();
+  }
+
+  async viewTopupSlip(idOrRef) {
+    if (!idOrRef) return;
+    try {
+      idOrRef = decodeURIComponent(idOrRef);
+    } catch (e) {}
+
+    if (!this.currentTopups || this.currentTopups.length === 0) {
+      try {
+        await this.renderAdminTopupsTable();
+      } catch (e) {}
+    }
+
+    let item = (this.currentTopups || []).find(t => String(t.id) === String(idOrRef) || String(t.transaction_ref) === String(idOrRef));
+    
+    // Fallback: check Supabase directly if item wasn't in memory
+    if (!item) {
+      try {
+        const topups = await window.supabaseManager.fetchTable('topups');
+        item = (topups || []).find(t => String(t.id) === String(idOrRef) || String(t.transaction_ref) === String(idOrRef));
+      } catch (e) {}
+    }
+
+    if (!item) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'ไม่พบรายการเติมเงิน',
+        text: `ไม่พบข้อมูลสำหรับรหัส: ${idOrRef || 'ไม่ระบุ'}`,
+        background: '#151622',
+        color: '#fff',
+        confirmButtonColor: '#e11d48'
+      });
+      return;
+    }
+
+    this.activeSlipTopup = item;
+    this.slipRotation = 0;
+    this.slipZoomed = false;
+
+    const amt = Number(item.amount) || 0;
+    const formattedDate = new Date(item.created_at || Date.now()).toLocaleString('th-TH', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+
+    // Resolve slip image source with multi-source fallback
+    let slipSrc = (item.slip_url || '').trim();
+    const isValidImageSrc = (src) => !!(src && (src.startsWith('data:image') || src.startsWith('http://') || src.startsWith('https://') || src.startsWith('/')));
+
+    if (!isValidImageSrc(slipSrc)) {
+      // 1. Try local storage cache
+      if (item.transaction_ref) {
+        try {
+          const cached = localStorage.getItem(`cloud_slip_${item.transaction_ref}`);
+          if (isValidImageSrc(cached)) slipSrc = cached;
+        } catch (e) {}
+      }
+
+      // 2. Try fetching from server /api/slip/latest
+      if (!isValidImageSrc(slipSrc)) {
+        try {
+          const resp = await fetch('/api/slip/latest', { cache: 'no-store' });
+          if (resp.ok) {
+            const sData = await resp.json();
+            if (sData && sData.slip_data && isValidImageSrc(sData.slip_data)) {
+              slipSrc = sData.slip_data;
+              // Save to localStorage and update Supabase for next time
+              if (item.transaction_ref) {
+                try { localStorage.setItem(`cloud_slip_${item.transaction_ref}`, slipSrc); } catch(e){}
+                if (window.supabaseManager) {
+                  window.supabaseManager.updateRecord('topups', item.id, { slip_url: slipSrc }).catch(()=>{});
+                }
+              }
+            }
+          }
+        } catch (e) {}
+      }
+    }
+
+    const hasSlipImage = isValidImageSrc(slipSrc);
+
+    // PRIMARY: Open the custom dedicated in-page modal #modal-admin-slip-viewer
+    const modal = document.getElementById('modal-admin-slip-viewer');
+    if (modal) {
+      const imgEl = document.getElementById('admin-slip-image');
+      const placeholderEl = document.getElementById('admin-slip-placeholder');
+      const downloadBtn = document.getElementById('admin-slip-download-btn');
+      const amtEl = document.getElementById('admin-slip-amount');
+      const userEl = document.getElementById('admin-slip-username');
+      const dateEl = document.getElementById('admin-slip-date');
+      const methodEl = document.getElementById('admin-slip-method');
+      const refEl = document.getElementById('admin-slip-ref');
+      const verifiedEl = document.getElementById('admin-slip-verified-by');
+
+      if (amtEl) amtEl.textContent = `฿ ${amt.toLocaleString('th-TH', { minimumFractionDigits: 2 })}`;
+      if (userEl) userEl.textContent = item.username || 'Member';
+      if (dateEl) dateEl.textContent = formattedDate;
+      if (methodEl) methodEl.textContent = item.payment_method || 'PromptPay QR';
+      if (refEl) refEl.textContent = item.transaction_ref || '-';
+      if (verifiedEl) verifiedEl.textContent = item.verified_by || 'Payment Gateway Webhook';
+
+      if (hasSlipImage) {
+        if (imgEl) {
+          imgEl.src = slipSrc;
+          imgEl.style.display = 'block';
+          imgEl.style.transform = 'none';
+          imgEl.style.cursor = 'zoom-in';
+        }
+        if (placeholderEl) placeholderEl.style.display = 'none';
+        if (downloadBtn) {
+          downloadBtn.href = slipSrc;
+          downloadBtn.download = `slip_${item.transaction_ref || Date.now()}.jpg`;
+          downloadBtn.style.display = 'inline-flex';
+        }
+      } else {
+        if (imgEl) {
+          imgEl.src = '';
+          imgEl.style.display = 'none';
+        }
+        if (placeholderEl) {
+          placeholderEl.innerHTML = `
+            <i class="fas fa-receipt" style="font-size: 3.5rem; opacity: 0.4; margin-bottom: 12px; display: block; color: #9496a8;"></i>
+            <b style="color: #cbd5e1; font-size: 0.95rem; display: block; margin-bottom: 4px;">ยังไม่มีไฟล์รูปภาพสลิปที่แนบไว้</b>
+            <span style="font-size: 0.78rem; display: block; margin-bottom: 10px;">รายการนี้ยังไม่มีการบันทึกภาพสลิป หรือบันทึกเฉพาะชื่อไฟล์</span>
+            <button type="button" class="btn-pink" style="font-size: 0.78rem; padding: 6px 14px; display: inline-flex; align-items: center; gap: 6px;" onclick="window.adminManager.pullLatestSlipIntoViewer()">
+              <i class="fas fa-rotate"></i> ดึงสลิปล่าสุดจากระบบ
+            </button>
+          `;
+          placeholderEl.style.display = 'block';
+        }
+        if (downloadBtn) downloadBtn.style.display = 'none';
+      }
+
+      // Display the modal with explicit top z-index styles
+      modal.classList.add('active');
+      modal.style.display = 'flex';
+      modal.style.opacity = '1';
+      modal.style.visibility = 'visible';
+      modal.style.pointerEvents = 'auto';
+      modal.style.zIndex = '100050';
+      return;
+    }
+
+    // FALLBACK: SweetAlert2 (Always displays on top with z-index 2000000)
+    Swal.fire({
+      title: `
+        <div style="display: flex; align-items: center; justify-content: center; gap: 10px; color: #fff; font-size: 1.15rem; font-weight: 800; padding: 2px 0;">
+          <div style="width: 36px; height: 36px; border-radius: 10px; background: rgba(244, 114, 182, 0.15); border: 1px solid rgba(244, 114, 182, 0.3); display: flex; align-items: center; justify-content: center; color: #f472b6; font-size: 1.1rem;">
+            <i class="fas fa-file-invoice-dollar"></i>
+          </div>
+          <span>หลักฐานสลิปการโอนเงิน (Transfer Slip)</span>
+        </div>
+      `,
+      html: `
+        <div style="text-align: left; padding: 4px 2px;">
+          <div style="display: grid; grid-template-columns: ${hasSlipImage ? '1fr 1fr' : '1fr'}; gap: 16px; align-items: start;">
+            
+            ${hasSlipImage ? `
+              <!-- Left Column: High-Res Slip Image Preview -->
+              <div style="display: flex; flex-direction: column; align-items: center;">
+                <div style="width: 100%; min-height: 320px; max-height: 440px; background: #08090f; border: 1px solid #232538; border-radius: 12px; display: flex; align-items: center; justify-content: center; overflow: hidden; padding: 6px;">
+                  <img id="swal-slip-img" src="${slipSrc}" alt="Slip Preview" style="max-width: 100%; max-height: 420px; object-fit: contain; border-radius: 6px; cursor: zoom-in; transition: transform 0.25s ease;" onclick="window.adminManager.toggleSwalSlipZoom()">
+                </div>
+                <!-- Image action buttons -->
+                <div style="display: flex; gap: 8px; margin-top: 10px; width: 100%; justify-content: center; flex-wrap: wrap;">
+                  <a href="${slipSrc}" target="_blank" download="slip_${item.transaction_ref}.jpg" class="btn-outline-dark" style="font-size: 0.78rem; padding: 6px 12px; color: #38bdf8; border-color: rgba(56, 189, 248, 0.3); display: inline-flex; align-items: center; gap: 6px; text-decoration: none; border-radius: 6px;">
+                    <i class="fas fa-arrow-up-right-from-square"></i> เปิดภาพเต็ม / บันทึก
+                  </a>
+                  <button type="button" class="btn-outline-dark" onclick="window.adminManager.rotateSwalSlip()" style="font-size: 0.78rem; padding: 6px 12px; color: #cbd5e1; display: inline-flex; align-items: center; gap: 6px; border-radius: 6px; cursor: pointer;">
+                    <i class="fas fa-rotate"></i> หมุนรูป
+                  </button>
+                </div>
+              </div>
+            ` : `
+              <!-- Placeholder when no image is attached -->
+              <div style="background: #090a10; border: 1px dashed #33364d; border-radius: 12px; padding: 26px 16px; text-align: center; margin-bottom: 8px;">
+                <i class="fas fa-receipt" style="font-size: 3rem; color: #64748b; margin-bottom: 8px; display: block;"></i>
+                <b style="color: #cbd5e1; font-size: 0.95rem; display: block; margin-bottom: 4px;">ยังไม่มีไฟล์รูปภาพสลิปในรายการนี้</b>
+                <span style="font-size: 0.78rem; color: #9496a8;">(อาจเป็นการเติมผ่าน Direct Gateway หรือแอดมินปรับเครดิต)</span>
+              </div>
+            `}
+
+            <!-- Right Column: Transaction & Verification Metadata -->
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+              <!-- Amount Highlight Card -->
+              <div style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(6, 78, 59, 0.2)); border: 1px solid rgba(16, 185, 129, 0.35); border-radius: 12px; padding: 12px 14px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                  <span style="font-size: 0.75rem; color: #a7f3d0; font-weight: 600;">ยอดเงินที่ตรวจพบ</span>
+                  <span style="background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid #10b981; padding: 2px 8px; border-radius: 6px; font-size: 0.72rem; font-weight: 700;">
+                    <i class="fas fa-circle-check"></i> สำเร็จ (Approved)
+                  </span>
+                </div>
+                <div style="font-size: 1.65rem; font-weight: 800; color: #34d399; font-family: 'Outfit', sans-serif;">
+                  +฿ ${amt.toLocaleString('th-TH', { minimumFractionDigits: 2 })}
+                </div>
+              </div>
+
+              <!-- Metadata List -->
+              <div style="background: #181926; border: 1px solid #282a3d; border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; font-size: 0.82rem;">
+                <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #232536; padding-bottom: 6px;">
+                  <span style="color: #9496a8;"><i class="fas fa-user" style="width: 16px;"></i> ผู้ใช้งาน</span>
+                  <b style="color: #fff;">${item.username || 'Member'}</b>
+                </div>
+                <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #232536; padding-bottom: 6px;">
+                  <span style="color: #9496a8;"><i class="far fa-clock" style="width: 16px;"></i> วันที่ / เวลา</span>
+                  <span style="color: #cbd5e1;">${formattedDate}</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #232536; padding-bottom: 6px;">
+                  <span style="color: #9496a8;"><i class="fas fa-qrcode" style="width: 16px;"></i> ช่องทาง</span>
+                  <span style="color: #60a5fa; font-weight: 600;">${item.payment_method || 'PromptPay QR'}</span>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 3px; border-bottom: 1px solid #232536; padding-bottom: 6px;">
+                  <div style="display: flex; justify-content: space-between;">
+                    <span style="color: #9496a8;"><i class="fas fa-hashtag" style="width: 16px;"></i> รหัสอ้างอิงธุรกรรม</span>
+                    <button type="button" onclick="navigator.clipboard.writeText('${item.transaction_ref}'); alert('คัดลอกรหัสแล้ว: ${item.transaction_ref}')" style="background: none; border: none; color: #f472b6; font-size: 0.72rem; cursor: pointer; padding: 0;">
+                      <i class="far fa-copy"></i> คัดลอก
+                    </button>
+                  </div>
+                  <code style="background: #0f1018; padding: 5px 8px; border-radius: 6px; color: #facc15; font-size: 0.76rem; word-break: break-all; border: 1px solid #2a2c40;">
+                    ${item.transaction_ref || '-'}
+                  </code>
+                </div>
+                <div style="display: flex; justify-content: space-between; padding-top: 2px;">
+                  <span style="color: #9496a8;"><i class="fas fa-shield-halved" style="width: 16px;"></i> ตรวจสอบโดย</span>
+                  <span style="color: #a5a8bc;">${item.verified_by || 'Payment Gateway Webhook'}</span>
+                </div>
+              </div>
+
+              <!-- Attach / Replace Slip Option -->
+              <div style="margin-top: 4px;">
+                <label style="background: rgba(244, 114, 182, 0.15); border: 1px dashed rgba(244, 114, 182, 0.4); border-radius: 8px; padding: 8px 12px; display: flex; align-items: center; justify-content: center; gap: 6px; color: #f472b6; font-size: 0.78rem; font-weight: 600; cursor: pointer; transition: all 0.2s;">
+                  <i class="fas fa-upload"></i> ${hasSlipImage ? 'อัพโหลดสลิปใหม่แทนที่' : 'แนบรูปสลิปสำหรับรายการนี้'}
+                  <input type="file" accept="image/*" style="display: none;" onchange="window.adminManager.handleAdminUploadSlipDirect(this, '${item.id || item.transaction_ref}')">
+                </label>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      `,
+      width: hasSlipImage ? '780px' : '520px',
+      background: '#12131d',
+      color: '#fff',
+      showCloseButton: true,
+      showConfirmButton: true,
+      confirmButtonText: '<i class="fas fa-check"></i> เรียบร้อย (ปิดหน้าต่าง)',
+      confirmButtonColor: '#e11d48'
+    });
+  }
+
+  closeSlipViewerModal() {
+    const modal = document.getElementById('modal-admin-slip-viewer');
+    if (modal) {
+      modal.classList.remove('active');
+      modal.style.display = 'none';
+      modal.style.opacity = '0';
+      modal.style.visibility = 'hidden';
+      modal.style.pointerEvents = 'none';
+    }
+  }
+
+  toggleSlipZoom() {
+    const img = document.getElementById('admin-slip-image');
+    if (!img) return;
+    this.slipZoomed = !this.slipZoomed;
+    const scale = this.slipZoomed ? 1.8 : 1.0;
+    img.style.cursor = this.slipZoomed ? 'zoom-out' : 'zoom-in';
+    img.style.transform = `rotate(${this.slipRotation || 0}deg) scale(${scale})`;
+  }
+
+  rotateSlipImage() {
+    const img = document.getElementById('admin-slip-image');
+    if (!img) return;
+    this.slipRotation = ((this.slipRotation || 0) + 90) % 360;
+    const scale = this.slipZoomed ? 1.8 : 1.0;
+    img.style.transform = `rotate(${this.slipRotation}deg) scale(${scale})`;
+  }
+
+  async pullLatestSlipIntoViewer() {
+    try {
+      const resp = await fetch('/api/slip/latest', { cache: 'no-store' });
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data && data.slip_data) {
+          const imgEl = document.getElementById('admin-slip-image');
+          const placeholderEl = document.getElementById('admin-slip-placeholder');
+          const downloadBtn = document.getElementById('admin-slip-download-btn');
+          if (imgEl) {
+            imgEl.src = data.slip_data;
+            imgEl.style.display = 'block';
+            imgEl.style.transform = 'none';
+          }
+          if (placeholderEl) placeholderEl.style.display = 'none';
+          if (downloadBtn) {
+            downloadBtn.href = data.slip_data;
+            downloadBtn.download = `slip_${this.activeSlipTopup ? this.activeSlipTopup.transaction_ref : 'latest'}.jpg`;
+            downloadBtn.style.display = 'inline-flex';
+          }
+          if (this.activeSlipTopup && this.activeSlipTopup.transaction_ref) {
+            try {
+              localStorage.setItem(`cloud_slip_${this.activeSlipTopup.transaction_ref}`, data.slip_data);
+              if (window.supabaseManager) {
+                window.supabaseManager.updateRecord('topups', this.activeSlipTopup.id, { slip_url: data.slip_data }).catch(()=>{});
+              }
+            } catch(e) {}
+          }
+          Swal.fire({
+            icon: 'success',
+            title: 'ดึงสลิปสำเร็จ',
+            text: 'ระบบดึงรูปสลิปล่าสุดขึ้นมาแสดงบนหน้าจอเรียบร้อยแล้ว',
+            timer: 1500,
+            showConfirmButton: false,
+            background: '#151622',
+            color: '#fff'
+          });
+          return;
+        }
+      }
+      Swal.fire({
+        icon: 'info',
+        title: 'ไม่พบสลิปใหม่',
+        text: 'ระบบยังไม่พบไฟล์สลิปใหม่ที่อัพโหลดผ่านมือถือในขณะนี้',
+        background: '#151622',
+        color: '#fff',
+        confirmButtonColor: '#e11d48'
+      });
+    } catch(err) {
+      console.warn('pullLatestSlipIntoViewer error:', err);
+    }
+  }
+
+  copyCurrentTransRef() {
+    const ref = this.activeSlipTopup ? this.activeSlipTopup.transaction_ref : '';
+    if (ref) {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(ref).then(() => {
+          Swal.fire({
+            icon: 'success',
+            title: 'คัดลอกรหัสแล้ว',
+            text: ref,
+            timer: 1500,
+            showConfirmButton: false,
+            background: '#151622',
+            color: '#fff'
+          });
+        }).catch(() => {
+          alert('รหัสอ้างอิง: ' + ref);
+        });
+      } else {
+        alert('รหัสอ้างอิง: ' + ref);
+      }
+    }
+  }
+
+  async handleAdminUploadSlip(input) {
+    if (!input.files || !input.files[0] || !this.activeSlipTopup) return;
+    return this.handleAdminUploadSlipDirect(input, this.activeSlipTopup.id || this.activeSlipTopup.transaction_ref);
+  }
+
+  toggleSwalSlipZoom() {
+    const img = document.getElementById('swal-slip-img');
+    if (!img) return;
+    this.slipZoomed = !this.slipZoomed;
+    const scale = this.slipZoomed ? 1.8 : 1.0;
+    img.style.cursor = this.slipZoomed ? 'zoom-out' : 'zoom-in';
+    img.style.transform = `rotate(${this.slipRotation || 0}deg) scale(${scale})`;
+  }
+
+  rotateSwalSlip() {
+    const img = document.getElementById('swal-slip-img');
+    if (!img) return;
+    this.slipRotation = ((this.slipRotation || 0) + 90) % 360;
+    const scale = this.slipZoomed ? 1.8 : 1.0;
+    img.style.transform = `rotate(${this.slipRotation}deg) scale(${scale})`;
+  }
+
+  async handleAdminUploadSlipDirect(input, topupIdOrRef) {
+    if (!input.files || !input.files[0]) return;
+    const file = input.files[0];
+
+    Swal.fire({
+      title: 'กำลังบันทึกสลิป...',
+      allowOutsideClick: false,
+      didOpen: () => Swal.showLoading(),
+      background: '#151622',
+      color: '#fff'
+    });
+
+    try {
+      const dataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const maxDim = 900;
+            let w = img.width;
+            let h = img.height;
+            if (w > maxDim || h > maxDim) {
+              if (w > h) { h = Math.round((h * maxDim) / w); w = maxDim; }
+              else { w = Math.round((w * maxDim) / h); h = maxDim; }
+            }
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, w, h);
+            resolve(canvas.toDataURL('image/jpeg', 0.82));
+          };
+          img.onerror = () => reject(new Error('ไม่สามารถประมวลผลรูปภาพได้'));
+          img.src = e.target.result;
+        };
+        reader.onerror = () => reject(new Error('ไม่สามารถอ่านไฟล์ได้'));
+        reader.readAsDataURL(file);
+      });
+
+      // Update in Supabase
+      if (topupIdOrRef) {
+        try {
+          await window.supabaseManager.updateRecord('topups', topupIdOrRef, { slip_url: dataUrl });
+        } catch (dbErr) {
+          console.warn('Update fallback:', dbErr);
+        }
+      }
+
+      // Update current memory
+      if (Array.isArray(this.currentTopups)) {
+        const item = this.currentTopups.find(t => String(t.id) === String(topupIdOrRef) || String(t.transaction_ref) === String(topupIdOrRef));
+        if (item) {
+          item.slip_url = dataUrl;
+          try {
+            localStorage.setItem(`cloud_slip_${item.transaction_ref}`, dataUrl);
+          } catch (e) {}
+        }
+      }
+
+      // Re-render table
+      await this.renderAdminTopupsTable();
+
+      // Show the updated slip modal immediately!
+      await this.viewTopupSlip(topupIdOrRef);
+
+    } catch (err) {
+      console.error('Upload slip error:', err);
+      Swal.fire({
+        icon: 'error',
+        title: 'เกิดข้อผิดพลาด',
+        text: err.message || 'ไม่สามารถบันทึกสลิปได้',
+        background: '#151622',
+        color: '#fff'
+      });
+    }
+  }
+
+  async viewLatestServerSlip() {
+    Swal.fire({
+      title: 'กำลังค้นหาสลิปล่าสุดในระบบ...',
+      allowOutsideClick: false,
+      didOpen: () => Swal.showLoading(),
+      background: '#151622',
+      color: '#fff'
+    });
+
+    let foundSlip = null;
+    let filename = 'mobile_slip.jpg';
+
+    // 1. Try local node server endpoints
+    let apiBase = '';
+    if (window.location.protocol === 'file:' || (window.location.port && window.location.port !== '3000')) {
+      apiBase = 'http://127.0.0.1:3000';
+    }
+
+    const endpoints = [
+      `${apiBase}/api/slip/latest`,
+      'http://127.0.0.1:3000/api/slip/latest',
+      'http://192.168.1.124:3000/api/slip/latest'
+    ];
+
+    for (const ep of endpoints) {
+      try {
+        const resp = await fetch(ep);
+        if (resp.ok) {
+          const data = await resp.json();
+          if (data.success && data.slip_data) {
+            foundSlip = data.slip_data;
+            filename = data.filename || filename;
+            break;
+          }
+        }
+      } catch (e) {}
+    }
+
+    // 2. If not found via server, check latest topup with slip_url from Supabase
+    if (!foundSlip && Array.isArray(this.currentTopups)) {
+      const topupWithSlip = this.currentTopups.find(t => t.slip_url && (t.slip_url.startsWith('data:image') || t.slip_url.startsWith('http')));
+      if (topupWithSlip) {
+        Swal.close();
+        this.viewTopupSlip(topupWithSlip.id || topupWithSlip.transaction_ref);
+        return;
+      }
+    }
+
+    if (foundSlip) {
+      Swal.close();
+      const mockItem = {
+        id: 'latest_server_slip',
+        username: 'ล่าสุดจากระบบ Relay / มือถือ',
+        amount: 0,
+        payment_method: 'PromptPay QR (Mobile Relay)',
+        transaction_ref: `RELAY-${Date.now().toString().slice(-8)}`,
+        status: 'approved',
+        created_at: new Date().toISOString(),
+        slip_url: foundSlip,
+        verified_by: 'Mobile QR Upload'
+      };
+      if (!this.currentTopups) this.currentTopups = [];
+      this.currentTopups.unshift(mockItem);
+      this.viewTopupSlip('latest_server_slip');
+    } else {
+      Swal.fire({
+        icon: 'info',
+        title: 'ไม่พบสลิปในคิวระบบ',
+        text: 'ยังไม่มีสลิปที่ส่งมาจากมือถือ หรือยังไม่มีรายการเติมเงินที่มีสลิปแนบ',
+        background: '#151622',
+        color: '#fff',
+        confirmButtonColor: '#e11d48'
+      });
     }
   }
 
@@ -749,3 +1343,15 @@ class AdminManager {
 }
 
 window.adminManager = new AdminManager();
+
+// Global shortcuts for guaranteed inline event handling
+window.viewTopupSlip = (id) => {
+  if (window.adminManager) return window.adminManager.viewTopupSlip(id);
+};
+window.viewTopupSlipFromHeader = () => {
+  if (window.adminManager) return window.adminManager.viewTopupSlipFromHeader();
+};
+window.closeSlipViewerModal = () => {
+  if (window.adminManager) return window.adminManager.closeSlipViewerModal();
+};
+
