@@ -54,30 +54,94 @@ class ShopManager {
     if (videoUrl) {
       if (videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be')) {
         mediaType = 'youtube';
-      } else if (/\.(mp4|webm|ogg|mov)(\?.*)?$/i.test(videoUrl) || videoUrl.startsWith('data:video')) {
+      } else if (/\.(mp4|webm|ogg|mov)(\?.*)?$/i.test(videoUrl) || videoUrl.startsWith('data:video') || videoUrl.includes('/videos/')) {
         mediaType = 'video';
       } else if (/\.(gif)(\?.*)?$/i.test(videoUrl) || videoUrl.includes('tenor.com') || videoUrl.includes('giphy.com')) {
         mediaType = 'gif';
       } else {
-        mediaType = 'image';
+        mediaType = (videoUrl.endsWith('.jpg') || videoUrl.endsWith('.png') || videoUrl.endsWith('.webp')) ? 'image' : 'video';
       }
     }
     return { videoUrl, cleanDesc, mediaType };
+  }
+
+  renderMediaHTML(p, options = {}) {
+    const { videoUrl, cleanDesc, mediaType } = this.parseProductMedia(p);
+    const maxHeight = options.maxHeight || 280;
+    const isAutoplay = options.isAutoplay !== false;
+    const fallbackImg = p.image_url || 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=600&q=80';
+
+    if (mediaType === 'youtube' && videoUrl) {
+      let ytId = '';
+      const m1 = videoUrl.match(/(?:youtu\.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*)/);
+      if (m1 && m1[1] && m1[1].length === 11) ytId = m1[1];
+      const shortsM = videoUrl.match(/shorts\/([^#&?]*)/);
+      if (shortsM && shortsM[1]) ytId = shortsM[1];
+
+      if (ytId) {
+        return `
+          <div style="position: relative; width: 100%; height: ${maxHeight}px; background: #000; border-radius: 12px; overflow: hidden; border: 1px solid #2d2f48;">
+            <iframe src="https://www.youtube.com/embed/${ytId}?autoplay=${isAutoplay ? 1 : 0}&mute=0&loop=1&playlist=${ytId}&modestbranding=1&rel=0" 
+              style="width: 100%; height: 100%; border: none;" 
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen>
+            </iframe>
+          </div>
+        `;
+      }
+    }
+
+    if (mediaType === 'video' && videoUrl) {
+      return `
+        <div style="position: relative; width: 100%; background: #080910; border-radius: 12px; overflow: hidden; border: 1px solid #2d2f48; display: flex; align-items: center; justify-content: center;">
+          <video src="${videoUrl}" ${isAutoplay ? 'autoplay' : ''} loop muted playsinline controls 
+            style="width: 100%; max-height: ${maxHeight}px; object-fit: contain; background: #000; display: block;"
+            onerror="this.onerror=null; this.parentElement.innerHTML='<img src=\\'${fallbackImg}\\' style=\\'width:100%; max-height:${maxHeight}px; object-fit:contain; border-radius:12px;\\'>';">
+          </video>
+        </div>
+      `;
+    }
+
+    if ((mediaType === 'gif' || mediaType === 'image') && videoUrl) {
+      return `
+        <div style="position: relative; width: 100%; background: #080910; border-radius: 12px; overflow: hidden; border: 1px solid #2d2f48; display: flex; align-items: center; justify-content: center;">
+          <img src="${videoUrl}" alt="${p.name}" 
+            style="width: 100%; max-height: ${maxHeight}px; object-fit: contain; display: block;"
+            onerror="this.onerror=null; this.src='${fallbackImg}';">
+          <div style="position: absolute; top: 10px; right: 10px; background: rgba(225, 29, 72, 0.9); color: #fff; padding: 2px 8px; border-radius: 6px; font-size: 0.7rem; font-weight: 700; display: flex; align-items: center; gap: 4px; backdrop-filter: blur(4px); box-shadow: 0 4px 10px rgba(0,0,0,0.5);">
+            <i class="fas fa-play"></i> GIF แอนิเมชัน
+          </div>
+        </div>
+      `;
+    }
+
+    // Default: Fallback Product Image
+    return `
+      <div style="position: relative; width: 100%; background: #080910; border-radius: 12px; overflow: hidden; border: 1px solid #2d2f48; display: flex; align-items: center; justify-content: center;">
+        <img src="${fallbackImg}" alt="${p.name}" 
+          style="width: 100%; max-height: ${maxHeight}px; object-fit: contain; display: block;"
+          onerror="this.src='https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=600&q=80'">
+      </div>
+    `;
   }
 
   renderProductCard(p) {
     const price = Number(p.price) || 0;
     const stockText = p.stock > 100 ? '👁️ ไม่จำกัด' : `📦 คงเหลือ ${p.stock} ชิ้น`;
     const isOutOfStock = p.stock <= 0;
-    const isSkinWeapon = (p.category === 'สกินอาวุธ' || p.category === 'Skin Weapon');
-    const { videoUrl, mediaType } = this.parseProductMedia(p);
+    const { videoUrl, mediaType, cleanDesc } = this.parseProductMedia(p);
     const hasMedia = !!videoUrl;
+    const isSkinWeapon = (
+      p.category === 'สกินอาวุธ' || 
+      p.category === 'Skin Weapon' || 
+      (p.name && p.name.includes('สกิน')) ||
+      hasMedia
+    );
 
     const clickAction = isSkinWeapon 
       ? `window.shopManager.openSkinDetailModal('${p.id}')`
       : `window.shopManager.handleDirectBuy('${p.id}')`;
 
-    const buttonTitle = isSkinWeapon ? "ดูรายละเอียดและวิดีโอตัวอย่าง" : "สั่งซื้อทันที";
+    const buttonTitle = isSkinWeapon ? "ดูรายละเอียดและวิดีโอตัวอย่างสกิน" : "สั่งซื้อทันที";
 
     return `
       <div class="jelly-product-card" data-id="${p.id}" ${isSkinWeapon ? `style="cursor: pointer;" onclick="if(!event.target.closest('button')) window.shopManager.openSkinDetailModal('${p.id}')"` : ''}>
@@ -86,8 +150,8 @@ class ShopManager {
           <img src="${p.image_url || 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=600&q=80'}" alt="${p.name}" class="jelly-card-img" onerror="this.src='https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=600&q=80'">
           <span class="jelly-stock-badge">${stockText}</span>
           ${isSkinWeapon ? `
-            <span style="position: absolute; top: 10px; right: 10px; background: rgba(225, 29, 72, 0.88); color: #fff; padding: 3px 8px; border-radius: 6px; font-size: 0.7rem; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; backdrop-filter: blur(4px); box-shadow: 0 4px 10px rgba(0,0,0,0.5);">
-              <i class="fas ${hasMedia ? 'fa-play' : 'fa-crosshairs'}" style="font-size: 0.65rem;"></i> ${hasMedia ? 'วิดีโอ/GIF' : 'ดูสกิน'}
+            <span style="position: absolute; top: 10px; right: 10px; background: rgba(225, 29, 72, 0.9); color: #fff; padding: 3px 8px; border-radius: 6px; font-size: 0.7rem; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; backdrop-filter: blur(4px); box-shadow: 0 4px 10px rgba(0,0,0,0.5);">
+              <i class="fas ${hasMedia ? 'fa-circle-play' : 'fa-crosshairs'}" style="font-size: 0.68rem; color: #fff;"></i> ${hasMedia ? 'วิดีโอตัวอย่าง' : 'ดูสกิน'}
             </span>
           ` : ''}
         </div>
@@ -244,13 +308,21 @@ class ShopManager {
     }
 
     const maxStock = currentStock > 0 ? currentStock : 9999;
+    const { videoUrl, cleanDesc, mediaType } = this.parseProductMedia(product);
+    const hasMedia = !!videoUrl;
+    const isSkinWeapon = (
+      product.category === 'สกินอาวุธ' || 
+      product.category === 'Skin Weapon' || 
+      (product.name && product.name.includes('สกิน')) ||
+      hasMedia
+    );
 
     const { value: selectedQty } = await Swal.fire({
       title: 'เลือกจำนวนสินค้าที่ต้องการสั่งซื้อ',
       html: `
         <div class="buy-modal-wrapper" style="text-align: left; padding: 4px 0;">
           <!-- Product Summary Box -->
-          <div style="display: flex; gap: 14px; align-items: center; background: #1a1b28; padding: 12px 14px; border-radius: 12px; border: 1px solid #292b3d; margin-bottom: 16px;">
+          <div style="display: flex; gap: 14px; align-items: center; background: #1a1b28; padding: 12px 14px; border-radius: 12px; border: 1px solid #292b3d; margin-bottom: 14px;">
             <img src="${product.image_url || 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=600&q=80'}" style="width: 56px; height: 56px; object-fit: cover; border-radius: 10px; border: 1px solid #3c1e6d;" onerror="this.src='https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=600&q=80'">
             <div style="flex: 1; min-width: 0;">
               <h4 style="color: #fff; font-size: 1.05rem; font-weight: 700; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${product.name}</h4>
@@ -260,6 +332,23 @@ class ShopManager {
               </div>
             </div>
           </div>
+
+          <!-- Video / Animation Showcase for Skin Weapons or Products with Media -->
+          ${(isSkinWeapon || hasMedia) ? `
+          <div style="background: #0d0e17; border: 1px solid #2d2f48; border-radius: 14px; padding: 10px; margin-bottom: 16px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+              <span style="color: #f472b6; font-size: 0.82rem; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;">
+                <i class="fas fa-play-circle"></i> วิดีโอ / ตัวอย่างแอนิเมชันในเกม
+              </span>
+              <button type="button" onclick="Swal.close(); window.shopManager.openSkinDetailModal('${product.id}')" 
+                style="background: rgba(244,114,182,0.15); border: 1px solid rgba(244,114,182,0.35); color: #f472b6; font-size: 0.72rem; padding: 3px 9px; border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; font-weight: 600;">
+                <i class="fas fa-expand"></i> ดูรายละเอียดเต็ม
+              </button>
+            </div>
+            ${this.renderMediaHTML(product, { maxHeight: 220, isAutoplay: true })}
+            ${cleanDesc ? `<div style="margin-top: 8px; font-size: 0.8rem; color: #cbd5e1; background: #131422; padding: 8px 12px; border-radius: 8px; border: 1px solid #23253a; line-height: 1.4;"><i class="fas fa-circle-info" style="color: #38bdf8;"></i> ${cleanDesc}</div>` : ''}
+          </div>
+          ` : ''}
 
           <!-- Quantity Selector -->
           <div style="margin-bottom: 16px;">
@@ -312,6 +401,10 @@ class ShopManager {
       color: '#fff',
       confirmButtonColor: '#e11d48',
       cancelButtonColor: '#374151',
+      willClose: () => {
+        const vid = document.querySelector('.buy-modal-wrapper video');
+        if (vid) vid.pause();
+      },
       didOpen: () => {
         const qtyInput = document.getElementById('buy-qty-input');
         const minusBtn = document.getElementById('buy-qty-minus');
@@ -540,45 +633,18 @@ class ShopManager {
 
     // Build Dynamic Media Content
     if (mediaContainer) {
-      if (mediaType === 'youtube' && videoUrl) {
-        let ytId = '';
-        const m1 = videoUrl.match(/(?:youtu\.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*)/);
-        if (m1 && m1[1] && m1[1].length === 11) ytId = m1[1];
-        const shortsM = videoUrl.match(/shorts\/([^#&?]*)/);
-        if (shortsM && shortsM[1]) ytId = shortsM[1];
+      mediaContainer.innerHTML = this.renderMediaHTML(p, { maxHeight: 380, isAutoplay: true });
+    }
 
-        if (ytId) {
-          mediaContainer.innerHTML = `
-            <iframe src="https://www.youtube.com/embed/${ytId}?autoplay=1&mute=0&loop=1&playlist=${ytId}&modestbranding=1&rel=0" 
-              style="width: 100%; height: 350px; border: none; border-radius: 14px;" 
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen>
-            </iframe>
-          `;
-          if (mediaStatusEl) mediaStatusEl.innerHTML = '<i class="fab fa-youtube" style="color: #ef4444;"></i> กำลังเล่นคลิปตัวอย่างจาก YouTube';
-        } else {
-          mediaContainer.innerHTML = `<img src="${p.image_url}" alt="${p.name}" style="width: 100%; max-height: 380px; object-fit: contain; border-radius: 14px;">`;
-        }
-      } else if (mediaType === 'video' && videoUrl) {
-        mediaContainer.innerHTML = `
-          <video src="${videoUrl}" autoplay loop muted playsinline controls style="width: 100%; max-height: 380px; object-fit: contain; border-radius: 14px; background: #000;">
-          </video>
-        `;
-        if (mediaStatusEl) mediaStatusEl.innerHTML = '<i class="fas fa-circle-play" style="color: #f472b6;"></i> กำลังเล่นคลิปวิดีโอตัวอย่างแอนิเมชันสกิน';
-      } else if (mediaType === 'gif' && videoUrl) {
-        mediaContainer.innerHTML = `
-          <img src="${videoUrl}" alt="${p.name}" style="width: 100%; max-height: 380px; object-fit: contain; border-radius: 14px;">
-        `;
-        if (mediaStatusEl) mediaStatusEl.innerHTML = '<i class="fas fa-film" style="color: #a855f7;"></i> แอนิเมชันภาพเคลื่อนไหว (GIF)';
+    if (mediaStatusEl) {
+      if (mediaType === 'youtube') {
+        mediaStatusEl.innerHTML = '<i class="fab fa-youtube" style="color: #ef4444;"></i> กำลังเล่นคลิปตัวอย่างจาก YouTube';
+      } else if (mediaType === 'video') {
+        mediaStatusEl.innerHTML = '<i class="fas fa-circle-play" style="color: #f472b6;"></i> วิดีโอตัวอย่างแอนิเมชันสกินในเกม';
+      } else if (mediaType === 'gif') {
+        mediaStatusEl.innerHTML = '<i class="fas fa-film" style="color: #a855f7;"></i> แอนิเมชันภาพเคลื่อนไหว (GIF)';
       } else {
-        mediaContainer.innerHTML = `
-          <div style="position: relative; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;">
-            <img src="${p.image_url || 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=600&q=80'}" alt="${p.name}" style="max-width: 100%; max-height: 360px; object-fit: contain; border-radius: 14px;">
-            <div style="position: absolute; bottom: 12px; background: rgba(15, 16, 24, 0.85); backdrop-filter: blur(8px); padding: 4px 12px; border-radius: 20px; font-size: 0.72rem; color: #cbd5e1; border: 1px solid rgba(255,255,255,0.1);">
-              <i class="fas fa-image"></i> รูปภาพสินค้า (แอดมินสามารถแนบวิดีโอ/GIF เพิ่มเติมได้)
-            </div>
-          </div>
-        `;
-        if (mediaStatusEl) mediaStatusEl.innerHTML = '<i class="fas fa-image" style="color: #38bdf8;"></i> ภาพพรีวิวสกินอาวุธ';
+        mediaStatusEl.innerHTML = '<i class="fas fa-image" style="color: #38bdf8;"></i> ภาพพรีวิวสกินอาวุธ';
       }
     }
 
@@ -615,11 +681,13 @@ class ShopManager {
     const modal = document.getElementById('modal-skin-detail');
     if (modal) {
       modal.classList.remove('active');
-      // Clear media to stop audio/video
+      // Clear media to stop audio/video/iframe
       const mediaContainer = document.getElementById('skin-modal-media-container');
       if (mediaContainer) {
         const vid = mediaContainer.querySelector('video');
         if (vid) vid.pause();
+        const iframe = mediaContainer.querySelector('iframe');
+        if (iframe) iframe.src = '';
         mediaContainer.innerHTML = '';
       }
     }
