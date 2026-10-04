@@ -683,11 +683,11 @@ class AdminManager {
             </td>
             <td style="text-align: center; white-space: nowrap; min-width: 135px; padding: 10px 14px;">
               ${hasSlip ? `
-                <button type="button" class="btn-slip-view" onclick="window.adminManager.viewTopupSlip('${t.id || t.transaction_ref}')" title="คลิกเพื่อดูรูปภาพสลิปที่แนบ">
+                <button type="button" class="btn-slip-view" onclick="window.viewTopupSlip('${encodeURIComponent(t.id || t.transaction_ref)}')" title="คลิกเพื่อดูรูปภาพสลิปที่แนบ">
                   <i class="fas fa-file-invoice-dollar"></i> ดูสลิปที่แนบ
                 </button>
               ` : `
-                <button type="button" class="btn-slip-view empty" onclick="window.adminManager.viewTopupSlip('${t.id || t.transaction_ref}')" title="ไม่มีรูปสลิปแนบ (คลิกเพื่อดูรายละเอียดหรือแนบสลิป)">
+                <button type="button" class="btn-slip-view empty" onclick="window.viewTopupSlip('${encodeURIComponent(t.id || t.transaction_ref)}')" title="ไม่มีรูปสลิปแนบ (คลิกเพื่อดูรายละเอียดหรือแนบสลิป)">
                   <i class="fas fa-receipt"></i> ตรวจสอบ
                 </button>
               `}
@@ -705,7 +705,7 @@ class AdminManager {
   }
 
   // ==========================================
-  // SLIP VIEWER & ACTIONS
+  // SLIP VIEWER & ACTIONS (Guaranteed Instant Popup)
   // ==========================================
   viewTopupSlipFromHeader() {
     if (Array.isArray(this.currentTopups) && this.currentTopups.length > 0) {
@@ -721,20 +721,36 @@ class AdminManager {
   }
 
   async viewTopupSlip(idOrRef) {
+    if (!idOrRef) return;
+    try {
+      idOrRef = decodeURIComponent(idOrRef);
+    } catch (e) {}
+
     if (!this.currentTopups || this.currentTopups.length === 0) {
-      await this.renderAdminTopupsTable();
+      try {
+        await this.renderAdminTopupsTable();
+      } catch (e) {}
     }
-    const item = (this.currentTopups || []).find(t => String(t.id) === String(idOrRef) || String(t.transaction_ref) === String(idOrRef));
+
+    let item = (this.currentTopups || []).find(t => String(t.id) === String(idOrRef) || String(t.transaction_ref) === String(idOrRef));
+    
+    // Fallback: check Supabase directly if item wasn't in memory
     if (!item) {
-      if (typeof Swal !== 'undefined') {
-        Swal.fire({
-          icon: 'error',
-          title: 'ไม่พบรายการเติมเงิน',
-          text: 'ไม่พบข้อมูลของรหัสรายการนี้',
-          background: '#151622',
-          color: '#fff'
-        });
-      }
+      try {
+        const topups = await window.supabaseManager.fetchTable('topups');
+        item = (topups || []).find(t => String(t.id) === String(idOrRef) || String(t.transaction_ref) === String(idOrRef));
+      } catch (e) {}
+    }
+
+    if (!item) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'ไม่พบรายการเติมเงิน',
+        text: `ไม่พบข้อมูลสำหรับรหัส: ${idOrRef || 'ไม่ระบุ'}`,
+        background: '#151622',
+        color: '#fff',
+        confirmButtonColor: '#e11d48'
+      });
       return;
     }
 
@@ -742,128 +758,263 @@ class AdminManager {
     this.slipRotation = 0;
     this.slipZoomed = false;
 
-    const modal = document.getElementById('modal-admin-slip-viewer');
-    const img = document.getElementById('admin-slip-image');
-    const placeholder = document.getElementById('admin-slip-placeholder');
-    const downloadBtn = document.getElementById('admin-slip-download-btn');
-    const subtitle = document.getElementById('admin-slip-modal-subtitle');
-    const amountEl = document.getElementById('admin-slip-amount');
-    const usernameEl = document.getElementById('admin-slip-username');
-    const dateEl = document.getElementById('admin-slip-date');
-    const methodEl = document.getElementById('admin-slip-method');
-    const refEl = document.getElementById('admin-slip-ref');
-    const verifiedByEl = document.getElementById('admin-slip-verified-by');
-
     const amt = Number(item.amount) || 0;
     const formattedDate = new Date(item.created_at || Date.now()).toLocaleString('th-TH', {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
       hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
+      minute: '2-digit'
     });
-
-    if (subtitle) subtitle.textContent = `รหัสอ้างอิง: ${item.transaction_ref}`;
-    if (amountEl) amountEl.textContent = `+฿ ${amt.toLocaleString('th-TH', { minimumFractionDigits: 2 })}`;
-    if (usernameEl) usernameEl.textContent = item.username || 'Member';
-    if (dateEl) dateEl.textContent = formattedDate;
-    if (methodEl) methodEl.textContent = item.payment_method || 'PromptPay QR';
-    if (refEl) refEl.textContent = item.transaction_ref || '-';
-    if (verifiedByEl) verifiedByEl.textContent = item.verified_by || 'Payment Gateway Webhook';
 
     // Resolve slip image source
     let slipSrc = (item.slip_url || '').trim();
-
-    // If slip_url is filename like IMG_0501.jpg, check local storage cache
-    if (slipSrc && !slipSrc.startsWith('data:') && !slipSrc.startsWith('http') && !slipSrc.startsWith('/')) {
-      const localCached = localStorage.getItem(`cloud_slip_${item.transaction_ref}`);
-      if (localCached) {
-        slipSrc = localCached;
-      }
+    if (!slipSrc && item.transaction_ref) {
+      try {
+        slipSrc = localStorage.getItem(`cloud_slip_${item.transaction_ref}`) || '';
+      } catch (e) {}
     }
 
-    if (img) {
-      img.style.transform = 'none';
-      img.style.cursor = 'zoom-in';
-      if (slipSrc) {
-        img.src = slipSrc;
-        img.style.display = 'block';
-        if (placeholder) placeholder.style.display = 'none';
+    const hasSlipImage = !!(slipSrc && (slipSrc.startsWith('data:image') || slipSrc.startsWith('http') || slipSrc.startsWith('/')));
+
+    // PRIMARY: Open the custom dedicated in-page modal #modal-admin-slip-viewer
+    const modal = document.getElementById('modal-admin-slip-viewer');
+    if (modal) {
+      const imgEl = document.getElementById('admin-slip-image');
+      const placeholderEl = document.getElementById('admin-slip-placeholder');
+      const downloadBtn = document.getElementById('admin-slip-download-btn');
+      const amtEl = document.getElementById('admin-slip-amount');
+      const userEl = document.getElementById('admin-slip-username');
+      const dateEl = document.getElementById('admin-slip-date');
+      const methodEl = document.getElementById('admin-slip-method');
+      const refEl = document.getElementById('admin-slip-ref');
+      const verifiedEl = document.getElementById('admin-slip-verified-by');
+
+      if (amtEl) amtEl.textContent = `฿ ${amt.toLocaleString('th-TH', { minimumFractionDigits: 2 })}`;
+      if (userEl) userEl.textContent = item.username || 'Member';
+      if (dateEl) dateEl.textContent = formattedDate;
+      if (methodEl) methodEl.textContent = item.payment_method || 'PromptPay QR';
+      if (refEl) refEl.textContent = item.transaction_ref || '-';
+      if (verifiedEl) verifiedEl.textContent = item.verified_by || 'Payment Gateway Webhook';
+
+      if (hasSlipImage) {
+        if (imgEl) {
+          imgEl.src = slipSrc;
+          imgEl.style.display = 'block';
+          imgEl.style.transform = 'none';
+          imgEl.style.cursor = 'zoom-in';
+        }
+        if (placeholderEl) placeholderEl.style.display = 'none';
         if (downloadBtn) {
           downloadBtn.href = slipSrc;
-          downloadBtn.download = `slip_${item.transaction_ref || 'receipt'}.jpg`;
+          downloadBtn.download = `slip_${item.transaction_ref || Date.now()}.jpg`;
           downloadBtn.style.display = 'inline-flex';
         }
       } else {
-        img.src = '';
-        img.style.display = 'none';
-        if (placeholder) placeholder.style.display = 'block';
+        if (imgEl) {
+          imgEl.src = '';
+          imgEl.style.display = 'none';
+        }
+        if (placeholderEl) placeholderEl.style.display = 'block';
         if (downloadBtn) downloadBtn.style.display = 'none';
       }
+
+      // Display the modal with explicit top z-index styles
+      modal.classList.add('active');
+      modal.style.display = 'flex';
+      modal.style.opacity = '1';
+      modal.style.visibility = 'visible';
+      modal.style.pointerEvents = 'auto';
+      modal.style.zIndex = '100050';
+      return;
     }
 
-    if (modal) {
-      modal.classList.add('active');
-    }
+    // FALLBACK: SweetAlert2 (Always displays on top with z-index 2000000)
+    Swal.fire({
+      title: `
+        <div style="display: flex; align-items: center; justify-content: center; gap: 10px; color: #fff; font-size: 1.15rem; font-weight: 800; padding: 2px 0;">
+          <div style="width: 36px; height: 36px; border-radius: 10px; background: rgba(244, 114, 182, 0.15); border: 1px solid rgba(244, 114, 182, 0.3); display: flex; align-items: center; justify-content: center; color: #f472b6; font-size: 1.1rem;">
+            <i class="fas fa-file-invoice-dollar"></i>
+          </div>
+          <span>หลักฐานสลิปการโอนเงิน (Transfer Slip)</span>
+        </div>
+      `,
+      html: `
+        <div style="text-align: left; padding: 4px 2px;">
+          <div style="display: grid; grid-template-columns: ${hasSlipImage ? '1fr 1fr' : '1fr'}; gap: 16px; align-items: start;">
+            
+            ${hasSlipImage ? `
+              <!-- Left Column: High-Res Slip Image Preview -->
+              <div style="display: flex; flex-direction: column; align-items: center;">
+                <div style="width: 100%; min-height: 320px; max-height: 440px; background: #08090f; border: 1px solid #232538; border-radius: 12px; display: flex; align-items: center; justify-content: center; overflow: hidden; padding: 6px;">
+                  <img id="swal-slip-img" src="${slipSrc}" alt="Slip Preview" style="max-width: 100%; max-height: 420px; object-fit: contain; border-radius: 6px; cursor: zoom-in; transition: transform 0.25s ease;" onclick="window.adminManager.toggleSwalSlipZoom()">
+                </div>
+                <!-- Image action buttons -->
+                <div style="display: flex; gap: 8px; margin-top: 10px; width: 100%; justify-content: center; flex-wrap: wrap;">
+                  <a href="${slipSrc}" target="_blank" download="slip_${item.transaction_ref}.jpg" class="btn-outline-dark" style="font-size: 0.78rem; padding: 6px 12px; color: #38bdf8; border-color: rgba(56, 189, 248, 0.3); display: inline-flex; align-items: center; gap: 6px; text-decoration: none; border-radius: 6px;">
+                    <i class="fas fa-arrow-up-right-from-square"></i> เปิดภาพเต็ม / บันทึก
+                  </a>
+                  <button type="button" class="btn-outline-dark" onclick="window.adminManager.rotateSwalSlip()" style="font-size: 0.78rem; padding: 6px 12px; color: #cbd5e1; display: inline-flex; align-items: center; gap: 6px; border-radius: 6px; cursor: pointer;">
+                    <i class="fas fa-rotate"></i> หมุนรูป
+                  </button>
+                </div>
+              </div>
+            ` : `
+              <!-- Placeholder when no image is attached -->
+              <div style="background: #090a10; border: 1px dashed #33364d; border-radius: 12px; padding: 26px 16px; text-align: center; margin-bottom: 8px;">
+                <i class="fas fa-receipt" style="font-size: 3rem; color: #64748b; margin-bottom: 8px; display: block;"></i>
+                <b style="color: #cbd5e1; font-size: 0.95rem; display: block; margin-bottom: 4px;">ยังไม่มีไฟล์รูปภาพสลิปในรายการนี้</b>
+                <span style="font-size: 0.78rem; color: #9496a8;">(อาจเป็นการเติมผ่าน Direct Gateway หรือแอดมินปรับเครดิต)</span>
+              </div>
+            `}
+
+            <!-- Right Column: Transaction & Verification Metadata -->
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+              <!-- Amount Highlight Card -->
+              <div style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(6, 78, 59, 0.2)); border: 1px solid rgba(16, 185, 129, 0.35); border-radius: 12px; padding: 12px 14px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                  <span style="font-size: 0.75rem; color: #a7f3d0; font-weight: 600;">ยอดเงินที่ตรวจพบ</span>
+                  <span style="background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid #10b981; padding: 2px 8px; border-radius: 6px; font-size: 0.72rem; font-weight: 700;">
+                    <i class="fas fa-circle-check"></i> สำเร็จ (Approved)
+                  </span>
+                </div>
+                <div style="font-size: 1.65rem; font-weight: 800; color: #34d399; font-family: 'Outfit', sans-serif;">
+                  +฿ ${amt.toLocaleString('th-TH', { minimumFractionDigits: 2 })}
+                </div>
+              </div>
+
+              <!-- Metadata List -->
+              <div style="background: #181926; border: 1px solid #282a3d; border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; font-size: 0.82rem;">
+                <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #232536; padding-bottom: 6px;">
+                  <span style="color: #9496a8;"><i class="fas fa-user" style="width: 16px;"></i> ผู้ใช้งาน</span>
+                  <b style="color: #fff;">${item.username || 'Member'}</b>
+                </div>
+                <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #232536; padding-bottom: 6px;">
+                  <span style="color: #9496a8;"><i class="far fa-clock" style="width: 16px;"></i> วันที่ / เวลา</span>
+                  <span style="color: #cbd5e1;">${formattedDate}</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #232536; padding-bottom: 6px;">
+                  <span style="color: #9496a8;"><i class="fas fa-qrcode" style="width: 16px;"></i> ช่องทาง</span>
+                  <span style="color: #60a5fa; font-weight: 600;">${item.payment_method || 'PromptPay QR'}</span>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 3px; border-bottom: 1px solid #232536; padding-bottom: 6px;">
+                  <div style="display: flex; justify-content: space-between;">
+                    <span style="color: #9496a8;"><i class="fas fa-hashtag" style="width: 16px;"></i> รหัสอ้างอิงธุรกรรม</span>
+                    <button type="button" onclick="navigator.clipboard.writeText('${item.transaction_ref}'); alert('คัดลอกรหัสแล้ว: ${item.transaction_ref}')" style="background: none; border: none; color: #f472b6; font-size: 0.72rem; cursor: pointer; padding: 0;">
+                      <i class="far fa-copy"></i> คัดลอก
+                    </button>
+                  </div>
+                  <code style="background: #0f1018; padding: 5px 8px; border-radius: 6px; color: #facc15; font-size: 0.76rem; word-break: break-all; border: 1px solid #2a2c40;">
+                    ${item.transaction_ref || '-'}
+                  </code>
+                </div>
+                <div style="display: flex; justify-content: space-between; padding-top: 2px;">
+                  <span style="color: #9496a8;"><i class="fas fa-shield-halved" style="width: 16px;"></i> ตรวจสอบโดย</span>
+                  <span style="color: #a5a8bc;">${item.verified_by || 'Payment Gateway Webhook'}</span>
+                </div>
+              </div>
+
+              <!-- Attach / Replace Slip Option -->
+              <div style="margin-top: 4px;">
+                <label style="background: rgba(244, 114, 182, 0.15); border: 1px dashed rgba(244, 114, 182, 0.4); border-radius: 8px; padding: 8px 12px; display: flex; align-items: center; justify-content: center; gap: 6px; color: #f472b6; font-size: 0.78rem; font-weight: 600; cursor: pointer; transition: all 0.2s;">
+                  <i class="fas fa-upload"></i> ${hasSlipImage ? 'อัพโหลดสลิปใหม่แทนที่' : 'แนบรูปสลิปสำหรับรายการนี้'}
+                  <input type="file" accept="image/*" style="display: none;" onchange="window.adminManager.handleAdminUploadSlipDirect(this, '${item.id || item.transaction_ref}')">
+                </label>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      `,
+      width: hasSlipImage ? '780px' : '520px',
+      background: '#12131d',
+      color: '#fff',
+      showCloseButton: true,
+      showConfirmButton: true,
+      confirmButtonText: '<i class="fas fa-check"></i> เรียบร้อย (ปิดหน้าต่าง)',
+      confirmButtonColor: '#e11d48'
+    });
   }
 
   closeSlipViewerModal() {
     const modal = document.getElementById('modal-admin-slip-viewer');
-    if (modal) modal.classList.remove('active');
-    this.activeSlipTopup = null;
-    this.slipRotation = 0;
-    this.slipZoomed = false;
-  }
-
-  rotateSlipImage() {
-    const img = document.getElementById('admin-slip-image');
-    if (!img || !img.src) return;
-    this.slipRotation = ((this.slipRotation || 0) + 90) % 360;
-    const scale = this.slipZoomed ? 1.8 : 1.0;
-    img.style.transform = `rotate(${this.slipRotation}deg) scale(${scale})`;
+    if (modal) {
+      modal.classList.remove('active');
+      modal.style.display = 'none';
+      modal.style.opacity = '0';
+      modal.style.visibility = 'hidden';
+      modal.style.pointerEvents = 'none';
+    }
   }
 
   toggleSlipZoom() {
     const img = document.getElementById('admin-slip-image');
-    if (!img || !img.src) return;
+    if (!img) return;
     this.slipZoomed = !this.slipZoomed;
     const scale = this.slipZoomed ? 1.8 : 1.0;
     img.style.cursor = this.slipZoomed ? 'zoom-out' : 'zoom-in';
     img.style.transform = `rotate(${this.slipRotation || 0}deg) scale(${scale})`;
   }
 
-  async copyCurrentTransRef() {
+  rotateSlipImage() {
+    const img = document.getElementById('admin-slip-image');
+    if (!img) return;
+    this.slipRotation = ((this.slipRotation || 0) + 90) % 360;
+    const scale = this.slipZoomed ? 1.8 : 1.0;
+    img.style.transform = `rotate(${this.slipRotation}deg) scale(${scale})`;
+  }
+
+  copyCurrentTransRef() {
     const ref = this.activeSlipTopup ? this.activeSlipTopup.transaction_ref : '';
-    if (!ref || ref === '-') return;
-    try {
-      await navigator.clipboard.writeText(ref);
-      if (typeof Swal !== 'undefined') {
-        const Toast = Swal.mixin({
-          toast: true,
-          position: 'top-end',
-          showConfirmButton: false,
-          timer: 2000,
-          background: '#151622',
-          color: '#34d399'
+    if (ref) {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(ref).then(() => {
+          Swal.fire({
+            icon: 'success',
+            title: 'คัดลอกรหัสแล้ว',
+            text: ref,
+            timer: 1500,
+            showConfirmButton: false,
+            background: '#151622',
+            color: '#fff'
+          });
+        }).catch(() => {
+          alert('รหัสอ้างอิง: ' + ref);
         });
-        Toast.fire({
-          icon: 'success',
-          title: 'คัดลอกรหัสธุรกรรมแล้ว!'
-        });
+      } else {
+        alert('รหัสอ้างอิง: ' + ref);
       }
-    } catch (e) {
-      console.warn('Clipboard copy error:', e);
     }
   }
 
   async handleAdminUploadSlip(input) {
     if (!input.files || !input.files[0] || !this.activeSlipTopup) return;
+    return this.handleAdminUploadSlipDirect(input, this.activeSlipTopup.id || this.activeSlipTopup.transaction_ref);
+  }
+
+  toggleSwalSlipZoom() {
+    const img = document.getElementById('swal-slip-img');
+    if (!img) return;
+    this.slipZoomed = !this.slipZoomed;
+    const scale = this.slipZoomed ? 1.8 : 1.0;
+    img.style.cursor = this.slipZoomed ? 'zoom-out' : 'zoom-in';
+    img.style.transform = `rotate(${this.slipRotation || 0}deg) scale(${scale})`;
+  }
+
+  rotateSwalSlip() {
+    const img = document.getElementById('swal-slip-img');
+    if (!img) return;
+    this.slipRotation = ((this.slipRotation || 0) + 90) % 360;
+    const scale = this.slipZoomed ? 1.8 : 1.0;
+    img.style.transform = `rotate(${this.slipRotation}deg) scale(${scale})`;
+  }
+
+  async handleAdminUploadSlipDirect(input, topupIdOrRef) {
+    if (!input.files || !input.files[0]) return;
     const file = input.files[0];
-    const item = this.activeSlipTopup;
 
     Swal.fire({
-      title: 'กำลังอัพโหลดและบันทึกสลิป...',
+      title: 'กำลังบันทึกสลิป...',
       allowOutsideClick: false,
       didOpen: () => Swal.showLoading(),
       background: '#151622',
@@ -871,7 +1022,6 @@ class AdminManager {
     });
 
     try {
-      // Compress image on canvas to max 900px, 0.8 JPEG
       const dataUrl = await new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = (e) => {
@@ -882,13 +1032,8 @@ class AdminManager {
             let w = img.width;
             let h = img.height;
             if (w > maxDim || h > maxDim) {
-              if (w > h) {
-                h = Math.round((h * maxDim) / w);
-                w = maxDim;
-              } else {
-                w = Math.round((w * maxDim) / h);
-                h = maxDim;
-              }
+              if (w > h) { h = Math.round((h * maxDim) / w); w = maxDim; }
+              else { w = Math.round((w * maxDim) / h); h = maxDim; }
             }
             canvas.width = w;
             canvas.height = h;
@@ -903,50 +1048,34 @@ class AdminManager {
         reader.readAsDataURL(file);
       });
 
-      // Update in Supabase topups table if topup record exists
-      if (item.id) {
+      // Update in Supabase
+      if (topupIdOrRef) {
         try {
-          await window.supabaseManager.updateRecord('topups', item.id, { slip_url: dataUrl });
+          await window.supabaseManager.updateRecord('topups', topupIdOrRef, { slip_url: dataUrl });
         } catch (dbErr) {
-          console.warn('Direct update failed, trying fallback:', dbErr);
+          console.warn('Update fallback:', dbErr);
         }
       }
 
-      // Cache locally
-      if (item.transaction_ref) {
-        localStorage.setItem(`cloud_slip_${item.transaction_ref}`, dataUrl);
+      // Update current memory
+      if (Array.isArray(this.currentTopups)) {
+        const item = this.currentTopups.find(t => String(t.id) === String(topupIdOrRef) || String(t.transaction_ref) === String(topupIdOrRef));
+        if (item) {
+          item.slip_url = dataUrl;
+          try {
+            localStorage.setItem(`cloud_slip_${item.transaction_ref}`, dataUrl);
+          } catch (e) {}
+        }
       }
 
-      // Update current item and UI
-      item.slip_url = dataUrl;
-      const img = document.getElementById('admin-slip-image');
-      const placeholder = document.getElementById('admin-slip-placeholder');
-      const downloadBtn = document.getElementById('admin-slip-download-btn');
+      // Re-render table
+      await this.renderAdminTopupsTable();
 
-      if (img) {
-        img.src = dataUrl;
-        img.style.display = 'block';
-      }
-      if (placeholder) placeholder.style.display = 'none';
-      if (downloadBtn) {
-        downloadBtn.href = dataUrl;
-        downloadBtn.download = `slip_${item.transaction_ref}.jpg`;
-        downloadBtn.style.display = 'inline-flex';
-      }
+      // Show the updated slip modal immediately!
+      await this.viewTopupSlip(topupIdOrRef);
 
-      Swal.fire({
-        icon: 'success',
-        title: 'บันทึกรูปสลิปสำเร็จ!',
-        text: 'อัพเดทหลักฐานสลิปสำหรับรายการนี้เรียบร้อยแล้ว',
-        timer: 2000,
-        showConfirmButton: false,
-        background: '#151622',
-        color: '#fff'
-      });
-
-      this.renderAdminTopupsTable();
     } catch (err) {
-      console.error('Admin slip upload error:', err);
+      console.error('Upload slip error:', err);
       Swal.fire({
         icon: 'error',
         title: 'เกิดข้อผิดพลาด',
@@ -954,8 +1083,6 @@ class AdminManager {
         background: '#151622',
         color: '#fff'
       });
-    } finally {
-      input.value = '';
     }
   }
 
@@ -1107,3 +1234,15 @@ class AdminManager {
 }
 
 window.adminManager = new AdminManager();
+
+// Global shortcuts for guaranteed inline event handling
+window.viewTopupSlip = (id) => {
+  if (window.adminManager) return window.adminManager.viewTopupSlip(id);
+};
+window.viewTopupSlipFromHeader = () => {
+  if (window.adminManager) return window.adminManager.viewTopupSlipFromHeader();
+};
+window.closeSlipViewerModal = () => {
+  if (window.adminManager) return window.adminManager.closeSlipViewerModal();
+};
+

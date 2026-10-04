@@ -1227,7 +1227,14 @@ body {
   box-shadow: none;
 }
 #modal-admin-slip-viewer {
-  z-index: 100005 !important;
+  z-index: 100050 !important;
+}
+#modal-admin-slip-viewer.active {
+  z-index: 100050 !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+  display: flex !important;
 }
 #modal-admin-slip-viewer .modal-box {
   max-width: 860px;
@@ -1237,3 +1244,12 @@ body {
     grid-template-columns: 1fr !important;
   }
 }
+
+/* Ensure SweetAlert2 always appears on top of any modal */
+.swal2-container {
+  z-index: 2000000 !important;
+}
+.swal2-popup {
+  z-index: 2000001 !important;
+}
+

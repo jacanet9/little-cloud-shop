@@ -21,7 +21,7 @@
   <script src="js/supabase-config.js?v=11.0"></script>
 
   <!-- Custom Design System matching Screenshots -->
-  <link rel="stylesheet" href="css/style.css?v=4.0">
+  <link rel="stylesheet" href="css/style.css?v=6.0">
 </head>
 
 <body>
@@ -1060,7 +1060,7 @@
                   <th style="padding: 10px 14px; white-space: nowrap;">รหัสอ้างอิงธุรกรรม</th>
                   <th style="padding: 10px 14px; white-space: nowrap;">สถานะ</th>
                   <th style="padding: 10px 14px; text-align: center; white-space: nowrap; min-width: 135px;">
-                    <button type="button" onclick="window.adminManager.viewTopupSlipFromHeader()"
+                    <button type="button" onclick="window.viewTopupSlipFromHeader()"
                       style="background: linear-gradient(135deg, rgba(225, 29, 72, 0.2), rgba(244, 114, 182, 0.2)); border: 1px solid rgba(244, 114, 182, 0.45); color: #f472b6; padding: 4px 10px; border-radius: 6px; font-size: 0.8rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: all 0.2s;"
                       onmouseover="this.style.background='rgba(244, 114, 182, 0.35)'; this.style.transform='translateY(-1px)';"
                       onmouseout="this.style.background='linear-gradient(135deg, rgba(225, 29, 72, 0.2), rgba(244, 114, 182, 0.2))'; this.style.transform='none';"
@@ -1342,7 +1342,7 @@
   <!-- ========================================================================
        MODAL: ADMIN SLIP VIEWER (Transfer Slip Inspection)
        ======================================================================== -->
-  <div class="modal-overlay" id="modal-admin-slip-viewer">
+  <div class="modal-overlay" id="modal-admin-slip-viewer" onclick="if(event.target.id === 'modal-admin-slip-viewer') window.closeSlipViewerModal()">
     <div class="modal-box modal-box-large"
       style="background: #12131d; border: 1px solid #2d2f48; border-radius: 20px; max-width: 860px; padding: 0; overflow: hidden; box-shadow: 0 25px 60px rgba(0,0,0,0.9), 0 0 35px rgba(244, 114, 182, 0.2);">
 
@@ -1361,7 +1361,7 @@
               ตรวจสอบสลิปโอนเงิน ยอดชำระ และสถานะเกตเวย์</p>
           </div>
         </div>
-        <button class="modal-close-btn" style="position: static;" onclick="window.adminManager.closeSlipViewerModal()">
+        <button class="modal-close-btn" style="position: static;" onclick="window.closeSlipViewerModal()">
           <i class="fas fa-times"></i>
         </button>
       </div>
@@ -1487,7 +1487,7 @@
           <!-- Close Button -->
           <button type="button" class="btn-pink"
             style="width: 100%; padding: 10px; font-size: 0.88rem; font-weight: 700; margin-top: auto;"
-            onclick="window.adminManager.closeSlipViewerModal()">
+            onclick="window.closeSlipViewerModal()">
             <i class="fas fa-check"></i> เรียบร้อย (ปิดหน้าต่าง)
           </button>
         </div>
@@ -1720,7 +1720,7 @@
   <script src="js/wallet.js?v=5.0"></script>
   <script src="js/payment-gateway.js?v=6.2"></script>
   <script src="js/shop.js?v=9.0"></script>
-  <script src="js/admin.js?v=5.2"></script>
+  <script src="js/admin.js?v=6.0"></script>
   <script src="js/chat.js?v=3.0"></script>
   <script src="js/topup.js?v=9.6"></script>
   <script src="js/reviews.js?v=5.0"></script>
