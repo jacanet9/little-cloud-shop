@@ -940,7 +940,8 @@ body {
 }
 
 .modal-box-large {
-  max-width: 880px;
+  max-width: 1040px;
+  width: 95vw;
 }
 
 .modal-overlay.active .modal-box {

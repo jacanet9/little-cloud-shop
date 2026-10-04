@@ -681,10 +681,10 @@ class AdminManager {
                 <i class="fas fa-circle-check"></i> สำเร็จ (Approved)
               </span>
             </td>
-            <td style="text-align: center; white-space: nowrap;">
+            <td style="text-align: center; white-space: nowrap; min-width: 135px; padding: 10px 14px;">
               ${hasSlip ? `
-                <button type="button" class="btn-slip-view" onclick="window.adminManager.viewTopupSlip('${t.id || t.transaction_ref}')" title="คลิกเพื่อตรวจสอบรูปภาพสลิป">
-                  <i class="fas fa-file-invoice-dollar"></i> ดูสลิป
+                <button type="button" class="btn-slip-view" onclick="window.adminManager.viewTopupSlip('${t.id || t.transaction_ref}')" title="คลิกเพื่อดูรูปภาพสลิปที่แนบ">
+                  <i class="fas fa-file-invoice-dollar"></i> ดูสลิปที่แนบ
                 </button>
               ` : `
                 <button type="button" class="btn-slip-view empty" onclick="window.adminManager.viewTopupSlip('${t.id || t.transaction_ref}')" title="ไม่มีรูปสลิปแนบ (คลิกเพื่อดูรายละเอียดหรือแนบสลิป)">
@@ -707,6 +707,19 @@ class AdminManager {
   // ==========================================
   // SLIP VIEWER & ACTIONS
   // ==========================================
+  viewTopupSlipFromHeader() {
+    if (Array.isArray(this.currentTopups) && this.currentTopups.length > 0) {
+      const topupWithSlip = this.currentTopups.find(t => t.slip_url && t.slip_url.trim().length > 0);
+      if (topupWithSlip) {
+        this.viewTopupSlip(topupWithSlip.id || topupWithSlip.transaction_ref);
+        return;
+      }
+      this.viewTopupSlip(this.currentTopups[0].id || this.currentTopups[0].transaction_ref);
+      return;
+    }
+    this.viewLatestServerSlip();
+  }
+
   async viewTopupSlip(idOrRef) {
     if (!this.currentTopups || this.currentTopups.length === 0) {
       await this.renderAdminTopupsTable();

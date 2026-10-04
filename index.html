@@ -904,7 +904,7 @@
        ======================================================================== -->
   <div class="modal-overlay" id="modal-admin-panel">
     <div class="modal-box modal-box-large"
-      style="background: #141520; border: 1px solid #2b2d42; border-radius: 20px; max-width: 880px; padding: 0; overflow: hidden;">
+      style="background: #141520; border: 1px solid #2b2d42; border-radius: 20px; max-width: 1040px; width: 95vw; padding: 0; overflow: hidden;">
       <button class="modal-close-btn" onclick="window.adminManager.closeAdminModal()">
         <i class="fas fa-times"></i>
       </button>
@@ -1049,17 +1049,25 @@
 
           <!-- Topup Transactions Table -->
           <div class="admin-table-wrap"
-            style="border: 1px solid var(--border-subtle); border-radius: 12px; overflow: hidden;">
-            <table class="admin-table" style="width: 100%; border-collapse: collapse;">
+            style="border: 1px solid var(--border-subtle); border-radius: 12px; overflow-x: auto; -webkit-overflow-scrolling: touch;">
+            <table class="admin-table" style="width: 100%; min-width: 920px; border-collapse: collapse;">
               <thead>
                 <tr style="background: #1a1b28; color: #a5a8bc; text-align: left; font-size: 0.85rem;">
-                  <th style="padding: 10px 14px;">วันที่ / เวลา</th>
-                  <th style="padding: 10px 14px;">ผู้ใช้งาน</th>
-                  <th style="padding: 10px 14px;">ยอดเงิน</th>
-                  <th style="padding: 10px 14px;">ช่องทาง</th>
-                  <th style="padding: 10px 14px;">รหัสอ้างอิงธุรกรรม</th>
-                  <th style="padding: 10px 14px;">สถานะ</th>
-                  <th style="padding: 10px 14px; text-align: center;">สลิปการโอน</th>
+                  <th style="padding: 10px 14px; white-space: nowrap;">วันที่ / เวลา</th>
+                  <th style="padding: 10px 14px; white-space: nowrap;">ผู้ใช้งาน</th>
+                  <th style="padding: 10px 14px; white-space: nowrap;">ยอดเงิน</th>
+                  <th style="padding: 10px 14px; white-space: nowrap;">ช่องทาง</th>
+                  <th style="padding: 10px 14px; white-space: nowrap;">รหัสอ้างอิงธุรกรรม</th>
+                  <th style="padding: 10px 14px; white-space: nowrap;">สถานะ</th>
+                  <th style="padding: 10px 14px; text-align: center; white-space: nowrap; min-width: 135px;">
+                    <button type="button" onclick="window.adminManager.viewTopupSlipFromHeader()"
+                      style="background: linear-gradient(135deg, rgba(225, 29, 72, 0.2), rgba(244, 114, 182, 0.2)); border: 1px solid rgba(244, 114, 182, 0.45); color: #f472b6; padding: 4px 10px; border-radius: 6px; font-size: 0.8rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: all 0.2s;"
+                      onmouseover="this.style.background='rgba(244, 114, 182, 0.35)'; this.style.transform='translateY(-1px)';"
+                      onmouseout="this.style.background='linear-gradient(135deg, rgba(225, 29, 72, 0.2), rgba(244, 114, 182, 0.2))'; this.style.transform='none';"
+                      title="คลิกเพื่อดูสลิปที่แนบในระบบ">
+                      <i class="fas fa-file-invoice-dollar"></i> สลิปการโอน
+                    </button>
+                  </th>
                 </tr>
               </thead>
               <tbody id="admin-topups-table-body">
@@ -1710,11 +1718,11 @@
   <script src="js/qrcode.min.js"></script>
   <script src="js/auth.js?v=8.0"></script>
   <script src="js/wallet.js?v=5.0"></script>
-  <script src="js/payment-gateway.js?v=6.0"></script>
+  <script src="js/payment-gateway.js?v=6.2"></script>
   <script src="js/shop.js?v=9.0"></script>
-  <script src="js/admin.js?v=5.0"></script>
+  <script src="js/admin.js?v=5.2"></script>
   <script src="js/chat.js?v=3.0"></script>
-  <script src="js/topup.js?v=9.4"></script>
+  <script src="js/topup.js?v=9.6"></script>
   <script src="js/reviews.js?v=5.0"></script>
   <script src="js/orders.js?v=6.0"></script>
   <script src="js/main.js?v=5.0"></script>
