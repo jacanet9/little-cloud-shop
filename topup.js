@@ -65,6 +65,7 @@ class TopupManager {
   constructor() {
     this.currentAmount = 100;
     this.selectedSlipFile = null;
+    this.selectedSlipDataUrl = null;
     this.activeChargeId = null;
     this.pollingTimer = null;
     this.countdownTimer = null;
@@ -95,22 +96,39 @@ class TopupManager {
    * Scannable by all Thai mobile banking apps (K PLUS, SCB Easy, Krungthai NEXT, etc.)
    */
   async generatePromptPayQR() {
-    const user = window.authManager.currentUser;
+    let user = window.authManager ? window.authManager.currentUser : null;
     if (!user) {
-      Swal.fire({
-        icon: 'warning',
-        title: 'กรุณาเข้าสู่ระบบ',
-        text: 'คุณต้องเข้าสู่ระบบหรือสมัครสมาชิกก่อนทำการเติมเงิน',
+      const promptRes = await Swal.fire({
+        icon: 'info',
+        title: 'กรุณาเข้าสู่ระบบก่อนเติมเงิน',
+        text: 'เข้าสู่ระบบเพื่อบันทึกเครดิตเข้าบัญชี หรือต้องการสร้าง QR ทดสอบในฐานะ Guest?',
         showCancelButton: true,
+        showDenyButton: true,
         confirmButtonText: 'เข้าสู่ระบบ',
+        denyButtonText: 'ทดสอบในฐานะ Guest',
         cancelButtonText: 'ยกเลิก',
+        confirmButtonColor: '#e11d48',
+        denyButtonColor: '#3b82f6',
         background: '#151622',
-        color: '#fff',
-        confirmButtonColor: '#e11d48'
-      }).then(r => {
-        if (r.isConfirmed) window.authManager.openAuthModal('login');
+        color: '#fff'
       });
-      return;
+
+      if (promptRes.isConfirmed) {
+        if (window.authManager) window.authManager.openAuthModal('login');
+        return;
+      } else if (promptRes.isDenied) {
+        user = {
+          id: 'guest_' + Date.now(),
+          username: 'Guest Member',
+          role: 'member',
+          balance: 0
+        };
+        if (window.authManager) {
+          window.authManager.saveCurrentUser(user);
+        }
+      } else {
+        return;
+      }
     }
 
     const input = document.getElementById('topup-amount-input');
@@ -332,16 +350,23 @@ class TopupManager {
    * Convert Data URL (Base64) to HTML5 File Object
    */
   dataURLtoFile(dataurl, filename) {
-    const arr = dataurl.split(',');
-    const mimeMatch = arr[0].match(/:(.*?);/);
-    const mime = mimeMatch ? mimeMatch[1] : 'image/jpeg';
-    const bstr = atob(arr[1]);
-    let n = bstr.length;
-    const u8arr = new Uint8Array(n);
-    while (n--) {
-      u8arr[n] = bstr.charCodeAt(n);
+    if (!dataurl || typeof dataurl !== 'string') return null;
+    try {
+      const arr = dataurl.split(',');
+      const mimeMatch = (arr[0] || '').match(/:(.*?);/);
+      const mime = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+      const cleanB64 = (arr[1] || arr[0]).replace(/\s/g, '');
+      const bstr = atob(cleanB64);
+      let n = bstr.length;
+      const u8arr = new Uint8Array(n);
+      while (n--) {
+        u8arr[n] = bstr.charCodeAt(n);
+      }
+      return new File([u8arr], filename || 'mobile_slip.jpg', { type: mime });
+    } catch (e) {
+      console.warn('dataURLtoFile manual decode fallback:', e);
+      return new File([new Uint8Array(0)], filename || 'mobile_slip.jpg', { type: 'image/jpeg' });
     }
-    return new File([u8arr], filename || 'mobile_slip.jpg', { type: mime });
   }
 
   /**
@@ -450,28 +475,34 @@ class TopupManager {
       urlHint.textContent = uploadUrl.replace('http://', '');
     }
 
-    // Start Polling for Mobile Upload (every 1.2s for instant response)
+    // Start Polling for Mobile Upload (every 1.0s for instant response)
     this.mobileSlipPollingTimer = setInterval(async () => {
       if (!this.mobileSlipSessionId) {
         this.stopMobileSlipPolling();
         return;
       }
 
-      try {
-        let chkResp = await fetch(`${apiBase}/api/slip/check/${this.mobileSlipSessionId}`);
-        if (!chkResp.ok && apiBase !== 'http://127.0.0.1:3000') {
-          // Fallback check to port 3000
-          chkResp = await fetch(`http://127.0.0.1:3000/api/slip/check/${this.mobileSlipSessionId}`);
-        }
-        if (chkResp.ok) {
-          const chkData = await chkResp.json();
-          if (chkData.success && chkData.status === 'completed' && chkData.slip_data) {
-            this.stopMobileSlipPolling();
-            this.handleMobileSlipReceived(chkData.slip_data, chkData.filename || 'mobile_slip.jpg');
+      const endpoints = [
+        `${apiBase}/api/slip/check/${this.mobileSlipSessionId}`,
+        `http://127.0.0.1:3000/api/slip/check/${this.mobileSlipSessionId}`,
+        `http://192.168.1.124:3000/api/slip/check/${this.mobileSlipSessionId}`
+      ];
+
+      for (const ep of endpoints) {
+        try {
+          const chkResp = await fetch(ep);
+          if (chkResp.ok) {
+            const chkData = await chkResp.json();
+            if (chkData.success && chkData.status === 'completed' && chkData.slip_data) {
+              console.log('✅ Slip received from endpoint:', ep);
+              this.stopMobileSlipPolling();
+              this.handleMobileSlipReceived(chkData.slip_data, chkData.filename || 'mobile_slip.jpg');
+              break;
+            }
           }
-        }
-      } catch (pollErr) {}
-    }, 1200);
+        } catch (pollErr) {}
+      }
+    }, 1000);
   }
 
   stopMobileSlipPolling() {
@@ -481,9 +512,60 @@ class TopupManager {
     }
   }
 
+  /**
+   * Manual Pull Latest Slip (If user wants to instantly pull uploaded slip)
+   */
+  async fetchLatestMobileSlip() {
+    let apiBase = '';
+    if (window.location.protocol === 'file:' || (window.location.port && window.location.port !== '3000')) {
+      apiBase = 'http://127.0.0.1:3000';
+    }
+
+    const endpoints = [
+      `${apiBase}/api/slip/latest`,
+      `http://127.0.0.1:3000/api/slip/latest`,
+      `http://192.168.1.124:3000/api/slip/latest`
+    ];
+
+    for (const ep of endpoints) {
+      try {
+        const resp = await fetch(ep);
+        if (resp.ok) {
+          const data = await resp.json();
+          if (data.success && data.status === 'completed' && data.slip_data) {
+            console.log('✅ Latest slip pulled manually:', data.filename);
+            this.stopMobileSlipPolling();
+            this.handleMobileSlipReceived(data.slip_data, data.filename || 'mobile_slip.jpg');
+            return true;
+          }
+        }
+      } catch (e) {}
+    }
+
+    if (typeof Swal !== 'undefined') {
+      Swal.fire({
+        icon: 'info',
+        title: 'ยังไม่พบรูปสลิปจากมือถือ',
+        text: 'กรุณาเปิดมือถือ สแกน QR Code แล้วกดส่งสลิปก่อนครับ',
+        background: '#151622',
+        color: '#fff',
+        confirmButtonColor: '#e11d48'
+      });
+    }
+    return false;
+  }
+
   handleMobileSlipReceived(dataUrl, filename) {
-    const file = this.dataURLtoFile(dataUrl, filename);
+    if (!dataUrl) return;
+    console.log('📸 handleMobileSlipReceived called with filename:', filename);
+    let file = null;
+    try {
+      file = this.dataURLtoFile(dataUrl, filename);
+    } catch (e) {
+      console.warn('File conversion error:', e);
+    }
     this.selectedSlipFile = file;
+    this.selectedSlipDataUrl = dataUrl;
 
     // Update UI elements
     const badge = document.getElementById('topup-slip-badge');
@@ -500,39 +582,49 @@ class TopupManager {
     }
 
     if (filenameLabel) {
-      filenameLabel.textContent = `📱 ${filename} (${(file.size / 1024).toFixed(1)} KB)`;
+      const kb = file && file.size ? (file.size / 1024).toFixed(1) : (dataUrl.length * 0.75 / 1024).toFixed(1);
+      filenameLabel.innerHTML = `<i class="fas fa-check-circle" style="color: #10b981;"></i> 📱 ${filename || 'สลิปจากมือถือ'} (${kb} KB)`;
       filenameLabel.style.color = '#059669';
       filenameLabel.style.fontWeight = '700';
     }
 
-    if (previewImg && previewContainer) {
+    if (previewImg) {
       previewImg.src = dataUrl;
+    }
+
+    if (previewContainer) {
       previewContainer.style.display = 'block';
+      setTimeout(() => {
+        previewContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }, 100);
     }
 
     if (qrPanel) qrPanel.style.display = 'none';
     if (pcPanel) pcPanel.style.display = 'none';
 
-    Swal.fire({
-      icon: 'success',
-      title: '🎉 ได้รับสลิปจากมือถือแล้ว!',
-      html: `
-        <div style="text-align: left; padding: 6px 0; color: #cbd5e1; font-size: 0.9rem;">
-          <p style="margin-bottom: 6px;">ระบบดึงภาพสลิปจากโทรศัพท์ของคุณเรียบร้อยแล้ว</p>
-          <p style="color: #34d399; font-weight: 700;">พร้อมให้คุณกด "ตรวจสอบสลิปและเพิ่มเครดิตทันที" ด้านล่างได้เลยครับ ✨</p>
-        </div>
-      `,
-      timer: 3500,
-      showConfirmButton: true,
-      confirmButtonText: 'ตกลง',
-      confirmButtonColor: '#e11d48',
-      background: '#151622',
-      color: '#fff'
-    });
+    if (typeof Swal !== 'undefined') {
+      Swal.fire({
+        icon: 'success',
+        title: '🎉 ได้รับสลิปจากมือถือแล้ว!',
+        html: `
+          <div style="text-align: left; padding: 6px 0; color: #cbd5e1; font-size: 0.9rem;">
+            <p style="margin-bottom: 6px;">ระบบดึงภาพสลิปจากโทรศัพท์ของคุณเรียบร้อยแล้ว</p>
+            <p style="color: #34d399; font-weight: 700;">พร้อมให้คุณกด "ตรวจสอบสลิปและเพิ่มเครดิตทันที" ด้านล่างได้เลยครับ ✨</p>
+          </div>
+        `,
+        timer: 3500,
+        showConfirmButton: true,
+        confirmButtonText: 'ตกลง',
+        confirmButtonColor: '#e11d48',
+        background: '#151622',
+        color: '#fff'
+      });
+    }
   }
 
   resetSlipSelection() {
     this.selectedSlipFile = null;
+    this.selectedSlipDataUrl = null;
     const badge = document.getElementById('topup-slip-badge');
     const filenameLabel = document.getElementById('topup-slip-filename');
     const previewContainer = document.getElementById('topup-slip-preview-container');
@@ -610,6 +702,7 @@ class TopupManager {
         const reader = new FileReader();
         reader.onload = (e) => {
           previewImg.src = e.target.result;
+          this.selectedSlipDataUrl = e.target.result;
           previewContainer.style.display = 'block';
         };
         reader.readAsDataURL(file);
@@ -704,7 +797,8 @@ class TopupManager {
       // Process full topup pipeline with real slip inspection
       const result = await window.paymentGatewayEngine.processTopupPipeline({
         amount: amount,
-        slipFile: this.selectedSlipFile
+        slipFile: this.selectedSlipFile,
+        slipDataUrl: this.selectedSlipDataUrl
       });
 
       await this.handlePaymentCompleted({
@@ -728,13 +822,22 @@ class TopupManager {
 
 window.topupManager = new TopupManager();
 
-window.setTopupAmount = function(amt) {
+window.setTopupAmount = function(amt, fromInput) {
+  const numAmt = parseFloat(amt);
   const input = document.getElementById('topup-amount-input');
-  if (input) input.value = amt;
-  window.topupManager.currentAmount = amt;
+  if (input && !fromInput) {
+    input.value = !isNaN(numAmt) ? numAmt : '';
+  }
+  if (window.topupManager && !isNaN(numAmt)) {
+    window.topupManager.currentAmount = numAmt;
+  }
 
-  document.querySelectorAll('#view-topup .cat-pill').forEach(pill => {
-    if (pill.textContent.includes(String(amt))) {
+  const pills = document.querySelectorAll('#quick-amount-pills .cat-pill, #view-topup .topup-box-card .cat-pill');
+  pills.forEach(pill => {
+    if (pill.id === 'tab-slip-qr' || pill.id === 'tab-slip-pc') return;
+    const rawVal = pill.getAttribute('data-amount') || pill.textContent.replace(/[^0-9]/g, '');
+    const pillVal = parseInt(rawVal, 10);
+    if (!isNaN(pillVal) && !isNaN(numAmt) && pillVal === numAmt) {
       pill.classList.add('active');
     } else {
       pill.classList.remove('active');

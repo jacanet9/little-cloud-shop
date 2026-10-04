@@ -143,7 +143,7 @@
       <div class="hero-showcase-box">
         <div class="hero-media-card">
           <img
-            src="https://cdn.discordapp.com/attachments/1210664779824238662/1555161673831026728/image.png?backend=b2&ex=6abf84ac&is=6abe332c&hm=bc11d755bb783c84259497f11c3bf33dd39a55da3abddcedd5582b49ec141a30&"
+            src="https://cdn.discordapp.com/attachments/1210664779824238662/1555161673831026728/image.png?backend=b2&ex=6ac3792c&is=6ac227ac&hm=dbeeba98404c60b992e3ea68693c66266bb19348ed3d3e1053039c78e8e239df&"
             alt="Gummy / Jelly 3D" id="hero-media-image">
         </div>
         <div class="hero-feature-bar">
@@ -304,17 +304,22 @@
         <h4 class="topup-card-title">เลือกยอดที่จะเติม</h4>
 
         <div class="topup-input-box">
-          <input type="number" id="topup-amount-input" placeholder="เช่น 100" value="100">
+          <input type="number" id="topup-amount-input" placeholder="เช่น 100" value="100"
+            oninput="window.setTopupAmount(this.value, true)">
           <span>บาท</span>
         </div>
 
         <!-- Quick Amount Pills -->
-        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 18px;">
-          <button class="cat-pill" style="text-align: center;" onclick="window.setTopupAmount(50)">50 บาท</button>
-          <button class="cat-pill active" style="text-align: center;" onclick="window.setTopupAmount(100)">100
-            บาท</button>
-          <button class="cat-pill" style="text-align: center;" onclick="window.setTopupAmount(300)">300 บาท</button>
-          <button class="cat-pill" style="text-align: center;" onclick="window.setTopupAmount(500)">500 บาท</button>
+        <div id="quick-amount-pills"
+          style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 18px;">
+          <button type="button" class="cat-pill" data-amount="50" style="text-align: center;"
+            onclick="window.setTopupAmount(50)">50 บาท</button>
+          <button type="button" class="cat-pill active" data-amount="100" style="text-align: center;"
+            onclick="window.setTopupAmount(100)">100 บาท</button>
+          <button type="button" class="cat-pill" data-amount="300" style="text-align: center;"
+            onclick="window.setTopupAmount(300)">300 บาท</button>
+          <button type="button" class="cat-pill" data-amount="500" style="text-align: center;"
+            onclick="window.setTopupAmount(500)">500 บาท</button>
         </div>
 
         <div style="font-size: 0.78rem; color: var(--text-dim); text-align: center; margin-bottom: 16px;">
@@ -461,20 +466,30 @@
 
                 <!-- Live Radar Listening Indicator -->
                 <div id="slip-qr-listening-indicator"
-                  style="display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 0.78rem; color: #0284c7; margin-top: 10px; font-weight: 600;">
-                  <i class="fas fa-satellite-dish fa-fade"></i>
-                  <span>กำลังรอการส่งรูปสลิปจากมือถือ...</span>
-                  <span id="slip-qr-session-badge"
-                    style="background: #e0f2fe; color: #0369a1; padding: 1px 6px; border-radius: 4px; font-family: monospace; font-size: 0.7rem;">#READY</span>
+                  style="display: flex; flex-direction: column; align-items: center; gap: 6px; margin-top: 10px;">
+                  <div
+                    style="display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 0.78rem; color: #0284c7; font-weight: 600;">
+                    <i class="fas fa-satellite-dish fa-fade"></i>
+                    <span>กำลังรอการส่งรูปสลิปจากมือถือ...</span>
+                    <span id="slip-qr-session-badge"
+                      style="background: #e0f2fe; color: #0369a1; padding: 1px 6px; border-radius: 4px; font-family: monospace; font-size: 0.7rem;">#READY</span>
+                  </div>
+                  <button type="button" onclick="window.topupManager.fetchLatestMobileSlip()"
+                    style="background: #e0f2fe; color: #0369a1; border: 1px solid #7dd3fc; border-radius: 8px; padding: 5px 12px; font-size: 0.74rem; cursor: pointer; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; transition: all 0.2s;"
+                    onmouseover="this.style.background='#bae6fd'" onmouseout="this.style.background='#e0f2fe'">
+                    <i class="fas fa-rotate"></i> กดเพื่อดึงรูปสลิปล่าสุดทันที
+                  </button>
                 </div>
 
                 <!-- Wi-Fi Hint & Direct Link -->
                 <div style="margin-top: 8px; display: flex; flex-direction: column; align-items: center; gap: 4px;">
-                  <div style="font-size: 0.73rem; color: #0369a1; background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px; padding: 3px 10px; display: inline-flex; align-items: center; gap: 6px;">
+                  <div
+                    style="font-size: 0.73rem; color: #0369a1; background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px; padding: 3px 10px; display: inline-flex; align-items: center; gap: 6px;">
                     <i class="fas fa-wifi" style="color: #0284c7;"></i>
                     <span>มือถือและคอมพิวเตอร์เชื่อมต่อ Wi-Fi เดียวกัน</span>
                   </div>
-                  <div id="slip-qr-url-hint" style="font-family: monospace; font-size: 0.7rem; color: #64748b; font-weight: 600;"></div>
+                  <div id="slip-qr-url-hint"
+                    style="font-family: monospace; font-size: 0.7rem; color: #64748b; font-weight: 600;"></div>
                 </div>
 
                 <!-- Test / Direct link -->
@@ -504,19 +519,24 @@
 
               <!-- UNIVERSAL PREVIEW BOX (Shown when slip is attached via Mobile QR or PC) -->
               <div id="topup-slip-preview-container"
-                style="display: none; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 14px; padding: 14px; text-align: center; margin-top: 10px;">
+                style="display: none; background: #ffffff; border: 2px solid #10b981; border-radius: 14px; padding: 14px; text-align: center; margin-top: 10px; box-shadow: 0 4px 15px rgba(16,185,129,0.15);">
                 <div
-                  style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; font-size: 0.8rem;">
-                  <span style="color: #059669; font-weight: 700;" id="topup-slip-filename">📎
-                    รูปภาพสลิปที่แนบแล้ว</span>
+                  style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; font-size: 0.82rem;">
+                  <span style="color: #059669; font-weight: 700; display: flex; align-items: center; gap: 6px;"
+                    id="topup-slip-filename">
+                    <i class="fas fa-check-circle" style="color: #10b981;"></i> รูปภาพสลิปที่แนบแล้ว
+                  </span>
                   <button type="button"
-                    style="background: #fef2f2; border: 1px solid #fecaca; color: #ef4444; padding: 4px 10px; border-radius: 6px; font-size: 0.74rem; cursor: pointer; font-weight: 600;"
+                    style="background: #fef2f2; border: 1px solid #fecaca; color: #ef4444; padding: 4px 12px; border-radius: 6px; font-size: 0.74rem; cursor: pointer; font-weight: 600;"
                     onclick="window.topupManager.resetSlipSelection()">
                     <i class="fas fa-trash-alt"></i> ลบ / แนบรูปใหม่
                   </button>
                 </div>
-                <img id="topup-slip-preview" src="" alt="Slip Preview"
-                  style="max-height: 180px; max-width: 100%; border-radius: 8px; border: 1px solid #cbd5e1; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin: 0 auto; display: block; object-fit: contain;">
+                <div
+                  style="background: #090a10; border-radius: 10px; padding: 8px; display: inline-block; max-width: 100%;">
+                  <img id="topup-slip-preview" src="" alt="Slip Preview"
+                    style="max-height: 240px; max-width: 100%; border-radius: 6px; display: block; margin: 0 auto; object-fit: contain;">
+                </div>
               </div>
 
             </div>
@@ -992,10 +1012,17 @@
               <p style="font-size: 0.8rem; color: #a5a8bc; margin: 2px 0 0;">ตรวจสอบยอดเงินเข้า ประวัติการโอน พร้อมเพย์
                 และสถานะเครดิตแบบเรียลไทม์</p>
             </div>
-            <button class="btn-outline-dark" style="padding: 7px 14px; font-size: 0.82rem; color: #fff;"
-              onclick="window.adminManager.renderAdminTopupsTable()">
-              <i class="fas fa-rotate"></i> รีเฟรชข้อมูล
-            </button>
+            <div style="display: flex; gap: 8px;">
+              <button class="btn-outline-dark"
+                style="padding: 7px 14px; font-size: 0.82rem; color: #f472b6; border-color: rgba(244, 114, 182, 0.35);"
+                onclick="window.adminManager.viewLatestServerSlip()">
+                <i class="fas fa-image"></i> สลิปล่าสุดในระบบ
+              </button>
+              <button class="btn-outline-dark" style="padding: 7px 14px; font-size: 0.82rem; color: #fff;"
+                onclick="window.adminManager.renderAdminTopupsTable()">
+                <i class="fas fa-rotate"></i> รีเฟรชข้อมูล
+              </button>
+            </div>
           </div>
 
           <!-- Topup Metric Cards -->
@@ -1032,11 +1059,12 @@
                   <th style="padding: 10px 14px;">ช่องทาง</th>
                   <th style="padding: 10px 14px;">รหัสอ้างอิงธุรกรรม</th>
                   <th style="padding: 10px 14px;">สถานะ</th>
+                  <th style="padding: 10px 14px; text-align: center;">สลิปการโอน</th>
                 </tr>
               </thead>
               <tbody id="admin-topups-table-body">
                 <tr>
-                  <td colspan="6" style="text-align: center; padding: 24px; color: #9496a8;">
+                  <td colspan="7" style="text-align: center; padding: 24px; color: #9496a8;">
                     กำลังโหลดประวัติการเติมเงิน...</td>
                 </tr>
               </tbody>
@@ -1304,6 +1332,164 @@
   </div>
 
   <!-- ========================================================================
+       MODAL: ADMIN SLIP VIEWER (Transfer Slip Inspection)
+       ======================================================================== -->
+  <div class="modal-overlay" id="modal-admin-slip-viewer">
+    <div class="modal-box modal-box-large"
+      style="background: #12131d; border: 1px solid #2d2f48; border-radius: 20px; max-width: 860px; padding: 0; overflow: hidden; box-shadow: 0 25px 60px rgba(0,0,0,0.9), 0 0 35px rgba(244, 114, 182, 0.2);">
+
+      <!-- Modal Header -->
+      <div
+        style="padding: 16px 22px; background: #0c0d15; border-bottom: 1px solid #232538; display: flex; align-items: center; justify-content: space-between;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <div
+            style="width: 38px; height: 38px; border-radius: 10px; background: rgba(244, 114, 182, 0.15); border: 1px solid rgba(244, 114, 182, 0.3); display: flex; align-items: center; justify-content: center; color: #f472b6; font-size: 1.15rem;">
+            <i class="fas fa-file-invoice-dollar"></i>
+          </div>
+          <div>
+            <h4 style="margin: 0; color: #fff; font-size: 1.05rem; font-weight: 800;">หลักฐานสลิปการโอนเงิน (Transfer
+              Slip Details)</h4>
+            <p style="margin: 2px 0 0; color: #9496a8; font-size: 0.76rem;" id="admin-slip-modal-subtitle">
+              ตรวจสอบสลิปโอนเงิน ยอดชำระ และสถานะเกตเวย์</p>
+          </div>
+        </div>
+        <button class="modal-close-btn" style="position: static;" onclick="window.adminManager.closeSlipViewerModal()">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+
+      <!-- Modal Body (Two-Column Responsive Grid) -->
+      <div
+        style="padding: 22px; display: grid; grid-template-columns: 1.05fr 1fr; gap: 20px; max-height: calc(85vh - 70px); overflow-y: auto;"
+        id="admin-slip-content-grid">
+
+        <!-- Column 1: Slip Image View -->
+        <div style="display: flex; flex-direction: column; align-items: center;">
+          <div id="admin-slip-image-container"
+            style="width: 100%; min-height: 380px; max-height: 480px; background: #08090f; border: 1px solid #232538; border-radius: 14px; display: flex; align-items: center; justify-content: center; overflow: hidden; position: relative; padding: 10px;">
+            <img id="admin-slip-image" src="" alt="สลิปการโอนเงิน"
+              style="max-width: 100%; max-height: 460px; object-fit: contain; border-radius: 8px; transition: transform 0.25s ease; cursor: zoom-in;"
+              onclick="window.adminManager.toggleSlipZoom()">
+
+            <div id="admin-slip-placeholder"
+              style="display: none; text-align: center; padding: 30px 16px; color: #64748b;">
+              <i class="fas fa-receipt"
+                style="font-size: 3.5rem; opacity: 0.4; margin-bottom: 12px; display: block; color: #94a3b8;"></i>
+              <b
+                style="color: #cbd5e1; font-size: 0.95rem; display: block; margin-bottom: 4px;">ยังไม่มีไฟล์รูปภาพสลิป</b>
+              <span style="font-size: 0.78rem;">รายการนี้อาจเป็นการเติมผ่าน Direct Gateway หรือยังไม่ได้แนบสลิป</span>
+            </div>
+          </div>
+
+          <!-- Image Tool Bar -->
+          <div
+            style="display: flex; gap: 8px; margin-top: 12px; width: 100%; justify-content: center; flex-wrap: wrap;">
+            <a id="admin-slip-download-btn" href="#" target="_blank" download="slip.jpg" class="btn-outline-dark"
+              style="font-size: 0.78rem; padding: 6px 12px; color: #38bdf8; border-color: rgba(56, 189, 248, 0.3); display: inline-flex; align-items: center; gap: 6px;">
+              <i class="fas fa-arrow-up-right-from-square"></i> เปิดภาพเต็ม / บันทึก
+            </a>
+            <button type="button" class="btn-outline-dark" onclick="window.adminManager.rotateSlipImage()"
+              style="font-size: 0.78rem; padding: 6px 12px; color: #cbd5e1; display: inline-flex; align-items: center; gap: 6px;">
+              <i class="fas fa-rotate"></i> หมุนรูป
+            </button>
+            <label class="btn-outline-dark"
+              style="font-size: 0.78rem; padding: 6px 12px; color: #f472b6; border-color: rgba(244, 114, 182, 0.3); display: inline-flex; align-items: center; gap: 6px; cursor: pointer; margin: 0;">
+              <i class="fas fa-upload"></i> แนบสลิปใหม่
+              <input type="file" id="admin-slip-replace-input" accept="image/*" style="display: none;"
+                onchange="window.adminManager.handleAdminUploadSlip(this)">
+            </label>
+          </div>
+        </div>
+
+        <!-- Column 2: Transaction Details & Verification Meta -->
+        <div style="display: flex; flex-direction: column; gap: 14px;">
+
+          <!-- Amount Highlight Card -->
+          <div
+            style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(6, 78, 59, 0.15)); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 14px; padding: 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+              <span style="font-size: 0.75rem; color: #a7f3d0; font-weight: 600;">ยอดเงินที่ตรวจพบในรายการ</span>
+              <span id="admin-slip-status-badge"
+                style="background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid #10b981; padding: 2px 8px; border-radius: 6px; font-size: 0.72rem; font-weight: 700;">
+                <i class="fas fa-circle-check"></i> สำเร็จ (Approved)
+              </span>
+            </div>
+            <div style="font-size: 1.8rem; font-weight: 800; color: #34d399; font-family: 'Outfit', sans-serif;"
+              id="admin-slip-amount">
+              ฿ 0.00
+            </div>
+          </div>
+
+          <!-- Metadata List -->
+          <div
+            style="background: #181926; border: 1px solid #282a3d; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 10px; font-size: 0.82rem;">
+
+            <div
+              style="display: flex; justify-content: space-between; border-bottom: 1px solid #232536; padding-bottom: 8px;">
+              <span style="color: #9496a8;"><i class="fas fa-user" style="width: 16px;"></i> ผู้ใช้งาน</span>
+              <b style="color: #fff;" id="admin-slip-username">-</b>
+            </div>
+
+            <div
+              style="display: flex; justify-content: space-between; border-bottom: 1px solid #232536; padding-bottom: 8px;">
+              <span style="color: #9496a8;"><i class="far fa-clock" style="width: 16px;"></i> วันที่ / เวลา</span>
+              <span style="color: #cbd5e1;" id="admin-slip-date">-</span>
+            </div>
+
+            <div
+              style="display: flex; justify-content: space-between; border-bottom: 1px solid #232536; padding-bottom: 8px;">
+              <span style="color: #9496a8;"><i class="fas fa-qrcode" style="width: 16px;"></i> ช่องทางชำระ</span>
+              <span style="color: #60a5fa; font-weight: 600;" id="admin-slip-method">-</span>
+            </div>
+
+            <div
+              style="display: flex; flex-direction: column; gap: 4px; border-bottom: 1px solid #232536; padding-bottom: 8px;">
+              <div style="display: flex; justify-content: space-between;">
+                <span style="color: #9496a8;"><i class="fas fa-hashtag" style="width: 16px;"></i>
+                  รหัสอ้างอิงธุรกรรม</span>
+                <button type="button" onclick="window.adminManager.copyCurrentTransRef()"
+                  style="background: none; border: none; color: #f472b6; font-size: 0.72rem; cursor: pointer; padding: 0;">
+                  <i class="far fa-copy"></i> คัดลอก
+                </button>
+              </div>
+              <code
+                style="background: #0f1018; padding: 6px 8px; border-radius: 6px; color: #facc15; font-size: 0.78rem; word-break: break-all; border: 1px solid #2a2c40;"
+                id="admin-slip-ref">
+                -
+              </code>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; padding-top: 2px;">
+              <span style="color: #9496a8;"><i class="fas fa-shield-halved" style="width: 16px;"></i> ตรวจสอบโดย</span>
+              <span style="color: #a5a8bc;" id="admin-slip-verified-by">Payment Gateway Webhook</span>
+            </div>
+          </div>
+
+          <!-- Bank Verification Alert / Status Notice -->
+          <div
+            style="background: rgba(30, 41, 59, 0.4); border: 1px solid #334155; border-radius: 12px; padding: 12px; font-size: 0.76rem; color: #9496a8; display: flex; gap: 10px; align-items: flex-start;">
+            <i class="fas fa-circle-info" style="color: #38bdf8; font-size: 0.95rem; margin-top: 2px;"></i>
+            <div style="line-height: 1.5;">
+              <b style="color: #e2e8f0; display: block; margin-bottom: 2px;">การตรวจสอบสลิปของระบบ</b>
+              <span>ระบบตรวจสอบความถูกต้องผ่านรหัส QR ธนาคาร (BOT Standard) ป้องกันการนำสลิปเก่ามาใช้ซ้ำ
+                และบันทึกลงระบบบัญชีเรียบร้อย</span>
+            </div>
+          </div>
+
+          <!-- Close Button -->
+          <button type="button" class="btn-pink"
+            style="width: 100%; padding: 10px; font-size: 0.88rem; font-weight: 700; margin-top: auto;"
+            onclick="window.adminManager.closeSlipViewerModal()">
+            <i class="fas fa-check"></i> เรียบร้อย (ปิดหน้าต่าง)
+          </button>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ========================================================================
        MODAL: ADMIN ADD / EDIT PRODUCT
        ======================================================================== -->
   <div class="modal-overlay" id="modal-admin-add-product">
@@ -1528,7 +1714,7 @@
   <script src="js/shop.js?v=9.0"></script>
   <script src="js/admin.js?v=5.0"></script>
   <script src="js/chat.js?v=3.0"></script>
-  <script src="js/topup.js?v=7.0"></script>
+  <script src="js/topup.js?v=9.4"></script>
   <script src="js/reviews.js?v=5.0"></script>
   <script src="js/orders.js?v=6.0"></script>
   <script src="js/main.js?v=5.0"></script>
