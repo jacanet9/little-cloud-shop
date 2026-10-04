@@ -936,7 +936,7 @@ class TopupManager {
 
 window.topupManager = new TopupManager();
 
-window.setTopupAmount = function(amt, fromInput) {
+window.setTopupAmount = function(amt, fromInput, clickedEl) {
   const numAmt = parseFloat(amt);
   const input = document.getElementById('topup-amount-input');
   if (input && !fromInput) {
@@ -946,11 +946,17 @@ window.setTopupAmount = function(amt, fromInput) {
     window.topupManager.currentAmount = numAmt;
   }
 
-  const pills = document.querySelectorAll('#quick-amount-pills .cat-pill, #view-topup .topup-box-card .cat-pill');
+  // Strictly target only the quick-amount buttons inside #quick-amount-pills
+  const pills = document.querySelectorAll('#quick-amount-pills button');
   pills.forEach(pill => {
-    if (pill.id === 'tab-slip-qr' || pill.id === 'tab-slip-pc') return;
+    // If user clicked this exact button directly, activate only it
+    if (clickedEl && pill === clickedEl) {
+      pill.classList.add('active');
+      return;
+    }
     const rawVal = pill.getAttribute('data-amount') || pill.textContent.replace(/[^0-9]/g, '');
     const pillVal = parseInt(rawVal, 10);
+    // Strict numeric equality: 50 !== 500
     if (!isNaN(pillVal) && !isNaN(numAmt) && pillVal === numAmt) {
       pill.classList.add('active');
     } else {

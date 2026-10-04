@@ -96,13 +96,17 @@ class AdminManager {
       return;
     }
 
-    tbody.innerHTML = products.map(p => `
+    tbody.innerHTML = products.map(p => {
+      const desc = p.description || '';
+      const hasMedia = desc.includes('[VIDEO:') || desc.includes('[GIF:') || (p.video_url && p.video_url.trim().length > 0);
+      return `
       <tr>
         <td style="width: 60px;">
           <img src="${p.image_url || 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=600&q=80'}" style="width: 50px; height: 35px; object-fit: cover; border-radius: 6px; border: 1px solid #3c1e6d;" onerror="this.src='https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=600&q=80'">
         </td>
         <td>
           <b style="color: #fff;">${p.name}</b>
+          ${hasMedia ? `<span style="background: rgba(244, 114, 182, 0.2); color: #f472b6; border: 1px solid rgba(244, 114, 182, 0.4); border-radius: 4px; padding: 1px 6px; font-size: 0.68rem; margin-left: 6px;"><i class="fas fa-video"></i> มีวิดีโอ/GIF</span>` : ''}
           <div style="font-size: 0.75rem; color: #a79bb7;">${p.server_tag || '-'}</div>
         </td>
         <td><span class="product-category-tag" style="position: static;">${p.category}</span></td>
@@ -117,7 +121,7 @@ class AdminManager {
           </button>
         </td>
       </tr>
-    `).join('');
+    `}).join('');
   }
 
   openAddProductModal() {
@@ -126,6 +130,10 @@ class AdminManager {
     if (form) form.reset();
     const title = document.getElementById('admin-product-modal-title');
     if (title) title.textContent = 'เพิ่มรายการสินค้าใหม่';
+    const videoInput = document.getElementById('prod-input-video');
+    if (videoInput) videoInput.value = '';
+    const descInput = document.getElementById('prod-input-desc');
+    if (descInput) descInput.value = '';
     const modal = document.getElementById('modal-admin-add-product');
     if (modal) modal.classList.add('active');
   }
@@ -154,15 +162,22 @@ class AdminManager {
         if (el) el.value = (val !== undefined && val !== null) ? val : '';
       };
 
+      // Extract video/gif url if present in description or video_url
+      const desc = p.description || '';
+      const videoMatch = desc.match(/\[(?:VIDEO|GIF):([^\]]+)\]/i);
+      const videoUrl = videoMatch ? videoMatch[1].trim() : (p.video_url || '');
+      const cleanDesc = desc.replace(/\[(?:VIDEO|GIF):([^\]]+)\]/gi, '').trim();
+
       setVal('prod-input-name', p.name);
       setVal('prod-input-category', p.category || 'เงิน M');
       setVal('prod-input-price', p.price || 0);
       setVal('prod-input-original-price', p.original_price);
       setVal('prod-input-stock', p.stock || 0);
       setVal('prod-input-image', p.image_url);
+      setVal('prod-input-video', videoUrl);
       setVal('prod-input-badge', p.badge_text);
       setVal('prod-input-server', p.server_tag);
-      setVal('prod-input-desc', p.description);
+      setVal('prod-input-desc', cleanDesc);
       setVal('prod-input-delivery', p.delivery_data);
 
       const modal = document.getElementById('modal-admin-add-product');
@@ -199,15 +214,20 @@ class AdminManager {
     const originalPrice = parseFloat(getVal('prod-input-original-price')) || null;
     const stock = parseInt(getVal('prod-input-stock')) || 0;
     const imageUrl = getVal('prod-input-image') || 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=600&q=80';
+    const videoUrl = getVal('prod-input-video');
     const badgeText = getVal('prod-input-badge');
     const serverTag = getVal('prod-input-server');
-    const description = getVal('prod-input-desc');
+    const rawDesc = getVal('prod-input-desc');
     const deliveryData = getVal('prod-input-delivery');
 
     if (!name || price <= 0) {
       Swal.fire({ icon: 'warning', title: 'กรุณากรอกข้อมูล', text: 'กรุณาระบุชื่อสินค้าและราคาที่ถูกต้อง', background: '#180a2f', color: '#fff' });
       return;
     }
+
+    // Embed videoUrl cleanly into description if present
+    const cleanDesc = rawDesc.replace(/\[(?:VIDEO|GIF):([^\]]+)\]/gi, '').trim();
+    const finalDesc = videoUrl ? `${cleanDesc}\n[VIDEO:${videoUrl}]` : cleanDesc;
 
     const productPayload = {
       name,
@@ -218,7 +238,7 @@ class AdminManager {
       image_url: imageUrl,
       badge_text: badgeText,
       server_tag: serverTag,
-      description,
+      description: finalDesc,
       delivery_data: deliveryData
     };
 
@@ -767,15 +787,41 @@ class AdminManager {
       minute: '2-digit'
     });
 
-    // Resolve slip image source
+    // Resolve slip image source with multi-source fallback
     let slipSrc = (item.slip_url || '').trim();
-    if (!slipSrc && item.transaction_ref) {
-      try {
-        slipSrc = localStorage.getItem(`cloud_slip_${item.transaction_ref}`) || '';
-      } catch (e) {}
+    const isValidImageSrc = (src) => !!(src && (src.startsWith('data:image') || src.startsWith('http://') || src.startsWith('https://') || src.startsWith('/')));
+
+    if (!isValidImageSrc(slipSrc)) {
+      // 1. Try local storage cache
+      if (item.transaction_ref) {
+        try {
+          const cached = localStorage.getItem(`cloud_slip_${item.transaction_ref}`);
+          if (isValidImageSrc(cached)) slipSrc = cached;
+        } catch (e) {}
+      }
+
+      // 2. Try fetching from server /api/slip/latest
+      if (!isValidImageSrc(slipSrc)) {
+        try {
+          const resp = await fetch('/api/slip/latest', { cache: 'no-store' });
+          if (resp.ok) {
+            const sData = await resp.json();
+            if (sData && sData.slip_data && isValidImageSrc(sData.slip_data)) {
+              slipSrc = sData.slip_data;
+              // Save to localStorage and update Supabase for next time
+              if (item.transaction_ref) {
+                try { localStorage.setItem(`cloud_slip_${item.transaction_ref}`, slipSrc); } catch(e){}
+                if (window.supabaseManager) {
+                  window.supabaseManager.updateRecord('topups', item.id, { slip_url: slipSrc }).catch(()=>{});
+                }
+              }
+            }
+          }
+        } catch (e) {}
+      }
     }
 
-    const hasSlipImage = !!(slipSrc && (slipSrc.startsWith('data:image') || slipSrc.startsWith('http') || slipSrc.startsWith('/')));
+    const hasSlipImage = isValidImageSrc(slipSrc);
 
     // PRIMARY: Open the custom dedicated in-page modal #modal-admin-slip-viewer
     const modal = document.getElementById('modal-admin-slip-viewer');
@@ -815,7 +861,17 @@ class AdminManager {
           imgEl.src = '';
           imgEl.style.display = 'none';
         }
-        if (placeholderEl) placeholderEl.style.display = 'block';
+        if (placeholderEl) {
+          placeholderEl.innerHTML = `
+            <i class="fas fa-receipt" style="font-size: 3.5rem; opacity: 0.4; margin-bottom: 12px; display: block; color: #9496a8;"></i>
+            <b style="color: #cbd5e1; font-size: 0.95rem; display: block; margin-bottom: 4px;">ยังไม่มีไฟล์รูปภาพสลิปที่แนบไว้</b>
+            <span style="font-size: 0.78rem; display: block; margin-bottom: 10px;">รายการนี้ยังไม่มีการบันทึกภาพสลิป หรือบันทึกเฉพาะชื่อไฟล์</span>
+            <button type="button" class="btn-pink" style="font-size: 0.78rem; padding: 6px 14px; display: inline-flex; align-items: center; gap: 6px;" onclick="window.adminManager.pullLatestSlipIntoViewer()">
+              <i class="fas fa-rotate"></i> ดึงสลิปล่าสุดจากระบบ
+            </button>
+          `;
+          placeholderEl.style.display = 'block';
+        }
         if (downloadBtn) downloadBtn.style.display = 'none';
       }
 
@@ -962,6 +1018,59 @@ class AdminManager {
     this.slipRotation = ((this.slipRotation || 0) + 90) % 360;
     const scale = this.slipZoomed ? 1.8 : 1.0;
     img.style.transform = `rotate(${this.slipRotation}deg) scale(${scale})`;
+  }
+
+  async pullLatestSlipIntoViewer() {
+    try {
+      const resp = await fetch('/api/slip/latest', { cache: 'no-store' });
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data && data.slip_data) {
+          const imgEl = document.getElementById('admin-slip-image');
+          const placeholderEl = document.getElementById('admin-slip-placeholder');
+          const downloadBtn = document.getElementById('admin-slip-download-btn');
+          if (imgEl) {
+            imgEl.src = data.slip_data;
+            imgEl.style.display = 'block';
+            imgEl.style.transform = 'none';
+          }
+          if (placeholderEl) placeholderEl.style.display = 'none';
+          if (downloadBtn) {
+            downloadBtn.href = data.slip_data;
+            downloadBtn.download = `slip_${this.activeSlipTopup ? this.activeSlipTopup.transaction_ref : 'latest'}.jpg`;
+            downloadBtn.style.display = 'inline-flex';
+          }
+          if (this.activeSlipTopup && this.activeSlipTopup.transaction_ref) {
+            try {
+              localStorage.setItem(`cloud_slip_${this.activeSlipTopup.transaction_ref}`, data.slip_data);
+              if (window.supabaseManager) {
+                window.supabaseManager.updateRecord('topups', this.activeSlipTopup.id, { slip_url: data.slip_data }).catch(()=>{});
+              }
+            } catch(e) {}
+          }
+          Swal.fire({
+            icon: 'success',
+            title: 'ดึงสลิปสำเร็จ',
+            text: 'ระบบดึงรูปสลิปล่าสุดขึ้นมาแสดงบนหน้าจอเรียบร้อยแล้ว',
+            timer: 1500,
+            showConfirmButton: false,
+            background: '#151622',
+            color: '#fff'
+          });
+          return;
+        }
+      }
+      Swal.fire({
+        icon: 'info',
+        title: 'ไม่พบสลิปใหม่',
+        text: 'ระบบยังไม่พบไฟล์สลิปใหม่ที่อัพโหลดผ่านมือถือในขณะนี้',
+        background: '#151622',
+        color: '#fff',
+        confirmButtonColor: '#e11d48'
+      });
+    } catch(err) {
+      console.warn('pullLatestSlipIntoViewer error:', err);
+    }
   }
 
   copyCurrentTransRef() {

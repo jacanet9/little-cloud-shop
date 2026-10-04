@@ -44,34 +44,117 @@ class ShopManager {
     return await window.supabaseManager.fetchTable('products');
   }
 
-  async renderProducts() {
-    const grid = document.getElementById('jelly-products-grid');
-    if (!grid) return;
+  parseProductMedia(p) {
+    const desc = p.description || '';
+    const videoMatch = desc.match(/\[(?:VIDEO|GIF):([^\]]+)\]/i);
+    const videoUrl = videoMatch ? videoMatch[1].trim() : (p.video_url || '');
+    const cleanDesc = desc.replace(/\[(?:VIDEO|GIF):([^\]]+)\]/gi, '').trim();
 
-    if (!window.supabaseManager.isConnected) {
-      grid.innerHTML = `
-        <div style="grid-column: 1 / -1; text-align: center; padding: 60px 20px; background: #151620; border: 1px dashed var(--primary-pink); border-radius: 20px;">
-          <div style="font-size: 2.5rem; margin-bottom: 10px;">🔌</div>
-          <h3 style="color: #fff; margin-bottom: 6px;">กรุณาเชื่อมต่อ Supabase Database</h3>
-          <p style="color: var(--text-muted); margin-bottom: 16px;">เชื่อมต่อเพื่อดึงรายการสินค้าจากตาราง products จริง</p>
-          <button class="btn-pink" onclick="window.openSupabaseConfigModal()">
-            <i class="fas fa-plug"></i> เชื่อมต่อ Supabase
-          </button>
-        </div>
-      `;
-      return;
+    let mediaType = 'image';
+    if (videoUrl) {
+      if (videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be')) {
+        mediaType = 'youtube';
+      } else if (/\.(mp4|webm|ogg|mov)(\?.*)?$/i.test(videoUrl) || videoUrl.startsWith('data:video')) {
+        mediaType = 'video';
+      } else if (/\.(gif)(\?.*)?$/i.test(videoUrl) || videoUrl.includes('tenor.com') || videoUrl.includes('giphy.com')) {
+        mediaType = 'gif';
+      } else {
+        mediaType = 'image';
+      }
     }
+    return { videoUrl, cleanDesc, mediaType };
+  }
 
-    grid.innerHTML = `
-      <div style="grid-column: 1 / -1; text-align: center; padding: 40px 20px; color: var(--text-muted);">
-        <i class="fas fa-spinner fa-spin" style="font-size: 1.8rem; color: #f472b6; margin-bottom: 8px;"></i>
-        <p>กำลังดึงข้อมูลสินค้าจาก Supabase...</p>
+  renderProductCard(p) {
+    const price = Number(p.price) || 0;
+    const stockText = p.stock > 100 ? '👁️ ไม่จำกัด' : `📦 คงเหลือ ${p.stock} ชิ้น`;
+    const isOutOfStock = p.stock <= 0;
+    const isSkinWeapon = (p.category === 'สกินอาวุธ' || p.category === 'Skin Weapon');
+    const { videoUrl, mediaType } = this.parseProductMedia(p);
+    const hasMedia = !!videoUrl;
+
+    const clickAction = isSkinWeapon 
+      ? `window.shopManager.openSkinDetailModal('${p.id}')`
+      : `window.shopManager.handleDirectBuy('${p.id}')`;
+
+    const buttonTitle = isSkinWeapon ? "ดูรายละเอียดและวิดีโอตัวอย่าง" : "สั่งซื้อทันที";
+
+    return `
+      <div class="jelly-product-card" data-id="${p.id}" ${isSkinWeapon ? `style="cursor: pointer;" onclick="if(!event.target.closest('button')) window.shopManager.openSkinDetailModal('${p.id}')"` : ''}>
+        <!-- Card Image (Image 3) -->
+        <div class="jelly-card-media" style="position: relative;">
+          <img src="${p.image_url || 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=600&q=80'}" alt="${p.name}" class="jelly-card-img" onerror="this.src='https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=600&q=80'">
+          <span class="jelly-stock-badge">${stockText}</span>
+          ${isSkinWeapon ? `
+            <span style="position: absolute; top: 10px; right: 10px; background: rgba(225, 29, 72, 0.88); color: #fff; padding: 3px 8px; border-radius: 6px; font-size: 0.7rem; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; backdrop-filter: blur(4px); box-shadow: 0 4px 10px rgba(0,0,0,0.5);">
+              <i class="fas ${hasMedia ? 'fa-play' : 'fa-crosshairs'}" style="font-size: 0.65rem;"></i> ${hasMedia ? 'วิดีโอ/GIF' : 'ดูสกิน'}
+            </span>
+          ` : ''}
+        </div>
+
+        <!-- Card Body (Image 3) -->
+        <div class="jelly-card-body">
+          <h3 class="jelly-card-title" title="${p.name}">${p.name}</h3>
+
+          <div class="jelly-card-bottom">
+            <div>
+              <div class="jelly-price-label">PRICE</div>
+              <div class="jelly-price-val">
+                ${price.toLocaleString('th-TH')} <span>บาท</span>
+              </div>
+            </div>
+
+            <!-- Plus Button: Shows Details & Video for Skin Weapon, or Direct Buy for Others -->
+            <button class="btn-card-add" onclick="${clickAction}" title="${buttonTitle}" ${isOutOfStock ? 'disabled style="opacity:0.4; cursor:not-allowed;"' : ''}>
+              <i class="fas fa-plus"></i>
+            </button>
+          </div>
+        </div>
       </div>
     `;
+  }
+
+  async renderProducts() {
+    const grid = document.getElementById('jelly-products-grid');
+    const homeGrid = document.getElementById('home-featured-grid');
+
+    if (grid) {
+      grid.innerHTML = `
+        <div style="grid-column: 1 / -1; text-align: center; padding: 40px 20px; color: var(--text-muted);">
+          <i class="fas fa-spinner fa-spin" style="font-size: 1.8rem; color: #f472b6; margin-bottom: 8px;"></i>
+          <p>กำลังดึงข้อมูลสินค้าจาก Supabase...</p>
+        </div>
+      `;
+    }
+
+    if (homeGrid) {
+      homeGrid.innerHTML = `
+        <div style="grid-column: 1 / -1; text-align: center; padding: 40px 20px; color: var(--text-muted);">
+          <i class="fas fa-spinner fa-spin" style="font-size: 1.8rem; color: #f472b6; margin-bottom: 8px;"></i>
+          <p>กำลังดึงข้อมูลสินค้าจาก Supabase...</p>
+        </div>
+      `;
+    }
 
     let products = await this.getProducts();
 
-    // Filter by category
+    // Render Home Featured Grid
+    if (homeGrid) {
+      if (products.length > 0) {
+        homeGrid.innerHTML = products.slice(0, 8).map(p => this.renderProductCard(p)).join('');
+      } else {
+        homeGrid.innerHTML = `
+          <div style="grid-column: 1 / -1; text-align: center; padding: 40px 20px; color: var(--text-dim);">
+            <i class="fas fa-box-open" style="font-size: 2.5rem; margin-bottom: 10px; display: block;"></i>
+            <p>ยังไม่มีรายการสินค้าในระบบ</p>
+          </div>
+        `;
+      }
+    }
+
+    if (!grid) return;
+
+    // Filter by category for shop page
     let filtered = products.filter(p => {
       let matchCat = false;
       if (this.currentCategory === 'all') matchCat = true;
@@ -80,7 +163,7 @@ class ShopManager {
       else matchCat = p.category === this.currentCategory;
 
       const matchSearch = !this.searchQuery ||
-        p.name.toLowerCase().includes(this.searchQuery) ||
+        (p.name && p.name.toLowerCase().includes(this.searchQuery)) ||
         (p.description && p.description.toLowerCase().includes(this.searchQuery)) ||
         (p.server_tag && p.server_tag.toLowerCase().includes(this.searchQuery));
 
@@ -106,7 +189,6 @@ class ShopManager {
             <h3 style="color: #fff; margin-bottom: 8px;">เชื่อมต่อ Supabase สำเร็จ! แต่ยังไม่มีสินค้า</h3>
             <p style="margin-bottom: 12px;">ในตาราง <code>products</code> ของคุณยังไม่มีข้อมูล หรือถูกปิดกั้นด้วย RLS (Row Level Security)</p>
             <p style="font-size: 0.85rem; color: #f472b6; font-weight: bold;">👉 วิธีแก้: เข้าสู่ระบบ (แอดมิน) -> ไปที่หน้าโปรไฟล์ -> แผงควบคุมแอดมิน -> กด 'เพิ่มสินค้าใหม่'</p>
-            <p style="font-size: 0.8rem; margin-top: 10px;">หรือถ้าเพิ่มแล้วไม่ขึ้น ให้ไปที่ Supabase -> Authentication -> Policies แล้วตั้งค่าตาราง products ให้ <code>Enable read access for all users</code></p>
           </div>
         `;
       } else {
@@ -120,42 +202,8 @@ class ShopManager {
       return;
     }
 
-    grid.innerHTML = filtered.map(p => {
-      const price = Number(p.price) || 0;
-      const stockText = p.stock > 100 ? '👁️ ไม่จำกัด' : `📦 คงเหลือ ${p.stock} ชิ้น`;
-      const isOutOfStock = p.stock <= 0;
-
-      return `
-        <div class="jelly-product-card" data-id="${p.id}">
-          <!-- Card Image (Image 3) -->
-          <div class="jelly-card-media">
-            <img src="${p.image_url || 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=600&q=80'}" alt="${p.name}" class="jelly-card-img" onerror="this.src='https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=600&q=80'">
-            <span class="jelly-stock-badge">${stockText}</span>
-          </div>
-
-          <!-- Card Body (Image 3) -->
-          <div class="jelly-card-body">
-            <h3 class="jelly-card-title" title="${p.name}">${p.name}</h3>
-
-            <div class="jelly-card-bottom">
-              <div>
-                <div class="jelly-price-label">PRICE</div>
-                <div class="jelly-price-val">
-                  ${price.toLocaleString('th-TH')} <span>บาท</span>
-                </div>
-              </div>
-
-              <!-- Pink Plus Buy Button (Image 3) -->
-              <button class="btn-card-add" onclick="window.shopManager.handleDirectBuy('${p.id}')" title="สั่งซื้อทันที" ${isOutOfStock ? 'disabled style="opacity:0.4; cursor:not-allowed;"' : ''}>
-                <i class="fas fa-plus"></i>
-              </button>
-            </div>
-          </div>
-        </div>
-      `;
-    }).join('');
+    grid.innerHTML = filtered.map(p => this.renderProductCard(p)).join('');
   }
-
   async handleDirectBuy(productId) {
     const products = await this.getProducts();
     const product = products.find(p => String(p.id) === String(productId));
@@ -388,18 +436,9 @@ class ShopManager {
         await window.supabaseManager.updateRecord('products', product.id, { stock: newStock });
 
         // 3. Create Order Record in Supabase
-        const deliveryKeys = [];
-        for (let i = 0; i < quantity; i++) {
-          if (product.delivery_data) {
-            deliveryKeys.push(quantity === 1 ? product.delivery_data : `${product.delivery_data} [#${i+1}]`);
-          } else {
-            deliveryKeys.push(`ITEM-KEY-${Date.now()}-${Math.floor(1000 + Math.random()*9000)}`);
-          }
-        }
-        const deliveryCodeStr = deliveryKeys.join(' | ');
+        const deliveryCodeStr = product.delivery_data || 'นัดรับของในเกม FiveM';
 
         const newOrder = {
-          id: orderRef,
           user_id: user.id,
           username: user.username,
           product_id: product.id,
@@ -409,40 +448,184 @@ class ShopManager {
           delivery_code: deliveryCodeStr,
           status: 'completed'
         };
-        await window.supabaseManager.insertRecord('orders', newOrder);
+        const createdOrder = await window.supabaseManager.insertRecord('orders', newOrder);
+        const displayOrderId = (createdOrder && createdOrder.id) ? createdOrder.id : orderRef;
 
         this.renderProducts();
         window.updateUserBalanceDisplays();
         if (window.ordersManager) window.ordersManager.loadProfileOrders();
+
+        // Automatically open live customer chat with admin immediately upon purchase
+        if (window.chatManager) {
+          window.chatManager.openChatForOrder(displayOrderId, product.name);
+        }
 
         Swal.fire({
           icon: 'success',
           title: '🎉 สั่งซื้อสำเร็จ!',
           html: `
             <div style="text-align: left; background: #1a1b28; padding: 14px; border-radius: 12px; margin-top: 10px; border: 1px solid #2d2f45;">
-              <p style="color: #a5a8bc; font-size: 0.85rem;">รหัสออเดอร์: <code style="color: #34d399;">${orderRef}</code></p>
+              <p style="color: #a5a8bc; font-size: 0.85rem;">รหัสออเดอร์: <code style="color: #34d399;">${displayOrderId}</code></p>
               <p style="color: #a5a8bc; font-size: 0.85rem; margin-top: 2px;">สินค้า: <b style="color: #fff;">${product.name}</b></p>
               <p style="color: #a5a8bc; font-size: 0.85rem; margin-top: 2px;">จำนวน: <b style="color: #f472b6;">${quantity.toLocaleString('th-TH')} ชิ้น</b></p>
               <p style="color: #a5a8bc; font-size: 0.85rem; margin-top: 2px;">ยอดชำระทั้งหมด: <b style="color: #f472b6;">${totalPrice.toLocaleString('th-TH')} บาท</b></p>
               <p style="color: #a5a8bc; font-size: 0.85rem; margin-top: 2px;">ยอดคงเหลือ: <b style="color: #34d399;">${newBal.toLocaleString('th-TH')} บาท</b></p>
-              <div style="margin-top: 10px;">
-                <span style="font-size: 0.78rem; color: #f472b6; font-weight: 700;">ข้อมูลการจัดส่ง / รหัสไอเทม:</span>
-                <div style="background: #11121c; padding: 8px 12px; border-radius: 6px; border: 1px dashed #e11d48; margin-top: 4px; font-family: monospace; color: #34d399; font-weight: 700; word-break: break-all; max-height: 120px; overflow-y: auto;">
-                  ${deliveryCodeStr}
-                </div>
+              <p style="color: #a5a8bc; font-size: 0.85rem; margin-top: 4px;">การจัดส่ง: <b style="color: #34d399;"><i class="fas fa-car"></i> นัดรับของในเกม FiveM ผ่านแชท</b></p>
+              <div style="margin-top: 14px;">
+                <button type="button" class="btn-pink" style="width: 100%; padding: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 0.92rem;" onclick="window.chatManager && window.chatManager.openChatForOrder('${displayOrderId}', '${product.name.replace(/'/g, "\\'")}'); Swal.close();">
+                  <i class="fas fa-comments"></i> เปิดหน้าต่างแชทกับแอดมินทันที
+                </button>
               </div>
             </div>
           `,
-          confirmButtonText: 'ปิดหน้าต่าง',
+          confirmButtonText: 'ตกลง',
           background: '#151622',
           color: '#fff',
-          confirmButtonColor: '#e11d48'
+          confirmButtonColor: '#2b2d42'
         });
       } catch (err) {
         Swal.fire({ icon: 'error', title: 'การสั่งซื้อขัดข้อง', text: err.message, background: '#151622', color: '#fff' });
       }
     }
   }
+
+  async openSkinDetailModal(productId) {
+    const products = await this.getProducts();
+    const p = products.find(item => String(item.id) === String(productId));
+    if (!p) return;
+
+    const modal = document.getElementById('modal-skin-detail');
+    if (!modal) return;
+
+    const titleEl = document.getElementById('skin-modal-title');
+    const badgeEl = document.getElementById('skin-modal-badge');
+    const serverEl = document.getElementById('skin-modal-server');
+    const priceEl = document.getElementById('skin-modal-price');
+    const origPriceEl = document.getElementById('skin-modal-orig-price');
+    const descEl = document.getElementById('skin-modal-desc');
+    const stockEl = document.getElementById('skin-modal-stock');
+    const mediaContainer = document.getElementById('skin-modal-media-container');
+    const mediaStatusEl = document.getElementById('skin-modal-media-status');
+    const buyBtn = document.getElementById('skin-modal-buy-btn');
+    const chatBtn = document.getElementById('skin-modal-chat-btn');
+
+    const { videoUrl, cleanDesc, mediaType } = this.parseProductMedia(p);
+    const numPrice = Number(p.price) || 0;
+    const numOrig = Number(p.original_price);
+
+    if (titleEl) titleEl.textContent = p.name;
+    if (badgeEl) {
+      if (p.badge_text) {
+        badgeEl.textContent = p.badge_text;
+        badgeEl.style.display = 'inline-block';
+      } else if (numOrig && numOrig > numPrice) {
+        badgeEl.textContent = `-${(numOrig - numPrice).toFixed(0)}฿`;
+        badgeEl.style.display = 'inline-block';
+      } else {
+        badgeEl.style.display = 'none';
+      }
+    }
+    if (serverEl) serverEl.textContent = p.server_tag || 'FiveM Weapon Skin';
+    if (priceEl) priceEl.textContent = `${numPrice.toLocaleString('th-TH')} ฿`;
+    if (origPriceEl) {
+      if (numOrig && numOrig > numPrice) {
+        origPriceEl.textContent = `${numOrig.toLocaleString('th-TH')} ฿`;
+        origPriceEl.style.display = 'inline';
+      } else {
+        origPriceEl.style.display = 'none';
+      }
+    }
+    if (descEl) descEl.textContent = cleanDesc || 'สกินอาวุธ FiveM ระดับพรีเมียม สวยเด่นคมชัดทุกมุมมอง พร้อมส่งมอบในเกม';
+    if (stockEl) stockEl.textContent = p.stock > 0 ? `📦 คงเหลือ ${p.stock} ชิ้น` : '❌ สินค้าหมดชั่วคราว';
+
+    // Build Dynamic Media Content
+    if (mediaContainer) {
+      if (mediaType === 'youtube' && videoUrl) {
+        let ytId = '';
+        const m1 = videoUrl.match(/(?:youtu\.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*)/);
+        if (m1 && m1[1] && m1[1].length === 11) ytId = m1[1];
+        const shortsM = videoUrl.match(/shorts\/([^#&?]*)/);
+        if (shortsM && shortsM[1]) ytId = shortsM[1];
+
+        if (ytId) {
+          mediaContainer.innerHTML = `
+            <iframe src="https://www.youtube.com/embed/${ytId}?autoplay=1&mute=0&loop=1&playlist=${ytId}&modestbranding=1&rel=0" 
+              style="width: 100%; height: 350px; border: none; border-radius: 14px;" 
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen>
+            </iframe>
+          `;
+          if (mediaStatusEl) mediaStatusEl.innerHTML = '<i class="fab fa-youtube" style="color: #ef4444;"></i> กำลังเล่นคลิปตัวอย่างจาก YouTube';
+        } else {
+          mediaContainer.innerHTML = `<img src="${p.image_url}" alt="${p.name}" style="width: 100%; max-height: 380px; object-fit: contain; border-radius: 14px;">`;
+        }
+      } else if (mediaType === 'video' && videoUrl) {
+        mediaContainer.innerHTML = `
+          <video src="${videoUrl}" autoplay loop muted playsinline controls style="width: 100%; max-height: 380px; object-fit: contain; border-radius: 14px; background: #000;">
+          </video>
+        `;
+        if (mediaStatusEl) mediaStatusEl.innerHTML = '<i class="fas fa-circle-play" style="color: #f472b6;"></i> กำลังเล่นคลิปวิดีโอตัวอย่างแอนิเมชันสกิน';
+      } else if (mediaType === 'gif' && videoUrl) {
+        mediaContainer.innerHTML = `
+          <img src="${videoUrl}" alt="${p.name}" style="width: 100%; max-height: 380px; object-fit: contain; border-radius: 14px;">
+        `;
+        if (mediaStatusEl) mediaStatusEl.innerHTML = '<i class="fas fa-film" style="color: #a855f7;"></i> แอนิเมชันภาพเคลื่อนไหว (GIF)';
+      } else {
+        mediaContainer.innerHTML = `
+          <div style="position: relative; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;">
+            <img src="${p.image_url || 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=600&q=80'}" alt="${p.name}" style="max-width: 100%; max-height: 360px; object-fit: contain; border-radius: 14px;">
+            <div style="position: absolute; bottom: 12px; background: rgba(15, 16, 24, 0.85); backdrop-filter: blur(8px); padding: 4px 12px; border-radius: 20px; font-size: 0.72rem; color: #cbd5e1; border: 1px solid rgba(255,255,255,0.1);">
+              <i class="fas fa-image"></i> รูปภาพสินค้า (แอดมินสามารถแนบวิดีโอ/GIF เพิ่มเติมได้)
+            </div>
+          </div>
+        `;
+        if (mediaStatusEl) mediaStatusEl.innerHTML = '<i class="fas fa-image" style="color: #38bdf8;"></i> ภาพพรีวิวสกินอาวุธ';
+      }
+    }
+
+    // Connect Purchase & Chat
+    if (buyBtn) {
+      buyBtn.onclick = () => {
+        this.closeSkinDetailModal();
+        this.handleDirectBuy(p.id);
+      };
+      if (p.stock <= 0) {
+        buyBtn.disabled = true;
+        buyBtn.style.opacity = '0.5';
+        buyBtn.innerHTML = '<i class="fas fa-ban"></i> สินค้าหมดชั่วคราว';
+      } else {
+        buyBtn.disabled = false;
+        buyBtn.style.opacity = '1';
+        buyBtn.innerHTML = '<i class="fas fa-cart-shopping"></i> สั่งซื้อสกินนี้ทันที';
+      }
+    }
+
+    if (chatBtn) {
+      chatBtn.onclick = () => {
+        this.closeSkinDetailModal();
+        if (window.chatManager) {
+          window.chatManager.openChatForOrder(null, p.name);
+        }
+      };
+    }
+
+    modal.classList.add('active');
+  }
+
+  closeSkinDetailModal() {
+    const modal = document.getElementById('modal-skin-detail');
+    if (modal) {
+      modal.classList.remove('active');
+      // Clear media to stop audio/video
+      const mediaContainer = document.getElementById('skin-modal-media-container');
+      if (mediaContainer) {
+        const vid = mediaContainer.querySelector('video');
+        if (vid) vid.pause();
+        mediaContainer.innerHTML = '';
+      }
+    }
+  }
 }
 
 window.shopManager = new ShopManager();
+window.openSkinDetailModal = (id) => window.shopManager && window.shopManager.openSkinDetailModal(id);
+window.closeSkinDetailModal = () => window.shopManager && window.shopManager.closeSkinDetailModal();
