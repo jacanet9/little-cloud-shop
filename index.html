@@ -1674,26 +1674,25 @@
 
             <!-- Quantity Selector Section for Skin Weapon -->
             <div style="background: #161724; border: 1px solid #282a3d; border-radius: 14px; padding: 14px; margin-bottom: 14px;">
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+              <div style="margin-bottom: 8px;">
                 <label style="font-size: 0.85rem; color: #e2e8f0; font-weight: 700; display: flex; align-items: center; gap: 6px;">
                   <i class="fas fa-layer-group" style="color: #f472b6;"></i> เลือกจำนวนสั่งซื้อ:
                 </label>
-                <span id="skin-modal-stock-tag" style="font-size: 0.75rem; color: #34d399; font-weight: 600; background: rgba(16, 185, 129, 0.12); padding: 2px 8px; border-radius: 6px; border: 1px solid rgba(16, 185, 129, 0.25);">
-                  📦 มีในสต็อก <span id="skin-modal-stock-num">10</span> ชิ้น
-                </span>
               </div>
 
               <!-- Counter Input & Buttons -->
               <div style="display: flex; align-items: center; gap: 8px;">
-                <button type="button" id="skin-qty-minus"
+                <button type="button" id="skin-qty-minus" onclick="window.shopManager && window.shopManager.changeSkinQty(-1)"
                   style="width: 42px; height: 42px; border-radius: 10px; background: #222336; border: 1px solid #363952; color: #fff; font-size: 1.1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s;"
                   onmouseover="this.style.background='#e11d48'; this.style.borderColor='#e11d48';"
                   onmouseout="this.style.background='#222336'; this.style.borderColor='#363952';">
                   <i class="fas fa-minus"></i>
                 </button>
                 <input type="number" id="skin-qty-input" value="1" min="1" max="999"
+                  oninput="window.shopManager && window.shopManager.handleSkinQtyInput(this)"
+                  onchange="window.shopManager && window.shopManager.handleSkinQtyInput(this)"
                   style="flex: 1; height: 42px; background: #0c0d15; border: 1px solid #363952; border-radius: 10px; color: #fff; text-align: center; font-size: 1.25rem; font-weight: 800; font-family: 'Outfit', sans-serif;">
-                <button type="button" id="skin-qty-plus"
+                <button type="button" id="skin-qty-plus" onclick="window.shopManager && window.shopManager.changeSkinQty(1)"
                   style="width: 42px; height: 42px; border-radius: 10px; background: #222336; border: 1px solid #363952; color: #fff; font-size: 1.1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s;"
                   onmouseover="this.style.background='#e11d48'; this.style.borderColor='#e11d48';"
                   onmouseout="this.style.background='#222336'; this.style.borderColor='#363952';">
@@ -1701,32 +1700,17 @@
                 </button>
               </div>
 
-              <!-- Quick Presets -->
-              <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 10px;">
-                <button type="button" class="skin-quick-qty-btn" data-qty="1"
-                  style="padding: 6px 0; background: #1f2030; border: 1px solid #2d2f45; border-radius: 8px; color: #cbd5e1; font-size: 0.78rem; font-weight: 600; cursor: pointer; transition: all 0.15s;"
-                  onmouseover="this.style.borderColor='#f472b6'; this.style.color='#f472b6';"
-                  onmouseout="this.style.borderColor='#2d2f45'; this.style.color='#cbd5e1';">1 ชิ้น</button>
-                <button type="button" class="skin-quick-qty-btn" data-qty="2"
-                  style="padding: 6px 0; background: #1f2030; border: 1px solid #2d2f45; border-radius: 8px; color: #cbd5e1; font-size: 0.78rem; font-weight: 600; cursor: pointer; transition: all 0.15s;"
-                  onmouseover="this.style.borderColor='#f472b6'; this.style.color='#f472b6';"
-                  onmouseout="this.style.borderColor='#2d2f45'; this.style.color='#cbd5e1';">2 ชิ้น</button>
-                <button type="button" class="skin-quick-qty-btn" data-qty="5"
-                  style="padding: 6px 0; background: #1f2030; border: 1px solid #2d2f45; border-radius: 8px; color: #cbd5e1; font-size: 0.78rem; font-weight: 600; cursor: pointer; transition: all 0.15s;"
-                  onmouseover="this.style.borderColor='#f472b6'; this.style.color='#f472b6';"
-                  onmouseout="this.style.borderColor='#2d2f45'; this.style.color='#cbd5e1';">5 ชิ้น</button>
-                <button type="button" class="skin-quick-qty-btn" id="skin-quick-max-btn" data-qty="10"
-                  style="padding: 6px 0; background: rgba(225, 29, 72, 0.15); border: 1px solid rgba(225, 29, 72, 0.4); border-radius: 8px; color: #fb7185; font-size: 0.78rem; font-weight: 700; cursor: pointer; transition: all 0.15s;"
-                  onmouseover="this.style.background='rgba(225, 29, 72, 0.25)';"
-                  onmouseout="this.style.background='rgba(225, 29, 72, 0.15)';">ทั้งหมด</button>
+              <!-- Dynamic Quick Presets (populated based on real stock) -->
+              <div id="skin-quick-presets-container" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 10px;">
+                <!-- Dynamically rendered based on actual product stock -->
               </div>
 
               <!-- Calculation Bar -->
               <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; padding-top: 8px; border-top: 1px dashed #2d2f45; font-size: 0.82rem;">
                 <span style="color: #9496a8;">ราคารวมยอด:</span>
                 <span style="font-weight: 800; color: #f472b6; font-size: 1.05rem;">
-                  <span id="skin-modal-total-calc" style="font-family: 'Outfit', sans-serif;">89</span> ฿
-                  <span id="skin-modal-unit-sub" style="font-size: 0.72rem; color: #64748b; font-weight: normal;">(89 ฿ × 1 ชิ้น)</span>
+                  <span id="skin-modal-total-calc" style="font-family: 'Outfit', sans-serif;">0</span> ฿
+                  <span id="skin-modal-unit-sub" style="font-size: 0.72rem; color: #64748b; font-weight: normal;"></span>
                 </span>
               </div>
             </div>
@@ -1884,7 +1868,7 @@
     <script src="js/auth.js?v=8.0"></script>
     <script src="js/wallet.js?v=5.0"></script>
     <script src="js/payment-gateway.js?v=7.0"></script>
-    <script src="js/shop.js?v=13.0"></script>
+    <script src="js/shop.js?v=14.0"></script>
     <script src="js/admin.js?v=8.0"></script>
     <script src="js/chat.js?v=3.0"></script>
     <script src="js/topup.js?v=12.0"></script>
