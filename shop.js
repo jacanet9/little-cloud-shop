@@ -651,23 +651,24 @@ class ShopManager {
       }
     }
 
-    // Set active product & initial quantity
+    // Set active product
     this.currentSkinProduct = p;
-    const stock = Number(p.stock) || 0;
-    this.currentSkinQty = stock > 0 ? 1 : 0;
-
-    // Render Quick Presets Dynamically Based on Real Stock
-    this.renderSkinPresets(stock);
-
-    // Render Quantity and Prices
-    this.renderSkinQtyUI();
 
     // Connect Purchase & Chat
     if (buyBtn) {
+      const stock = Number(p.stock) || 0;
+      if (stock <= 0) {
+        buyBtn.disabled = true;
+        buyBtn.style.opacity = '0.5';
+        buyBtn.innerHTML = '<i class="fas fa-ban"></i> สินค้าหมดชั่วคราว';
+      } else {
+        buyBtn.disabled = false;
+        buyBtn.style.opacity = '1';
+        buyBtn.innerHTML = '<i class="fas fa-cart-shopping"></i> สั่งซื้อสกินนี้ทันที';
+      }
       buyBtn.onclick = () => {
-        const qtyToBuy = this.currentSkinQty || 1;
         this.closeSkinDetailModal();
-        this.handleDirectBuy(p.id, qtyToBuy);
+        this.handleDirectBuy(p.id);
       };
     }
 
@@ -681,191 +682,6 @@ class ShopManager {
     }
 
     modal.classList.add('active');
-  }
-
-  /**
-   * Dynamically Render Quick Presets Based on Real Stock
-   */
-  renderSkinPresets(stock) {
-    const presetsContainer = document.getElementById('skin-quick-presets-container');
-    if (!presetsContainer) return;
-
-    if (stock <= 0) {
-      presetsContainer.style.gridTemplateColumns = '1fr';
-      presetsContainer.innerHTML = `
-        <div style="color: #ef4444; font-size: 0.78rem; text-align: center; padding: 6px; background: rgba(239,68,68,0.1); border-radius: 8px; border: 1px solid rgba(239,68,68,0.25);">
-          <i class="fas fa-ban"></i> สินค้าหมดชั่วคราว
-        </div>
-      `;
-      return;
-    }
-
-    // Determine smart presets based on actual stock
-    let presets = [];
-    if (stock === 1) {
-      presets = [{ qty: 1, label: '1 ชิ้น (ทั้งหมด)' }];
-    } else if (stock === 2) {
-      presets = [
-        { qty: 1, label: '1 ชิ้น' },
-        { qty: 2, label: 'ทั้งหมด (2)' }
-      ];
-    } else if (stock <= 4) {
-      presets = [
-        { qty: 1, label: '1 ชิ้น' },
-        { qty: 2, label: '2 ชิ้น' },
-        { qty: stock, label: `ทั้งหมด (${stock})` }
-      ];
-    } else if (stock <= 9) {
-      presets = [
-        { qty: 1, label: '1 ชิ้น' },
-        { qty: 2, label: '2 ชิ้น' },
-        { qty: 5, label: '5 ชิ้น' },
-        { qty: stock, label: `ทั้งหมด (${stock})` }
-      ];
-    } else {
-      presets = [
-        { qty: 1, label: '1 ชิ้น' },
-        { qty: 2, label: '2 ชิ้น' },
-        { qty: 5, label: '5 ชิ้น' },
-        { qty: stock, label: `ทั้งหมด (${stock})` }
-      ];
-    }
-
-    presetsContainer.style.gridTemplateColumns = `repeat(${presets.length}, 1fr)`;
-    presetsContainer.innerHTML = presets.map(item => `
-      <button type="button" class="skin-quick-qty-btn" data-qty="${item.qty}"
-        onclick="window.shopManager && window.shopManager.setSkinQty(${item.qty})"
-        style="padding: 7px 4px; background: #1f2030; border: 1px solid #2d2f45; border-radius: 8px; color: #cbd5e1; font-size: 0.78rem; font-weight: 700; cursor: pointer; transition: all 0.15s; white-space: nowrap; text-align: center;"
-        onmouseover="if(window.shopManager && window.shopManager.currentSkinQty != ${item.qty}){ this.style.borderColor='#f472b6'; this.style.color='#f472b6'; }"
-        onmouseout="if(window.shopManager && window.shopManager.currentSkinQty != ${item.qty}){ this.style.borderColor='#2d2f45'; this.style.color='#cbd5e1'; }">
-        ${item.label}
-      </button>
-    `).join('');
-  }
-
-  /**
-   * Adjust Quantity by Delta (+1 or -1)
-   */
-  changeSkinQty(delta) {
-    if (!this.currentSkinProduct) return;
-    const stock = Number(this.currentSkinProduct.stock) || 0;
-    if (stock <= 0) return;
-    let newQty = (this.currentSkinQty || 1) + delta;
-    if (newQty < 1) newQty = 1;
-    if (newQty > stock) newQty = stock;
-    this.currentSkinQty = newQty;
-    this.renderSkinQtyUI();
-  }
-
-  /**
-   * Set Quantity Directly from Preset
-   */
-  setSkinQty(qty) {
-    if (!this.currentSkinProduct) return;
-    const stock = Number(this.currentSkinProduct.stock) || 0;
-    if (stock <= 0) {
-      this.currentSkinQty = 0;
-      this.renderSkinQtyUI();
-      return;
-    }
-    let target = qty === 'max' ? stock : parseInt(qty);
-    if (isNaN(target) || target < 1) target = 1;
-    if (target > stock) target = stock;
-    this.currentSkinQty = target;
-    this.renderSkinQtyUI();
-  }
-
-  /**
-   * Handle Direct Number Typing in Quantity Input
-   */
-  handleSkinQtyInput(inputEl) {
-    if (!this.currentSkinProduct) return;
-    const stock = Number(this.currentSkinProduct.stock) || 0;
-    if (stock <= 0) {
-      this.currentSkinQty = 0;
-      this.renderSkinQtyUI();
-      return;
-    }
-    let val = parseInt(inputEl.value);
-    if (isNaN(val) || val < 1) val = 1;
-    if (val > stock) val = stock;
-    this.currentSkinQty = val;
-    this.renderSkinQtyUI();
-  }
-
-  /**
-   * Render/Synchronize Quantity UI, Buttons, and Real Price Calculations
-   */
-  renderSkinQtyUI() {
-    if (!this.currentSkinProduct) return;
-    const p = this.currentSkinProduct;
-    const unitPrice = Number(p.price) || 0;
-    const stock = Number(p.stock) || 0;
-    const qty = stock <= 0 ? 0 : (this.currentSkinQty || 1);
-    const totalPrice = qty * unitPrice;
-
-    const qtyInput = document.getElementById('skin-qty-input');
-    const minusBtn = document.getElementById('skin-qty-minus');
-    const plusBtn = document.getElementById('skin-qty-plus');
-    const totalCalcEl = document.getElementById('skin-modal-total-calc');
-    const unitSubEl = document.getElementById('skin-modal-unit-sub');
-    const buyBtn = document.getElementById('skin-modal-buy-btn');
-
-    if (qtyInput) {
-      qtyInput.value = qty;
-      qtyInput.max = stock > 0 ? stock : 1;
-      qtyInput.disabled = stock <= 0;
-    }
-
-    if (minusBtn) {
-      const isMinusDisabled = (stock <= 0 || qty <= 1);
-      minusBtn.disabled = isMinusDisabled;
-      minusBtn.style.opacity = isMinusDisabled ? '0.35' : '1';
-      minusBtn.style.cursor = isMinusDisabled ? 'not-allowed' : 'pointer';
-    }
-
-    if (plusBtn) {
-      const isPlusDisabled = (stock <= 0 || qty >= stock);
-      plusBtn.disabled = isPlusDisabled;
-      plusBtn.style.opacity = isPlusDisabled ? '0.35' : '1';
-      plusBtn.style.cursor = isPlusDisabled ? 'not-allowed' : 'pointer';
-    }
-
-    if (totalCalcEl) {
-      totalCalcEl.textContent = totalPrice.toLocaleString('th-TH');
-    }
-
-    if (unitSubEl) {
-      unitSubEl.textContent = stock > 0 
-        ? `(${unitPrice.toLocaleString('th-TH')} ฿ × ${qty} ชิ้น)` 
-        : '(สินค้าหมดชั่วคราว)';
-    }
-
-    if (buyBtn) {
-      if (stock <= 0) {
-        buyBtn.disabled = true;
-        buyBtn.style.opacity = '0.5';
-        buyBtn.innerHTML = '<i class="fas fa-ban"></i> สินค้าหมดชั่วคราว';
-      } else {
-        buyBtn.disabled = false;
-        buyBtn.style.opacity = '1';
-        buyBtn.innerHTML = `<i class="fas fa-cart-shopping"></i> สั่งซื้อสกินนี้ทันที (${qty} ชิ้น - ${totalPrice.toLocaleString('th-TH')} ฿)`;
-      }
-    }
-
-    // Highlight active quick preset button
-    document.querySelectorAll('.skin-quick-qty-btn').forEach(btn => {
-      const bQty = parseInt(btn.dataset.qty);
-      if (bQty === qty) {
-        btn.style.background = '#e11d48';
-        btn.style.borderColor = '#e11d48';
-        btn.style.color = '#ffffff';
-      } else {
-        btn.style.background = '#1f2030';
-        btn.style.borderColor = '#2d2f45';
-        btn.style.color = '#cbd5e1';
-      }
-    });
   }
 
   closeSkinDetailModal() {
@@ -889,7 +705,4 @@ class ShopManager {
 window.shopManager = new ShopManager();
 window.openSkinDetailModal = (id) => window.shopManager && window.shopManager.openSkinDetailModal(id);
 window.closeSkinDetailModal = () => window.shopManager && window.shopManager.closeSkinDetailModal();
-window.changeSkinQty = (delta) => window.shopManager && window.shopManager.changeSkinQty(delta);
-window.setSkinQty = (qty) => window.shopManager && window.shopManager.setSkinQty(qty);
-window.handleSkinQtyInput = (el) => window.shopManager && window.shopManager.handleSkinQtyInput(el);
 
