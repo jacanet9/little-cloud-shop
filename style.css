@@ -1240,7 +1240,8 @@ body {
   max-width: 860px;
 }
 @media (max-width: 768px) {
-  #admin-slip-content-grid {
+  #admin-slip-content-grid,
+  #skin-modal-grid-body {
     grid-template-columns: 1fr !important;
   }
 }

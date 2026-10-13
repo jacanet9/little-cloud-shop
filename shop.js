@@ -268,7 +268,7 @@ class ShopManager {
 
     grid.innerHTML = filtered.map(p => this.renderProductCard(p)).join('');
   }
-  async handleDirectBuy(productId) {
+  async handleDirectBuy(productId, initialQty = 1) {
     const products = await this.getProducts();
     const product = products.find(p => String(p.id) === String(productId));
     if (!product) return;
@@ -308,6 +308,7 @@ class ShopManager {
     }
 
     const maxStock = currentStock > 0 ? currentStock : 9999;
+    const startQty = Math.max(1, Math.min(parseInt(initialQty) || 1, maxStock));
     const { videoUrl, cleanDesc, mediaType } = this.parseProductMedia(product);
     const hasMedia = !!videoUrl;
     const isSkinWeapon = (
@@ -359,7 +360,7 @@ class ShopManager {
               <button type="button" id="buy-qty-minus" style="width: 44px; height: 44px; border-radius: 10px; background: #252738; border: 1px solid #36394e; color: #fff; font-size: 1.1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s;">
                 <i class="fas fa-minus"></i>
               </button>
-              <input type="number" id="buy-qty-input" value="1" min="1" max="${maxStock}" style="flex: 1; height: 44px; background: #1a1b28; border: 1px solid #36394e; border-radius: 10px; color: #fff; text-align: center; font-size: 1.25rem; font-weight: 700; font-family: 'Outfit', sans-serif;">
+              <input type="number" id="buy-qty-input" value="${startQty}" min="1" max="${maxStock}" style="flex: 1; height: 44px; background: #1a1b28; border: 1px solid #36394e; border-radius: 10px; color: #fff; text-align: center; font-size: 1.25rem; font-weight: 700; font-family: 'Outfit', sans-serif;">
               <button type="button" id="buy-qty-plus" style="width: 44px; height: 44px; border-radius: 10px; background: #252738; border: 1px solid #36394e; color: #fff; font-size: 1.1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s;">
                 <i class="fas fa-plus"></i>
               </button>
@@ -382,11 +383,11 @@ class ShopManager {
             </div>
             <div style="display: flex; justify-content: space-between; font-size: 0.95rem; font-weight: 700; color: #fff; margin-bottom: 6px;">
               <span>ราคารวมทั้งหมด:</span>
-              <span id="buy-total-price-text" style="color: #f472b6; font-size: 1.15rem; font-family: 'Outfit', sans-serif;">${unitPrice.toLocaleString('th-TH')} บาท</span>
+              <span id="buy-total-price-text" style="color: #f472b6; font-size: 1.15rem; font-family: 'Outfit', sans-serif;">${(startQty * unitPrice).toLocaleString('th-TH')} บาท</span>
             </div>
             <div id="buy-balance-status-row" style="display: flex; justify-content: space-between; font-size: 0.82rem; border-top: 1px dashed #282a3c; padding-top: 6px; margin-top: 4px;">
               <span style="color: #9496a8;">คงเหลือหลังสั่งซื้อ:</span>
-              <span id="buy-remaining-bal-text" style="color: #34d399; font-weight: 600;">${(userBalance - unitPrice).toLocaleString('th-TH')} บาท</span>
+              <span id="buy-remaining-bal-text" style="color: #34d399; font-weight: 600;">${(userBalance - (startQty * unitPrice)).toLocaleString('th-TH')} บาท</span>
             </div>
             <div id="buy-insufficient-warning" style="display: none; margin-top: 8px; padding: 8px; background: rgba(239,68,68,0.15); border: 1px solid #ef4444; border-radius: 6px; color: #fca5a5; font-size: 0.8rem; text-align: center;">
               <i class="fas fa-exclamation-circle"></i> ยอดเงินไม่พอ ขาดอีก <span id="buy-missing-amt">0</span> บาท
@@ -395,7 +396,7 @@ class ShopManager {
         </div>
       `,
       showCancelButton: true,
-      confirmButtonText: 'ยืนยันการสั่งซื้อ',
+      confirmButtonText: `ยืนยันการสั่งซื้อ (${startQty} ชิ้น)`,
       cancelButtonText: 'ยกเลิก',
       background: '#151622',
       color: '#fff',
@@ -648,11 +649,88 @@ class ShopManager {
       }
     }
 
+    // Initialize Quantity Controls for Skin Weapon Modal
+    const qtyInput = document.getElementById('skin-qty-input');
+    const minusBtn = document.getElementById('skin-qty-minus');
+    const plusBtn = document.getElementById('skin-qty-plus');
+    const totalCalcEl = document.getElementById('skin-modal-total-calc');
+    const unitSubEl = document.getElementById('skin-modal-unit-sub');
+    const stockTagNum = document.getElementById('skin-modal-stock-num');
+    const maxPresetBtn = document.getElementById('skin-quick-max-btn');
+
+    const maxStock = p.stock > 0 ? p.stock : 9999;
+    if (stockTagNum) stockTagNum.textContent = p.stock > 0 ? p.stock : '0';
+    if (maxPresetBtn) {
+      maxPresetBtn.dataset.qty = maxStock;
+      maxPresetBtn.textContent = p.stock > 0 ? `ทั้งหมด (${p.stock})` : 'ทั้งหมด (0)';
+    }
+
+    let currentQty = 1;
+    if (qtyInput) {
+      qtyInput.value = 1;
+      qtyInput.min = 1;
+      qtyInput.max = maxStock;
+    }
+
+    const updateSkinCalc = () => {
+      let q = parseInt(qtyInput ? qtyInput.value : 1) || 1;
+      if (q < 1) q = 1;
+      if (p.stock > 0 && q > p.stock) q = p.stock;
+      if (qtyInput) qtyInput.value = q;
+      currentQty = q;
+
+      const total = q * numPrice;
+      if (totalCalcEl) totalCalcEl.textContent = total.toLocaleString('th-TH');
+      if (unitSubEl) unitSubEl.textContent = `(${numPrice.toLocaleString('th-TH')} ฿ × ${q} ชิ้น)`;
+
+      if (buyBtn && p.stock > 0) {
+        buyBtn.innerHTML = `<i class="fas fa-cart-shopping"></i> สั่งซื้อสกินนี้ทันที (${q} ชิ้น - ${total.toLocaleString('th-TH')} ฿)`;
+      }
+    };
+
+    if (minusBtn) {
+      minusBtn.onclick = () => {
+        let q = parseInt(qtyInput.value) || 1;
+        if (q > 1) {
+          qtyInput.value = q - 1;
+          updateSkinCalc();
+        }
+      };
+    }
+
+    if (plusBtn) {
+      plusBtn.onclick = () => {
+        let q = parseInt(qtyInput.value) || 1;
+        if (p.stock <= 0 || q < maxStock) {
+          qtyInput.value = q + 1;
+          updateSkinCalc();
+        }
+      };
+    }
+
+    if (qtyInput) {
+      qtyInput.oninput = updateSkinCalc;
+      qtyInput.onchange = updateSkinCalc;
+    }
+
+    document.querySelectorAll('.skin-quick-qty-btn').forEach(btn => {
+      btn.onclick = () => {
+        const q = parseInt(btn.dataset.qty) || 1;
+        if (qtyInput) {
+          qtyInput.value = Math.min(q, maxStock);
+          updateSkinCalc();
+        }
+      };
+    });
+
+    updateSkinCalc();
+
     // Connect Purchase & Chat
     if (buyBtn) {
       buyBtn.onclick = () => {
+        const qtyToBuy = currentQty;
         this.closeSkinDetailModal();
-        this.handleDirectBuy(p.id);
+        this.handleDirectBuy(p.id, qtyToBuy);
       };
       if (p.stock <= 0) {
         buyBtn.disabled = true;
@@ -661,7 +739,7 @@ class ShopManager {
       } else {
         buyBtn.disabled = false;
         buyBtn.style.opacity = '1';
-        buyBtn.innerHTML = '<i class="fas fa-cart-shopping"></i> สั่งซื้อสกินนี้ทันที';
+        buyBtn.innerHTML = `<i class="fas fa-cart-shopping"></i> สั่งซื้อสกินนี้ทันที (${currentQty} ชิ้น - ${(currentQty * numPrice).toLocaleString('th-TH')} ฿)`;
       }
     }
 
