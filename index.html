@@ -1630,6 +1630,26 @@
             </div>
           </div>
 
+          <!-- Admin Pending Action Controls (Approve / Reject) -->
+          <div id="admin-slip-pending-actions"
+            style="display: none; background: rgba(245, 158, 11, 0.12); border: 1px solid #f59e0b; border-radius: 12px; padding: 12px; margin-top: 2px;">
+            <div style="font-size: 0.82rem; font-weight: 700; color: #fbbf24; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
+              <i class="fas fa-triangle-exclamation"></i> รายการนี้รอแอดมินตรวจสอบยอดเงินเข้าบัญชีก่อนเติมพอยท์
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <button type="button" class="btn-pink" id="admin-btn-approve-topup"
+                style="flex: 1; padding: 10px; font-size: 0.84rem; font-weight: 700; background: #10b981; border-color: #10b981; display: inline-flex; align-items: center; justify-content: center; gap: 6px;"
+                onclick="window.adminManager.approveActiveSlip()">
+                <i class="fas fa-circle-check"></i> อนุมัติ & เติมพอยท์
+              </button>
+              <button type="button" class="btn-outline-dark" id="admin-btn-reject-topup"
+                style="flex: 1; padding: 10px; font-size: 0.84rem; font-weight: 700; color: #fca5a5; border-color: #ef4444; display: inline-flex; align-items: center; justify-content: center; gap: 6px;"
+                onclick="window.adminManager.rejectActiveSlip()">
+                <i class="fas fa-circle-xmark"></i> ปฏิเสธ (สลิปปลอม)
+              </button>
+            </div>
+          </div>
+
           <!-- Close Button -->
           <button type="button" class="btn-pink"
             style="width: 100%; padding: 10px; font-size: 0.88rem; font-weight: 700; margin-top: auto;"

@@ -927,6 +927,48 @@ class TopupManager {
         slipDataUrl: this.selectedSlipDataUrl
       });
 
+      // Handle PENDING Admin Verification Status
+      if (result.status === 'pending') {
+        Swal.fire({
+          icon: 'info',
+          title: '📋 บันทึกสลิปสำเร็จ (รอแอดมินตรวจสอบ)',
+          html: `
+            <div style="text-align: left; padding: 6px 0; color: #cbd5e1; font-size: 0.92rem; line-height: 1.6;">
+              <div style="background: rgba(245, 158, 11, 0.15); border: 1px solid #f59e0b; border-radius: 10px; padding: 12px; margin-bottom: 12px; color: #fbbf24;">
+                <b style="display: flex; align-items: center; gap: 8px; font-size: 0.95rem;">
+                  <i class="fas fa-clock"></i> รอแอดมินตรวจสอบยอดเงิน (Pending)
+                </b>
+                <div style="font-size: 0.82rem; margin-top: 4px; color: #fde68a;">
+                  เพื่อความปลอดภัยและป้องกันสลิปปลอม ระบบได้บันทึกสลิปและส่งให้แอดมินตรวจสอบยอดเงินเข้าจริงในบัญชี โดยพอยท์จะเข้ากระเป๋าของคุณทันทีที่แอดมินกดยืนยันครับ
+                </div>
+              </div>
+              <div style="background: #1e2030; border: 1px solid #33364d; border-radius: 8px; padding: 10px; font-size: 0.85rem; display: flex; flex-direction: column; gap: 6px;">
+                <div style="display: flex; justify-content: space-between;">
+                  <span style="color: #9496a8;">ยอดเงินที่แจ้งเติม:</span>
+                  <b style="color: #34d399; font-size: 1rem;">฿ ${(result.amount || amount).toLocaleString('th-TH', { minimumFractionDigits: 2 })}</b>
+                </div>
+                <div style="display: flex; justify-content: space-between;">
+                  <span style="color: #9496a8;">รหัสอ้างอิงธุรกรรม:</span>
+                  <code style="color: #60a5fa;">${result.transactionRef || '-'}</code>
+                </div>
+                <div style="display: flex; justify-content: space-between;">
+                  <span style="color: #9496a8;">สถานะปัจจุบัน:</span>
+                  <span style="color: #fbbf24; font-weight: 700;">⏳ รออนุมัติ (0 พอยท์ยังไม่ถูกเพิ่ม)</span>
+                </div>
+              </div>
+            </div>
+          `,
+          background: '#151622',
+          color: '#fff',
+          confirmButtonColor: '#e11d48',
+          confirmButtonText: '<i class="fas fa-check"></i> รับทราบ'
+        });
+
+        this.closeQrBox();
+        this.resetSlipSelection();
+        return;
+      }
+
       await this.handlePaymentCompleted({
         amount: result.amount || amount,
         chargeId: result.transactionRef || result.referenceId || `PAY-${Date.now()}`,

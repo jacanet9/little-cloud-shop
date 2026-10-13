@@ -241,19 +241,130 @@ class PaymentGatewayEngine {
   /**
    * Real Slip Verification via Bank Slip QR Inspection + Duplicate Guard + Optional SlipOK API
    */
+  /**
+   * Real Slip Verification via Bank Slip QR Inspection + Server Anti-Fraud & SlipOK API
+   */
   async verifyPayment({ amount, slipFile, slipDataUrl, user }) {
     if (!slipFile && !slipDataUrl) {
       throw new Error('กรุณาแนบรูปภาพสลิปหลักฐานการโอนเงินเพื่อทำการตรวจสอบ (ไม่สามารถผ่านได้โดยไม่มีสลิป)');
     }
 
-    const config = await this.getGatewayConfig();
     const expectedAmount = Number(amount);
+    if (!expectedAmount || expectedAmount <= 0) {
+      throw new Error('ยอดเงินไม่ถูกต้อง กรุณาระบุจำนวนเงินที่ต้องการเติม');
+    }
 
-    // Client-side Real Slip QR Code Decoding & Authenticity Verification
+    // 1. Client-side Real Slip QR Code Decoding & Authenticity Verification
     const slipInspection = await this.inspectBankSlip(slipFile, slipDataUrl);
     const transRef = slipInspection.transRef;
 
-    // ANTI-FRAUD & IDEMPOTENCY: Check if this slip transaction reference has ALREADY been used!
+    // Convert/compress slip image to Data URL
+    let resolvedSlipUrl = slipInspection.imgSrc || '';
+    if (!resolvedSlipUrl) {
+      try {
+        resolvedSlipUrl = await this.getSlipDataUrl(slipFile, slipDataUrl);
+      } catch (e) {}
+    }
+
+    if (resolvedSlipUrl && transRef) {
+      try {
+        localStorage.setItem(`cloud_slip_${transRef}`, resolvedSlipUrl);
+      } catch (storageErr) {}
+    }
+
+    // 2. Call Server-Side Verification Endpoint (Server validates BOT TLV, checks duplicates, & verifies with SlipOK)
+    let serverResult = null;
+    const candidateUrls = [
+      '/api/slip/verify',
+      'http://127.0.0.1:3000/api/slip/verify',
+      'http://localhost:3000/api/slip/verify'
+    ];
+
+    for (const url of candidateUrls) {
+      try {
+        const resp = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            user_id: user.id,
+            amount: expectedAmount,
+            slip_data: resolvedSlipUrl,
+            payload: slipInspection.rawPayload,
+            transRef: transRef,
+            bankCode: slipInspection.bankCode
+          })
+        });
+
+        const resData = await resp.json();
+        if (!resp.ok) {
+          throw new Error(resData.message || 'การตรวจสอบสลิปล้มเหลว');
+        }
+        serverResult = resData;
+        break;
+      } catch (fetchErr) {
+        if (!fetchErr.message.includes('Failed to fetch') && !fetchErr.message.includes('NetworkError')) {
+          // Explicit error from server validation (fake slip, duplicate ref, wrong amount, etc.)
+          throw fetchErr;
+        }
+      }
+    }
+
+    // 3. Handle Server Result
+    if (serverResult) {
+      if (serverResult.status === 'already_credited') {
+        return {
+          success: true,
+          status: 'already_credited',
+          alreadyCredited: true,
+          gateway: `PromptPay QR (${slipInspection.bankName})`,
+          transactionRef: transRef,
+          gatewayRef: `SLIP-${transRef}`,
+          verifiedAmount: serverResult.amount || expectedAmount,
+          bankName: slipInspection.bankName,
+          imgSrc: resolvedSlipUrl
+        };
+      }
+
+      if (serverResult.status === 'approved') {
+        // Auto-approved by bank API on server!
+        if (serverResult.balanceAfter !== undefined && user) {
+          user.balance = serverResult.balanceAfter;
+          if (window.authManager) window.authManager.saveCurrentUser(user);
+          if (window.updateUserBalanceDisplays) window.updateUserBalanceDisplays();
+        }
+        return {
+          success: true,
+          status: 'approved',
+          alreadyCredited: false,
+          gateway: 'PromptPay QR (SlipOK Verified)',
+          transactionRef: serverResult.transRef || transRef,
+          gatewayRef: `SLIPOK-${serverResult.transRef || transRef}`,
+          verifiedAmount: serverResult.amount || expectedAmount,
+          balanceAfter: serverResult.balanceAfter,
+          bankName: slipInspection.bankName,
+          imgSrc: resolvedSlipUrl
+        };
+      }
+
+      // If status === 'pending':
+      // CRITICAL SECURITY: AWAITING ADMIN MANUAL VERIFICATION - NO POINTS ADDED AUTOMATICALLY!
+      return {
+        success: true,
+        status: 'pending',
+        pending: true,
+        alreadyCredited: false,
+        gateway: `PromptPay QR (${slipInspection.bankName})`,
+        transactionRef: transRef,
+        gatewayRef: `SLIP-${transRef}`,
+        verifiedAmount: expectedAmount,
+        bankName: slipInspection.bankName,
+        imgSrc: resolvedSlipUrl,
+        message: serverResult.message || 'ระบบบันทึกสลิปแล้ว กำลังรอแอดมินตรวจสอบยอดเงินเข้าบัญชี'
+      };
+    }
+
+    // 4. Server Offline Fallback: Anti-Replay Check in Supabase & Queue as PENDING (NEVER Auto-Credit!)
+    console.warn('Backend server unreachable, queuing topup as PENDING in Supabase...');
     const existingTransactions = await window.supabaseManager.fetchTable('wallet_transactions');
     const existingTopups = await window.supabaseManager.fetchTable('topups');
 
@@ -265,92 +376,34 @@ class PaymentGatewayEngine {
     );
 
     if (duplicateTxn || duplicateTopup) {
-      const match = duplicateTxn || duplicateTopup;
-      const currentUserId = user ? user.id : '';
-      const currentUsername = user ? user.username.toLowerCase() : '';
-      const matchUserId = match.user_id || '';
-      const matchUsername = (match.username || '').toLowerCase();
-
-      // IF this slip was ALREADY credited to THIS USER: Return alreadyCredited = true!
-      if ((matchUserId && matchUserId === currentUserId) || (matchUsername && matchUsername === currentUsername)) {
-        console.log('✅ Slip was already processed and credited to current user:', transRef);
-        return {
-          success: true,
-          alreadyCredited: true,
-          gateway: match.description || match.payment_method || `PromptPay QR (${slipInspection.bankName})`,
-          transactionRef: transRef,
-          gatewayRef: match.gateway_ref || `SLIP-${transRef}`,
-          verifiedAmount: Number(match.amount) || expectedAmount,
-          sender: user ? user.username : 'PromptPay Payer',
-          bankName: slipInspection.bankName
-        };
-      }
-
-      // IF this slip was used by a DIFFERENT user: Reject strictly!
-      throw new Error(`⚠️ สลิปนี้ถูกใช้งานไปแล้วในระบบโดยผู้ใช้อื่น (รหัสอ้างอิง: ${transRef}) ไม่สามารถใช้สลิปซ้ำได้เพื่อความปลอดภัย`);
+      throw new Error(`⚠️ สลิปนี้ถูกใช้งานไปแล้วในระบบ (รหัสอ้างอิง: ${transRef}) ไม่สามารถใช้สลิปซ้ำได้เพื่อความปลอดภัย`);
     }
 
-    // If Admin configured active SlipOK API -> verify with SlipOK API as well
-    if (config.apiKey && config.branchId && !config.apiKey.includes('SLIPOKM1QT19D')) {
-      try {
-        const formData = new FormData();
-        if (slipFile instanceof File || slipFile instanceof Blob) {
-          formData.append('files', slipFile);
-        }
-        if (expectedAmount) formData.append('amount', expectedAmount);
+    // Insert as pending in database
+    await window.supabaseManager.insertRecord('topups', {
+      user_id: user.id,
+      username: user.username,
+      amount: expectedAmount,
+      payment_method: 'PromptPay QR',
+      slip_url: resolvedSlipUrl,
+      transaction_ref: transRef,
+      gateway_ref: `SLIP-${transRef}`,
+      verified_by: 'รอแอดมินตรวจสอบ (Offline Mode)',
+      status: 'pending'
+    });
 
-        const response = await fetch(`https://api.slipok.com/api/line/apikey/${config.branchId}`, {
-          method: 'POST',
-          headers: { 'x-authorization': config.apiKey },
-          body: formData
-        });
-
-        const resData = await response.json();
-        if (resData.success && resData.data) {
-          const slip = resData.data;
-          const verifiedAmt = Number(slip.amount) || expectedAmount;
-
-          if (Math.abs(verifiedAmt - expectedAmount) > 0.01) {
-            throw new Error(`ยอดเงินในสลิป (฿${verifiedAmt.toFixed(2)}) ไม่ตรงกับยอดที่ต้องการเติม (฿${expectedAmount.toFixed(2)})`);
-          }
-
-          return {
-            success: true,
-            gateway: 'PromptPay QR (SlipOK Verified)',
-            transactionRef: slip.transRef || transRef,
-            gatewayRef: `SLIPOK-${slip.transRef || transRef}`,
-            verifiedAmount: verifiedAmt,
-            sender: slip.sender ? slip.sender.displayName : (user ? user.username : 'Verified Payer'),
-            bankName: slipInspection.bankName,
-            imgSrc: slipInspection.imgSrc
-          };
-        } else if (resData.message) {
-          throw new Error(resData.message);
-        }
-      } catch (slipOkErr) {
-        console.warn('SlipOK API Warning:', slipOkErr);
-        if (slipOkErr.message && !slipOkErr.message.includes('Failed to fetch')) {
-          throw slipOkErr;
-        }
-      }
-    }
-
-    // Verification Passed with Genuine Thai Bank e-Slip QR
     return {
       success: true,
+      status: 'pending',
+      pending: true,
       alreadyCredited: false,
       gateway: `PromptPay QR (${slipInspection.bankName})`,
       transactionRef: transRef,
       gatewayRef: `SLIP-${transRef}`,
       verifiedAmount: expectedAmount,
-      sender: user ? user.username : 'PromptPay Payer',
       bankName: slipInspection.bankName,
-      imgSrc: slipInspection.imgSrc,
-      raw: {
-        transRef: transRef,
-        bankCode: slipInspection.bankCode,
-        verifiedAt: new Date().toISOString()
-      }
+      imgSrc: resolvedSlipUrl,
+      message: 'บันทึกสลิปสำเร็จ กำลังรอแอดมินตรวจสอบยอดเงินเข้าบัญชี'
     };
   }
 
@@ -448,22 +501,31 @@ class PaymentGatewayEngine {
       };
     }
 
-    // 2. Idempotent Credit via Wallet Ledger Engine
-    const creditResult = await window.walletManager.creditWallet({
-      userId: user.id,
-      username: user.username,
-      amount: verification.verifiedAmount,
-      referenceId: verification.transactionRef,
-      gatewayRef: verification.gatewayRef,
-      paymentMethod: verification.gateway,
-      slipUrl: resolvedSlipUrl || (slipFile ? slipFile.name : ''),
-      description: `เติมเงินสำเร็จผ่าน ${verification.gateway} (Ref: ${verification.transactionRef})`
-    });
+    // If verification status is PENDING (Awaiting admin manual check):
+    // ZERO POINTS CREDITED! Strictly queue for admin review!
+    if (verification.status === 'pending') {
+      console.log('⏳ Topup is PENDING admin verification. No free balance credited.');
+      return {
+        success: true,
+        status: 'pending',
+        pending: true,
+        amount: verification.verifiedAmount || amount,
+        transactionRef: verification.transactionRef,
+        gateway: verification.gateway,
+        bankName: verification.bankName,
+        message: verification.message
+      };
+    }
 
+    // If verification status is APPROVED (Auto-verified via real bank network by server):
+    // Server has already credited profiles.balance and recorded in wallet_transactions
     return {
-      ...creditResult,
-      gateway: verification.gateway,
+      success: true,
+      status: 'approved',
+      amount: verification.verifiedAmount || amount,
+      balanceAfter: verification.balanceAfter || user.balance,
       transactionRef: verification.transactionRef,
+      gateway: verification.gateway,
       bankName: verification.bankName
     };
   }

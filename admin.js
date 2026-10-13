@@ -675,6 +675,50 @@ class AdminManager {
 
         // Determine if slip exists or can be resolved
         const hasSlip = !!(t.slip_url && (t.slip_url.trim().length > 0));
+        const status = (t.status || 'approved').toLowerCase();
+
+        let statusBadge = '';
+        if (status === 'pending') {
+          statusBadge = `
+            <span style="background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid #f59e0b; padding: 3px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;">
+              <i class="fas fa-clock"></i> รอตรวจสอบ
+            </span>
+          `;
+        } else if (status === 'rejected') {
+          statusBadge = `
+            <span style="background: rgba(239, 68, 68, 0.2); color: #fca5a5; border: 1px solid #ef4444; padding: 3px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;">
+              <i class="fas fa-circle-xmark"></i> ปฏิเสธ (Rejected)
+            </span>
+          `;
+        } else {
+          statusBadge = `
+            <span style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid #10b981; padding: 3px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;">
+              <i class="fas fa-circle-check"></i> สำเร็จ (Approved)
+            </span>
+          `;
+        }
+
+        let actionButtons = `
+          <button type="button" class="btn-slip-view ${hasSlip ? '' : 'empty'}" onclick="window.viewTopupSlip('${encodeURIComponent(t.id || t.transaction_ref)}')" title="คลิกเพื่อดูรูปภาพสลิปที่แนบ">
+            <i class="fas ${hasSlip ? 'fa-file-invoice-dollar' : 'fa-receipt'}"></i> ดูสลิป
+          </button>
+        `;
+
+        if (status === 'pending') {
+          actionButtons = `
+            <div style="display: flex; gap: 6px; justify-content: center; align-items: center; flex-wrap: wrap;">
+              <button type="button" class="btn-slip-view" onclick="window.viewTopupSlip('${encodeURIComponent(t.id || t.transaction_ref)}')" title="คลิกเพื่อดูสลิป">
+                <i class="fas fa-file-invoice-dollar"></i> ดูสลิป
+              </button>
+              <button type="button" class="btn-action-edit" style="background: #10b981; color: #fff; padding: 5px 10px; font-size: 0.74rem; font-weight: 700; border-radius: 99px; border: none; cursor: pointer;" onclick="window.adminManager.approveTopup('${encodeURIComponent(t.id)}', ${t.amount}, '${t.username}')" title="อนุมัติและเติมพอยท์">
+                <i class="fas fa-check"></i> อนุมัติ
+              </button>
+              <button type="button" class="btn-action-delete" style="background: rgba(239, 68, 68, 0.2); color: #fca5a5; border: 1px solid #ef4444; padding: 5px 9px; font-size: 0.74rem; font-weight: 700; border-radius: 99px; cursor: pointer;" onclick="window.adminManager.rejectTopup('${encodeURIComponent(t.id)}', '${t.username}')" title="ปฏิเสธสลิป">
+                <i class="fas fa-times"></i> ปฏิเสธ
+              </button>
+            </div>
+          `;
+        }
 
         return `
           <tr>
@@ -705,20 +749,10 @@ class AdminManager {
               </code>
             </td>
             <td>
-              <span style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid #10b981; padding: 3px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;">
-                <i class="fas fa-circle-check"></i> สำเร็จ (Approved)
-              </span>
+              ${statusBadge}
             </td>
-            <td style="text-align: center; white-space: nowrap; min-width: 135px; padding: 10px 14px;">
-              ${hasSlip ? `
-                <button type="button" class="btn-slip-view" onclick="window.viewTopupSlip('${encodeURIComponent(t.id || t.transaction_ref)}')" title="คลิกเพื่อดูรูปภาพสลิปที่แนบ">
-                  <i class="fas fa-file-invoice-dollar"></i> ดูสลิปที่แนบ
-                </button>
-              ` : `
-                <button type="button" class="btn-slip-view empty" onclick="window.viewTopupSlip('${encodeURIComponent(t.id || t.transaction_ref)}')" title="ไม่มีรูปสลิปแนบ (คลิกเพื่อดูรายละเอียดหรือแนบสลิป)">
-                  <i class="fas fa-receipt"></i> ตรวจสอบ
-                </button>
-              `}
+            <td style="text-align: center; white-space: nowrap; min-width: 145px; padding: 10px 14px;">
+              ${actionButtons}
             </td>
           </tr>
         `;
@@ -850,6 +884,33 @@ class AdminManager {
       if (methodEl) methodEl.textContent = item.payment_method || 'PromptPay QR';
       if (refEl) refEl.textContent = item.transaction_ref || '-';
       if (verifiedEl) verifiedEl.textContent = item.verified_by || 'Payment Gateway Webhook';
+
+      const statusBadgeEl = document.getElementById('admin-slip-status-badge');
+      const pendingActionsEl = document.getElementById('admin-slip-pending-actions');
+      const itemStatus = (item.status || 'approved').toLowerCase();
+
+      if (statusBadgeEl) {
+        if (itemStatus === 'pending') {
+          statusBadgeEl.style.background = 'rgba(245, 158, 11, 0.2)';
+          statusBadgeEl.style.borderColor = '#f59e0b';
+          statusBadgeEl.style.color = '#fbbf24';
+          statusBadgeEl.innerHTML = '<i class="fas fa-clock"></i> รอตรวจสอบ (Pending)';
+        } else if (itemStatus === 'rejected') {
+          statusBadgeEl.style.background = 'rgba(239, 68, 68, 0.2)';
+          statusBadgeEl.style.borderColor = '#ef4444';
+          statusBadgeEl.style.color = '#fca5a5';
+          statusBadgeEl.innerHTML = '<i class="fas fa-circle-xmark"></i> ปฏิเสธแล้ว (Rejected)';
+        } else {
+          statusBadgeEl.style.background = 'rgba(16, 185, 129, 0.2)';
+          statusBadgeEl.style.borderColor = '#10b981';
+          statusBadgeEl.style.color = '#34d399';
+          statusBadgeEl.innerHTML = '<i class="fas fa-circle-check"></i> สำเร็จ (Approved)';
+        }
+      }
+
+      if (pendingActionsEl) {
+        pendingActionsEl.style.display = itemStatus === 'pending' ? 'block' : 'none';
+      }
 
       if (hasSlipImage) {
         if (imgEl) {
@@ -1346,6 +1407,235 @@ class AdminManager {
         background: '#180a2f',
         color: '#fff'
       });
+    }
+  }
+
+  // ==========================================
+  // TOPUP APPROVAL & REJECTION ACTIONS (Anti-Fraud)
+  // ==========================================
+  async approveTopup(topupId, amount, username) {
+    if (!topupId) return;
+    try { topupId = decodeURIComponent(topupId); } catch(e){}
+
+    const confirm = await Swal.fire({
+      title: 'ยืนยันการอนุมัติเติมเงิน?',
+      html: `
+        <div style="text-align: left; padding: 6px 0; color: #cbd5e1; font-size: 0.9rem;">
+          <p>คุณต้องการอนุมัติรายการเติมเงินนี้และเพิ่มพอยท์ให้ผู้ใช้ใช่หรือไม่?</p>
+          <div style="background: #181926; border: 1px solid #282a3d; border-radius: 8px; padding: 12px; margin-top: 8px;">
+            <div><b>ผู้ใช้:</b> <span style="color:#fff;">${username || '-'}</span></div>
+            <div style="margin-top: 4px;"><b>จำนวนเงิน:</b> <span style="color:#34d399; font-weight:800; font-size:1.15rem;">฿ ${(Number(amount)||0).toLocaleString('th-TH', {minimumFractionDigits: 2})}</span></div>
+          </div>
+        </div>
+      `,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: '<i class="fas fa-check"></i> อนุมัติและเติมพอยท์',
+      cancelButtonText: 'ยกเลิก',
+      confirmButtonColor: '#10b981',
+      cancelButtonColor: '#64748b',
+      background: '#151622',
+      color: '#fff'
+    });
+
+    if (!confirm.isConfirmed) return;
+
+    Swal.fire({
+      title: 'กำลังดำเนินการ...',
+      text: 'ระบบกำลังเพิ่มเครดิตและบันทึกลงระบบบัญชี...',
+      allowOutsideClick: false,
+      didOpen: () => Swal.showLoading(),
+      background: '#151622',
+      color: '#fff'
+    });
+
+    try {
+      // 1. Try Calling Backend Endpoint
+      let serverApproved = false;
+      const candidateUrls = ['/api/admin/topup/approve', 'http://127.0.0.1:3000/api/admin/topup/approve', 'http://localhost:3000/api/admin/topup/approve'];
+      for (const url of candidateUrls) {
+        try {
+          const resp = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ topup_id: topupId, amount: Number(amount) })
+          });
+          const data = await resp.json();
+          if (resp.ok && data.success) {
+            serverApproved = true;
+            break;
+          } else if (!resp.ok) {
+            throw new Error(data.message || 'Server error');
+          }
+        } catch (apiErr) {
+          if (!apiErr.message.includes('Failed to fetch') && !apiErr.message.includes('NetworkError')) {
+            throw apiErr;
+          }
+        }
+      }
+
+      // 2. Direct Supabase Fallback if Server is Offline
+      if (!serverApproved) {
+        const topups = await window.supabaseManager.fetchTable('topups');
+        const topup = topups.find(t => String(t.id) === String(topupId) || String(t.transaction_ref) === String(topupId));
+        if (!topup) throw new Error('ไม่พบข้อมูลรายการเติมเงินในฐานข้อมูล');
+
+        const profiles = await window.supabaseManager.fetchTable('profiles');
+        const user = profiles.find(p => p.id === topup.user_id);
+        if (!user) throw new Error('ไม่พบผู้ใช้สำหรับรายการนี้');
+
+        const balBefore = Number(user.balance) || 0;
+        const creditAmt = Number(amount) || Number(topup.amount) || 0;
+        const balAfter = balBefore + creditAmt;
+
+        await window.supabaseManager.updateRecord('profiles', user.id, {
+          balance: balAfter,
+          updated_at: new Date().toISOString()
+        });
+
+        await window.supabaseManager.insertRecord('wallet_transactions', {
+          user_id: user.id,
+          username: user.username,
+          type: 'topup',
+          amount: creditAmt,
+          balance_before: balBefore,
+          balance_after: balAfter,
+          reference_id: topup.transaction_ref,
+          gateway_ref: topup.gateway_ref || `SLIP-${topup.transaction_ref}`,
+          description: `อนุมัติการเติมเงินโดยแอดมิน (Ref: ${topup.transaction_ref})`,
+          status: 'completed'
+        });
+
+        await window.supabaseManager.updateRecord('topups', topup.id, {
+          status: 'approved',
+          amount: creditAmt,
+          verified_by: 'Admin Approved'
+        });
+      }
+
+      if (window.closeSlipViewerModal) window.closeSlipViewerModal();
+      await this.renderAdminTopupsTable();
+      if (typeof this.renderReconciliationDashboard === 'function') {
+        this.renderReconciliationDashboard();
+      }
+      if (window.updateUserBalanceDisplays) {
+        window.updateUserBalanceDisplays();
+      }
+
+      Swal.fire({
+        icon: 'success',
+        title: 'อนุมัติเรียบร้อย!',
+        text: `เติมพอยท์ ฿${Number(amount).toFixed(2)} ให้กับ ${username} สำเร็จแล้ว`,
+        background: '#151622',
+        color: '#fff',
+        timer: 2000,
+        showConfirmButton: false
+      });
+    } catch (err) {
+      console.error('Approve error:', err);
+      Swal.fire({
+        icon: 'error',
+        title: 'เกิดข้อผิดพลาด',
+        text: err.message,
+        background: '#151622',
+        color: '#fff'
+      });
+    }
+  }
+
+  async rejectTopup(topupId, username) {
+    if (!topupId) return;
+    try { topupId = decodeURIComponent(topupId); } catch(e){}
+
+    const { value: reason } = await Swal.fire({
+      title: 'ปฏิเสธรายการเติมเงิน?',
+      html: `
+        <div style="text-align: left; padding: 4px 0; color: #cbd5e1; font-size: 0.9rem;">
+          <p>คุณต้องการปฏิเสธรายการของ <b>${username || 'ผู้ใช้'}</b> ใช่หรือไม่?</p>
+          <p style="color: #f87171; font-size: 0.82rem; margin-top: 4px;">* เมื่อปฏิเสธ รายการนี้จะถูกบันทึกเป็นสลิปไม่ผ่าน และจะไม่มีการเพิ่มพอยท์ใดๆ เข้ากระเป๋า</p>
+        </div>
+      `,
+      input: 'text',
+      inputPlaceholder: 'ระบุเหตุผล เช่น สลิปปลอม, ยอดเงินไม่เข้า, สลิปซ้ำ...',
+      inputValue: 'สลิปปลอม / ไม่พบยอดเงินเข้าบัญชี',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: '<i class="fas fa-times"></i> ยืนยันปฏิเสธสลิป',
+      cancelButtonText: 'ยกเลิก',
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#64748b',
+      background: '#151622',
+      color: '#fff'
+    });
+
+    if (reason === undefined) return; // User clicked Cancel
+
+    Swal.fire({
+      title: 'กำลังปฏิเสธรายการ...',
+      allowOutsideClick: false,
+      didOpen: () => Swal.showLoading(),
+      background: '#151622',
+      color: '#fff'
+    });
+
+    try {
+      let serverDone = false;
+      const candidateUrls = ['/api/admin/topup/reject', 'http://127.0.0.1:3000/api/admin/topup/reject', 'http://localhost:3000/api/admin/topup/reject'];
+      for (const url of candidateUrls) {
+        try {
+          const resp = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ topup_id: topupId, reason: reason })
+          });
+          const data = await resp.json();
+          if (resp.ok && data.success) {
+            serverDone = true;
+            break;
+          }
+        } catch (apiErr) {}
+      }
+
+      if (!serverDone) {
+        await window.supabaseManager.updateRecord('topups', topupId, {
+          status: 'rejected',
+          verified_by: `Admin Rejected: ${reason || 'สลิปไม่ถูกต้อง'}`
+        });
+      }
+
+      if (window.closeSlipViewerModal) window.closeSlipViewerModal();
+      await this.renderAdminTopupsTable();
+
+      Swal.fire({
+        icon: 'success',
+        title: 'ปฏิเสธรายการแล้ว',
+        text: 'รายการถูกปฏิเสธเรียบร้อย โดยไม่มีการเพิ่มพอยท์ใดๆ',
+        background: '#151622',
+        color: '#fff',
+        timer: 2000,
+        showConfirmButton: false
+      });
+    } catch (err) {
+      console.error('Reject error:', err);
+      Swal.fire({
+        icon: 'error',
+        title: 'เกิดข้อผิดพลาด',
+        text: err.message,
+        background: '#151622',
+        color: '#fff'
+      });
+    }
+  }
+
+  approveActiveSlip() {
+    if (this.activeSlipTopup) {
+      this.approveTopup(this.activeSlipTopup.id, this.activeSlipTopup.amount, this.activeSlipTopup.username);
+    }
+  }
+
+  rejectActiveSlip() {
+    if (this.activeSlipTopup) {
+      this.rejectTopup(this.activeSlipTopup.id, this.activeSlipTopup.username);
     }
   }
 }

@@ -311,6 +311,368 @@ app.post('/api/slip/inspect', (req, res) => {
 });
 
 // ==============================================================================
+// 1.5 REAL SLIP VERIFICATION & ANTI-FRAUD ENGINE
+// Replay Protection + BOT Standard Tag Validation + SlipOK API + Pending Admin Fallback
+// ==============================================================================
+
+app.post('/api/slip/verify', async (req, res) => {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  try {
+    const { user_id, username, amount, slip_data, qr_data, payload: rawPayload } = req.body;
+    const requestedAmount = parseFloat(amount);
+
+    if (!user_id || isNaN(requestedAmount) || requestedAmount <= 0) {
+      return res.status(400).json({ success: false, message: 'ข้อมูลการเติมเงินไม่ถูกต้อง' });
+    }
+
+    let payload = (rawPayload || qr_data || '').trim();
+    if (!slip_data && !payload) {
+      return res.status(400).json({ success: false, message: 'กรุณาแนบรูปภาพสลิปหลักฐานการโอนเงิน' });
+    }
+
+    // 1. Resolve QR Payload if not supplied directly
+    if (!payload && slip_data) {
+      try {
+        const base64Data = slip_data.replace(/^data:image\/\w+;base64,/, '');
+        const buffer = Buffer.from(base64Data, 'base64');
+        const jpeg = require('jpeg-js');
+        const rawImageData = jpeg.decode(buffer, { useTArray: true });
+        if (rawImageData && rawImageData.data) {
+          const jsQR = require('jsqr');
+          const code = jsQR(rawImageData.data, rawImageData.width, rawImageData.height, { inversionAttempts: 'attemptBoth' });
+          if (code && code.data) payload = code.data.trim();
+        }
+      } catch (decErr) {
+        console.warn('Server slip QR decode error:', decErr.message);
+      }
+    }
+
+    if (!payload) {
+      return res.status(400).json({
+        success: false,
+        message: '❌ ตรวจสอบไม่ผ่าน: ไม่พบ QR Code บนรูปภาพ หรือภาพไม่ชัดเจน กรุณาใช้รูปสลิปจริงที่ได้จากแอปธนาคาร'
+      });
+    }
+
+    // 2. Parse TLV (Tag-Length-Value) standard format for Thai Bank e-Slips
+    const parseTLV = (str) => {
+      const tags = {};
+      let i = 0;
+      while (i < str.length) {
+        const tag = str.substring(i, i + 2);
+        if (tag.length < 2 || isNaN(tag)) break;
+        i += 2;
+        const len = parseInt(str.substring(i, i + 2), 10);
+        if (isNaN(len) || len < 0) break;
+        i += 2;
+        tags[tag] = str.substring(i, i + len);
+        i += len;
+      }
+      return tags;
+    };
+
+    const outerTags = parseTLV(payload);
+    let isBankSlip = false;
+    let bankCode = '';
+    let transRef = '';
+
+    if (outerTags['00']) {
+      const innerTags = parseTLV(outerTags['00']);
+      if (innerTags['00'] === '000001' || innerTags['01'] || innerTags['02']) {
+        isBankSlip = true;
+        bankCode = innerTags['01'] || outerTags['01'] || '';
+        transRef = innerTags['02'] || outerTags['02'] || '';
+      }
+    }
+
+    if (!isBankSlip) {
+      if (payload.includes('000001') || outerTags['02'] || (payload.startsWith('00') && payload.length > 25)) {
+        isBankSlip = true;
+        transRef = outerTags['02'] || payload.substring(10, 35).replace(/[^a-zA-Z0-9]/g, '');
+        bankCode = outerTags['01'] || '';
+      }
+    }
+
+    if (!transRef) {
+      const refMatch = payload.match(/02([0-9]{2})([A-Za-z0-9_-]+)/);
+      if (refMatch && refMatch[2]) {
+        isBankSlip = true;
+        transRef = refMatch[2];
+      }
+    }
+
+    if (!isBankSlip || !transRef || transRef.length < 10) {
+      return res.status(400).json({
+        success: false,
+        message: '❌ ตรวจสอบไม่ผ่าน: QR Code บนรูปภาพไม่ใช่สลิปโอนเงินของธนาคาร (ไม่ใช่ Thai Bank e-Slip QR) ระบบไม่อนุญาตให้ใช้สลิปปลอม'
+      });
+    }
+
+    // 3. Anti-Replay Duplicate Check in Supabase
+    const { data: dupTxn } = await supabase
+      .from('wallet_transactions')
+      .select('reference_id, user_id, amount, status')
+      .or(`reference_id.eq.${transRef},gateway_ref.eq.${transRef},gateway_ref.eq.SLIP-${transRef}`)
+      .limit(1);
+
+    const { data: dupTopup } = await supabase
+      .from('topups')
+      .select('transaction_ref, user_id, amount, status')
+      .or(`transaction_ref.eq.${transRef},gateway_ref.eq.${transRef}`)
+      .limit(1);
+
+    if ((dupTxn && dupTxn.length > 0) || (dupTopup && dupTopup.length > 0)) {
+      const dup = (dupTxn && dupTxn[0]) || (dupTopup && dupTopup[0]);
+      if (dup.user_id === user_id && dup.status === 'approved') {
+        return res.status(200).json({
+          success: true,
+          status: 'already_credited',
+          alreadyCredited: true,
+          message: 'สลิปนี้ได้รับการเติมเงินสำเร็จไปแล้วในระบบ',
+          transRef,
+          amount: Number(dup.amount)
+        });
+      }
+      return res.status(400).json({
+        success: false,
+        message: `⚠️ สลิปนี้ถูกใช้งานไปแล้วในระบบ (รหัสอ้างอิง: ${transRef}) ไม่สามารถใช้สลิปซ้ำได้เพื่อความปลอดภัย`
+      });
+    }
+
+    // 4. Fetch Gateway Configuration from Supabase site_settings
+    const { data: settingsData } = await supabase.from('site_settings').select('*').limit(1);
+    const settings = (settingsData && settingsData[0]) || {};
+    const apiKey = (settings.gateway_api_key || '').trim();
+    const branchId = (settings.gateway_branch_id || '').trim().replace(/^.*\/apikey\//i, '').replace(/[^a-zA-Z0-9_-]/g, '');
+    const promptpayNum = (settings.promptpay_number || '0815993194').replace(/[^0-9]/g, '');
+
+    let slipOkVerified = false;
+    let verifiedAmount = requestedAmount;
+
+    // Check with SlipOK API if configured
+    if (apiKey && branchId) {
+      try {
+        console.log(`[*] Calling SlipOK verification for branch: ${branchId}...`);
+        const slipOkResp = await axios.post(
+          `https://api.slipok.com/api/line/apikey/${branchId}`,
+          { data: payload, amount: requestedAmount },
+          { headers: { 'x-authorization': apiKey }, timeout: 8000 }
+        );
+
+        if (slipOkResp.data && slipOkResp.data.success && slipOkResp.data.data) {
+          const slipInfo = slipOkResp.data.data;
+          const actualAmount = Number(slipInfo.amount) || requestedAmount;
+
+          if (Math.abs(actualAmount - requestedAmount) > 0.01) {
+            return res.status(400).json({
+              success: false,
+              message: `❌ ยอดเงินในสลิปจริง (฿${actualAmount.toFixed(2)}) ไม่ตรงกับยอดที่ระบุเติม (฿${requestedAmount.toFixed(2)}) ระบบปฏิเสธการเติมเงิน`
+            });
+          }
+
+          if (slipInfo.receiver && slipInfo.receiver.account) {
+            const rxAcc = slipInfo.receiver.account.replace(/[^0-9]/g, '');
+            if (promptpayNum && rxAcc && !rxAcc.includes(promptpayNum) && !promptpayNum.includes(rxAcc)) {
+              return res.status(400).json({
+                success: false,
+                message: `❌ สลิปนี้ไม่ได้โอนเงินมายังบัญชีร้านค้า (${promptpayNum}) แต่โอนไปยังบัญชีอื่น ไม่อนุมัติ`
+              });
+            }
+          }
+
+          slipOkVerified = true;
+          verifiedAmount = actualAmount;
+          if (slipInfo.transRef) transRef = slipInfo.transRef;
+        } else {
+          return res.status(400).json({
+            success: false,
+            message: '❌ การตรวจสอบสลิปล้มเหลว: ' + (slipOkResp.data?.message || 'ไม่พบรายการโอนเงินในระบบธนาคาร')
+          });
+        }
+      } catch (slipErr) {
+        const errData = slipErr.response?.data;
+        console.warn('SlipOK Verification Result:', errData || slipErr.message);
+
+        // If SlipOK returned error that the slip itself is fake or duplicate:
+        if (errData && errData.code && errData.code !== 1001) {
+          return res.status(400).json({
+            success: false,
+            message: '❌ ตรวจสอบสลิปไม่ผ่าน: ' + (errData.message || 'ไม่พบข้อมูลการโอนเงินจริงในระบบธนาคาร')
+          });
+        }
+      }
+    }
+
+    // 5. DETERMINE APPROVAL ACTION
+    if (slipOkVerified) {
+      // AUTO-APPROVED VIA REAL BANK NETWORK
+      const { data: userProfile } = await supabase.from('profiles').select('id, username, balance').eq('id', user_id).single();
+      if (!userProfile) return res.status(404).json({ success: false, message: 'ไม่พบผู้ใช้ในระบบ' });
+
+      const balBefore = Number(userProfile.balance) || 0;
+      const balAfter = balBefore + verifiedAmount;
+
+      await supabase.from('profiles').update({ balance: balAfter, updated_at: new Date().toISOString() }).eq('id', user_id);
+
+      await supabase.from('wallet_transactions').insert({
+        user_id,
+        username: userProfile.username,
+        type: 'topup',
+        amount: verifiedAmount,
+        balance_before: balBefore,
+        balance_after: balAfter,
+        reference_id: transRef,
+        gateway_ref: `SLIPOK-${transRef}`,
+        description: `เติมเงินสำเร็จผ่าน PromptPay (SlipOK Verified Ref: ${transRef})`,
+        status: 'completed'
+      });
+
+      await supabase.from('topups').insert({
+        user_id,
+        username: userProfile.username,
+        amount: verifiedAmount,
+        payment_method: 'PromptPay QR (Auto-Verified)',
+        slip_url: slip_data || '',
+        transaction_ref: transRef,
+        gateway_ref: `SLIPOK-${transRef}`,
+        verified_by: 'SlipOK Banking Switch',
+        status: 'approved'
+      });
+
+      return res.status(200).json({
+        success: true,
+        status: 'approved',
+        amount: verifiedAmount,
+        balanceAfter: balAfter,
+        transRef,
+        message: 'เติมเงินสำเร็จเรียบร้อย ยอดเงินเข้ากระเป๋าแล้ว'
+      });
+    }
+
+    // 6. IF NO WORKING BANK API: PUT IN PENDING MANUAL APPROVAL MODE (PREVENTS FAKE SLIPS FROM ADDING POINTS!)
+    const { data: userProfile } = await supabase.from('profiles').select('id, username, balance').eq('id', user_id).single();
+    if (!userProfile) return res.status(404).json({ success: false, message: 'ไม่พบผู้ใช้ในระบบ' });
+
+    await supabase.from('topups').insert({
+      user_id,
+      username: userProfile.username,
+      amount: requestedAmount,
+      payment_method: 'PromptPay QR',
+      slip_url: slip_data || '',
+      transaction_ref: transRef,
+      gateway_ref: `SLIP-${transRef}`,
+      verified_by: 'รอแอดมินตรวจสอบยอดเงิน',
+      status: 'pending'
+    });
+
+    // NOTICE: profiles.balance IS NOT MODIFIED! ZERO FREE POINTS!
+    return res.status(200).json({
+      success: true,
+      status: 'pending',
+      amount: requestedAmount,
+      transRef,
+      message: 'ระบบได้รับสลิปแล้ว กำลังรอแอดมินตรวจสอบยอดเงินเข้าบัญชีธนาคาร (เครดิตจะถูกเพิ่มทันทีเมื่อแอดมินยืนยันยอดเงิน)'
+    });
+
+  } catch (err) {
+    console.error('Slip Verification Endpoint Error:', err);
+    return res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์: ' + err.message });
+  }
+});
+
+// Admin Approval Endpoint
+app.post('/api/admin/topup/approve', async (req, res) => {
+  try {
+    const { topup_id, amount } = req.body;
+    if (!topup_id) {
+      return res.status(400).json({ success: false, message: 'Missing topup_id' });
+    }
+
+    const { data: topup, error: fetchErr } = await supabase.from('topups').select('*').eq('id', topup_id).single();
+    if (fetchErr || !topup) {
+      return res.status(404).json({ success: false, message: 'ไม่พบรายการเติมเงิน' });
+    }
+
+    if (topup.status === 'approved') {
+      return res.status(400).json({ success: false, message: 'รายการนี้ได้รับการอนุมัติไปแล้ว' });
+    }
+
+    const creditAmt = (amount !== undefined && !isNaN(Number(amount))) ? Number(amount) : Number(topup.amount);
+
+    // Fetch user profile
+    const { data: userProfile } = await supabase.from('profiles').select('id, username, balance').eq('id', topup.user_id).single();
+    if (!userProfile) {
+      return res.status(404).json({ success: false, message: 'ไม่พบผู้ใช้สำหรับรายการนี้' });
+    }
+
+    const balBefore = Number(userProfile.balance) || 0;
+    const balAfter = balBefore + creditAmt;
+
+    // 1. Update Profile Balance
+    await supabase.from('profiles').update({ balance: balAfter, updated_at: new Date().toISOString() }).eq('id', userProfile.id);
+
+    // 2. Insert Immutable Ledger Transaction Log
+    await supabase.from('wallet_transactions').insert({
+      user_id: userProfile.id,
+      username: userProfile.username,
+      type: 'topup',
+      amount: creditAmt,
+      balance_before: balBefore,
+      balance_after: balAfter,
+      reference_id: topup.transaction_ref,
+      gateway_ref: topup.gateway_ref || `SLIP-${topup.transaction_ref}`,
+      description: `อนุมัติการเติมเงินโดยแอดมิน (Ref: ${topup.transaction_ref})`,
+      status: 'completed'
+    });
+
+    // 3. Update Topup Status
+    await supabase.from('topups').update({
+      status: 'approved',
+      amount: creditAmt,
+      verified_by: 'Admin Approved'
+    }).eq('id', topup.id);
+
+    return res.status(200).json({
+      success: true,
+      amount: creditAmt,
+      balanceAfter: balAfter,
+      message: `อนุมัติสำเร็จ เพิ่มพอยท์ ฿${creditAmt.toFixed(2)} ให้กับ ${userProfile.username} แล้ว`
+    });
+  } catch (err) {
+    console.error('Admin Topup Approve Error:', err);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Admin Rejection Endpoint
+app.post('/api/admin/topup/reject', async (req, res) => {
+  try {
+    const { topup_id, reason } = req.body;
+    if (!topup_id) {
+      return res.status(400).json({ success: false, message: 'Missing topup_id' });
+    }
+
+    const { data: topup, error: fetchErr } = await supabase.from('topups').select('*').eq('id', topup_id).single();
+    if (fetchErr || !topup) {
+      return res.status(404).json({ success: false, message: 'ไม่พบรายการเติมเงิน' });
+    }
+
+    await supabase.from('topups').update({
+      status: 'rejected',
+      verified_by: `Admin Rejected: ${reason || 'สลิปไม่ถูกต้อง'}`
+    }).eq('id', topup.id);
+
+    return res.status(200).json({
+      success: true,
+      message: 'ปฏิเสธรายการเรียบร้อยแล้ว (ไม่มีการเพิ่มพอยท์)'
+    });
+  } catch (err) {
+    console.error('Admin Topup Reject Error:', err);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ==============================================================================
 // 2. OMISE PROMPTPAY CHARGES API
 // ==============================================================================
 
