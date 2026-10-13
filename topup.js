@@ -1007,6 +1007,15 @@ class TopupManager {
       confirmButtonColor: '#e11d48',
       background: '#12131d',
       color: '#fff'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        if (typeof window.navToTab === 'function') {
+          window.navToTab('shop');
+        } else {
+          const shopNavBtn = document.getElementById('nav-tab-shop');
+          if (shopNavBtn) shopNavBtn.click();
+        }
+      }
     });
   }
 }
