@@ -388,20 +388,21 @@
   </div>
 
   <script>
-    // Get Session ID from URL
+    // Get Session ID from URL or auto-generate fallback
     const urlParams = new URLSearchParams(window.location.search);
-    const sessionId = urlParams.get('session') || '';
+    const hasSessionParam = !!urlParams.get('session');
+    const sessionId = urlParams.get('session') || `slip_${Date.now()}`;
     let selectedImageBase64 = null;
     let selectedFileName = 'slip.jpg';
 
     const sessionDisplay = document.getElementById('session-display');
-    if (sessionId) {
-      sessionDisplay.textContent = `SESSION: ${sessionId.substring(0, 16)}...`;
-    } else {
-      sessionDisplay.textContent = '❌ ไม่พบรหัส Session กรุณาสแกน QR ใหม่อีกครั้ง';
-      sessionDisplay.style.color = '#ef4444';
-      document.getElementById('dropzone').style.opacity = '0.5';
-      document.getElementById('dropzone').style.pointerEvents = 'none';
+    if (sessionDisplay) {
+      if (hasSessionParam) {
+        sessionDisplay.textContent = `SESSION: ${sessionId.substring(0, 16)}...`;
+      } else {
+        sessionDisplay.textContent = `SESSION: #${sessionId.substring(0, 14)} (โหมดพร้อมใช้งาน)`;
+        sessionDisplay.style.color = '#38bdf8';
+      }
     }
 
     function handleFilePicked(input) {
@@ -464,10 +465,6 @@
     }
 
     async function submitSlipToPC() {
-      if (!sessionId) {
-        alert('ไม่พบรหัส Session กรุณาสแกน QR ใหม่อีกครั้ง');
-        return;
-      }
       if (!selectedImageBase64) {
         alert('กรุณาเลือกรูปภาพสลิปก่อนกดส่ง');
         return;
@@ -477,37 +474,76 @@
       submitBtn.disabled = true;
       submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> กำลังส่งสลิปไปยังคอมพิวเตอร์...';
 
+      // 1. Direct window.opener sync (If opened as test window from main shop page)
+      let syncedLocally = false;
+      try {
+        if (window.opener && window.opener.topupManager && typeof window.opener.topupManager.handleMobileSlipReceived === 'function') {
+          window.opener.topupManager.handleMobileSlipReceived(selectedImageBase64, selectedFileName);
+          syncedLocally = true;
+        }
+      } catch (e) {
+        console.warn('window.opener sync notice:', e);
+      }
+
+      // 2. BroadcastChannel & LocalStorage sync (For any open shop tab on same PC)
+      try {
+        localStorage.setItem('little_cloud_mobile_slip_event', JSON.stringify({
+          session_id: sessionId,
+          image_data: selectedImageBase64,
+          filename: selectedFileName,
+          timestamp: Date.now()
+        }));
+        syncedLocally = true;
+      } catch (e) {}
+
+      try {
+        if (typeof BroadcastChannel !== 'undefined') {
+          const bc = new BroadcastChannel('little_cloud_slip_channel');
+          bc.postMessage({
+            type: 'SLIP_UPLOADED',
+            session_id: sessionId,
+            image_data: selectedImageBase64,
+            filename: selectedFileName
+          });
+          setTimeout(() => bc.close(), 1000);
+          syncedLocally = true;
+        }
+      } catch (e) {}
+
       const payload = JSON.stringify({
         session_id: sessionId,
         image_data: selectedImageBase64,
         filename: selectedFileName
       });
 
-      // Try list of candidate endpoints
+      // 3. Send to Backend Server (For Mobile Phone -> PC)
       const candidateEndpoints = [
         '/api/slip/upload',
-        (window.location.origin || '') + '/api/slip/upload',
-        'http://192.168.1.124:3000/api/slip/upload',
-        'http://127.0.0.1:3000/api/slip/upload'
-      ];
+        (window.location.origin && window.location.origin !== 'null' ? window.location.origin + '/api/slip/upload' : null),
+        'http://127.0.0.1:3000/api/slip/upload',
+        'http://localhost:3000/api/slip/upload',
+        'http://192.168.1.124:3000/api/slip/upload'
+      ].filter(Boolean);
 
       let lastError = null;
-      let success = false;
+      let networkSuccess = false;
 
       for (const endpoint of candidateEndpoints) {
         try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 6000);
           const response = await fetch(endpoint, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: payload
+            body: payload,
+            signal: controller.signal
           });
+          clearTimeout(timeoutId);
 
           if (response.ok) {
             const data = await response.json();
             if (data.success) {
-              success = true;
-              document.getElementById('upload-step-view').style.display = 'none';
-              document.getElementById('success-step-view').style.display = 'block';
+              networkSuccess = true;
               break;
             } else {
               lastError = data.message;
@@ -518,8 +554,11 @@
         }
       }
 
-      if (!success) {
-        alert(lastError ? `ส่งสลิปไม่สำเร็จ: ${lastError}` : 'ส่งสลิปไม่สำเร็จ กรุณาตรวจสอบว่าเชื่อมต่อ Wi-Fi เดียวกันกับคอมพิวเตอร์');
+      if (networkSuccess || syncedLocally) {
+        document.getElementById('upload-step-view').style.display = 'none';
+        document.getElementById('success-step-view').style.display = 'block';
+      } else {
+        alert(lastError ? `ส่งสลิปไม่สำเร็จ: ${lastError}\n\nกรุณาตรวจสอบว่าเซิร์ฟเวอร์เปิดอยู่ (npm start หรือ start-server.bat) และมือถือต่อ Wi-Fi เดียวกัน` : 'ส่งสลิปไม่สำเร็จ กรุณาตรวจสอบว่าคอมพิวเตอร์และมือถือเชื่อมต่อเครือข่าย Wi-Fi เดียวกัน');
         submitBtn.disabled = false;
         submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> ลองใหม่อีกครั้ง';
       }

@@ -73,6 +73,33 @@ class TopupManager {
     this.currentSlipMode = 'qr';
     this.mobileSlipSessionId = null;
     this.mobileSlipPollingTimer = null;
+    this.initSlipCrossTabSync();
+  }
+
+  initSlipCrossTabSync() {
+    try {
+      if (typeof BroadcastChannel !== 'undefined') {
+        this.slipBroadcastChannel = new BroadcastChannel('little_cloud_slip_channel');
+        this.slipBroadcastChannel.onmessage = (event) => {
+          if (event && event.data && event.data.type === 'SLIP_UPLOADED' && event.data.image_data) {
+            console.log('📡 BroadcastChannel received slip for session:', event.data.session_id);
+            this.handleMobileSlipReceived(event.data.image_data, event.data.filename);
+          }
+        };
+      }
+    } catch (e) {}
+
+    window.addEventListener('storage', (e) => {
+      if (e.key === 'little_cloud_mobile_slip_event' && e.newValue) {
+        try {
+          const payload = JSON.parse(e.newValue);
+          if (payload && payload.image_data) {
+            console.log('💾 LocalStorage event received slip:', payload.filename);
+            this.handleMobileSlipReceived(payload.image_data, payload.filename);
+          }
+        } catch (err) {}
+      }
+    });
   }
 
   async getPromptPaySettings() {
@@ -418,42 +445,62 @@ class TopupManager {
     const directLink = document.getElementById('slip-upload-direct-link');
     const sessionBadge = document.getElementById('slip-qr-session-badge');
     const urlHint = document.getElementById('slip-qr-url-hint');
+    const qrPanel = document.getElementById('slip-mode-qr-panel');
+
+    // Remove any existing offline notice
+    const oldNotice = document.getElementById('slip-server-offline-notice');
+    if (oldNotice) oldNotice.remove();
 
     if (qrTarget) {
       qrTarget.innerHTML = `
         <div style="color: #94a3b8; font-size: 0.8rem; display: flex; flex-direction: column; align-items: center; gap: 8px;">
           <i class="fas fa-spinner fa-spin" style="font-size: 1.5rem; color: #e11d48;"></i>
-          <span>กำลังสร้าง QR Code...</span>
+          <span>กำลังตรวจสอบการเชื่อมต่อ & สร้าง QR Code...</span>
         </div>
       `;
     }
 
-    // Support both local server, live-server and file:/// protocol
-    let apiBase = '';
-    if (window.location.protocol === 'file:' || (window.location.port && window.location.port !== '3000')) {
-      apiBase = 'http://127.0.0.1:3000';
-    }
-
     let sessionId = `slip_${Date.now()}`;
-    let uploadUrl = `http://192.168.1.124:3000/upload-slip.html?session=${sessionId}`;
+    let isServerOnline = false;
+    let lanIp = '192.168.1.124';
+    let uploadUrl = `http://${lanIp}:3000/upload-slip.html?session=${sessionId}`;
     let localUrl = `http://127.0.0.1:3000/upload-slip.html?session=${sessionId}`;
 
-    try {
-      const resp = await fetch(`${apiBase}/api/slip/session/create`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: '{}'
-      });
-      if (resp.ok) {
-        const data = await resp.json();
-        if (data.success) {
-          sessionId = data.session_id;
-          uploadUrl = data.upload_url || uploadUrl;
-          localUrl = data.local_url || localUrl;
+    // Candidate server bases to connect to
+    const candidateBases = [
+      '',
+      'http://127.0.0.1:3000',
+      'http://localhost:3000',
+      `http://${lanIp}:3000`
+    ];
+    if (window.location.origin && window.location.origin !== 'null' && window.location.protocol.startsWith('http')) {
+      candidateBases.unshift(window.location.origin);
+    }
+
+    // Try to connect to backend server
+    for (const base of candidateBases) {
+      try {
+        const controller = new AbortController();
+        const t = setTimeout(() => controller.abort(), 1500);
+        const resp = await fetch(`${base}/api/slip/session/create`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: '{}',
+          signal: controller.signal
+        });
+        clearTimeout(t);
+        if (resp.ok) {
+          const data = await resp.json();
+          if (data && data.success) {
+            sessionId = data.session_id;
+            uploadUrl = data.upload_url || uploadUrl;
+            localUrl = data.local_url || localUrl;
+            isServerOnline = true;
+            console.log('✅ Connected to Slip Server at:', base, 'Upload URL:', uploadUrl);
+            break;
+          }
         }
-      }
-    } catch (e) {
-      console.warn('Mobile slip session API error, using local fallback:', e);
+      } catch (e) {}
     }
 
     this.mobileSlipSessionId = sessionId;
@@ -463,16 +510,45 @@ class TopupManager {
       this.renderQrCode(qrTarget, uploadUrl);
     }
 
+    // If server is online use port 3000, else use relative path to prevent ERR_CONNECTION_REFUSED
     if (directLink) {
-      directLink.href = localUrl || uploadUrl;
+      if (isServerOnline) {
+        directLink.href = localUrl || uploadUrl;
+      } else {
+        directLink.href = `./upload-slip.html?session=${sessionId}`;
+      }
     }
 
     if (sessionBadge) {
       sessionBadge.textContent = `#${sessionId.substring(0, 16)}`;
+      sessionBadge.style.background = isServerOnline ? '#e0f2fe' : '#fef2f2';
+      sessionBadge.style.color = isServerOnline ? '#0369a1' : '#b91c1c';
     }
 
     if (urlHint) {
       urlHint.textContent = uploadUrl.replace('http://', '');
+    }
+
+    // If server is offline, display helpful notice with 1-click desktop upload switch
+    if (!isServerOnline && qrPanel) {
+      const offlineNotice = document.createElement('div');
+      offlineNotice.id = 'slip-server-offline-notice';
+      offlineNotice.style.cssText = 'margin-top: 12px; background: #fff1f2; border: 1.5px solid #fecdd3; border-radius: 12px; padding: 12px; text-align: left; font-size: 0.78rem; color: #9f1239; line-height: 1.5;';
+      offlineNotice.innerHTML = `
+        <div style="font-weight: 700; margin-bottom: 4px; display: flex; align-items: center; gap: 6px; color: #e11d48;">
+          <i class="fas fa-triangle-exclamation"></i> เซิร์ฟเวอร์ยังไม่ได้เปิดทำงาน (Node.js Port 3000)
+        </div>
+        <div>เพื่อให้มือถือสแกน QR ได้ กรุณารันคำสั่ง <code style="background:#fee2e2; padding:1px 5px; border-radius:4px; font-weight:700;">npm start</code> หรือดับเบิลคลิกไฟล์ <b>start-server.bat</b></div>
+        <div style="margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap;">
+          <button type="button" onclick="window.topupManager.switchSlipUploadMode('pc')" style="background: #e11d48; color: #fff; border: none; padding: 5px 12px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; cursor: pointer;">
+            <i class="fas fa-desktop"></i> สลับไปเลือกไฟล์จากคอมพิวเตอร์แทน
+          </button>
+          <button type="button" onclick="window.topupManager.startMobileSlipSession()" style="background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; padding: 5px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; cursor: pointer;">
+            <i class="fas fa-rotate"></i> ลองเชื่อมต่อใหม่
+          </button>
+        </div>
+      `;
+      qrPanel.appendChild(offlineNotice);
     }
 
     // Start Polling for Mobile Upload (every 1.0s for instant response)
@@ -483,9 +559,10 @@ class TopupManager {
       }
 
       const endpoints = [
-        `${apiBase}/api/slip/check/${this.mobileSlipSessionId}`,
+        `/api/slip/check/${this.mobileSlipSessionId}`,
         `http://127.0.0.1:3000/api/slip/check/${this.mobileSlipSessionId}`,
-        `http://192.168.1.124:3000/api/slip/check/${this.mobileSlipSessionId}`
+        `http://localhost:3000/api/slip/check/${this.mobileSlipSessionId}`,
+        `http://${lanIp}:3000/api/slip/check/${this.mobileSlipSessionId}`
       ];
 
       for (const ep of endpoints) {

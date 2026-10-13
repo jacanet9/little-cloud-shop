@@ -192,16 +192,27 @@ app.post('/api/slip/upload', (req, res) => {
   }
 });
 
+// Health Check Endpoint
+app.get('/api/health', (req, res) => res.json({ status: 'ok', server: 'little-cloud', time: Date.now() }));
+app.get('/api/slip/health', (req, res) => res.json({ status: 'ok', server: 'little-cloud', time: Date.now() }));
+
 // Check Slip Upload Status (PC Polling)
 app.get('/api/slip/check/:session_id', (req, res) => {
   const { session_id } = req.params;
   const session = SLIP_SESSIONS[session_id];
 
   if (!session) {
-    return res.status(404).json({
-      success: false,
-      status: 'not_found',
-      message: 'ไม่พบ Session นี้ หรือ Session หมดอายุแล้ว'
+    SLIP_SESSIONS[session_id] = {
+      session_id: session_id,
+      status: 'waiting',
+      slip_data: null,
+      filename: null,
+      created_at: Date.now()
+    };
+    return res.status(200).json({
+      success: true,
+      status: 'waiting',
+      message: 'Waiting for mobile upload'
     });
   }
 
