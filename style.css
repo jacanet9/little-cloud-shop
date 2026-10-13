@@ -1254,3 +1254,228 @@ body {
   z-index: 2000001 !important;
 }
 
+/* ==============================================================================
+   ADMIN TABLES & MODERN ACTION BUTTONS (Products "จัดการ" & Users "การกระทำ")
+   ============================================================================== */
+
+/* Modern Admin Table Enhancements */
+.admin-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-family: 'Prompt', 'Kanit', sans-serif;
+}
+
+.admin-table thead tr {
+  background: #141522 !important;
+}
+
+.admin-table th {
+  color: #9496a8;
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 12px 16px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid #232537;
+  white-space: nowrap;
+}
+
+.admin-table tbody td {
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  vertical-align: middle;
+  font-size: 0.88rem;
+  color: #cbd5e1;
+}
+
+.admin-table tbody tr {
+  transition: background 0.18s ease;
+}
+
+.admin-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.admin-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Action Button Flex Container */
+.admin-table-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+  vertical-align: middle;
+}
+
+/* Base Style for all Admin Action Buttons */
+.btn-action-edit,
+.btn-action-delete,
+.btn-action-role,
+.btn-action-balance,
+.btn-card-edit,
+.btn-card-delete {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  font-family: 'Prompt', 'Kanit', sans-serif;
+  line-height: 1.4;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+  outline: none;
+  border: 1px solid transparent;
+  user-select: none;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.25);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.btn-action-edit i,
+.btn-action-delete i,
+.btn-action-role i,
+.btn-action-balance i,
+.btn-card-edit i,
+.btn-card-delete i {
+  font-size: 0.82rem;
+  transition: transform 0.2s ease;
+}
+
+.btn-action-edit:hover i,
+.btn-action-delete:hover i,
+.btn-action-role:hover i,
+.btn-action-balance:hover i,
+.btn-card-edit:hover i,
+.btn-card-delete:hover i {
+  transform: scale(1.12);
+}
+
+.btn-action-edit:active,
+.btn-action-delete:active,
+.btn-action-role:active,
+.btn-action-balance:active,
+.btn-card-edit:active,
+.btn-card-delete:active {
+  transform: translateY(0) scale(0.96) !important;
+}
+
+/* ----------------------------------------------------
+   1. การจัดการ: ปุ่มแก้ไข (Edit Product)
+   ---------------------------------------------------- */
+.btn-action-edit,
+.btn-card-edit {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.16) 0%, rgba(139, 92, 246, 0.14) 100%);
+  border-color: rgba(139, 92, 246, 0.38);
+  color: #c4b5fd;
+}
+
+.btn-action-edit:hover,
+.btn-card-edit:hover {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.35) 0%, rgba(139, 92, 246, 0.38) 100%);
+  border-color: rgba(167, 139, 250, 0.75);
+  color: #ffffff;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(124, 58, 237, 0.35), 0 0 10px rgba(139, 92, 246, 0.25);
+}
+
+/* ----------------------------------------------------
+   1. การจัดการ: ปุ่มลบ (Delete Product)
+   ---------------------------------------------------- */
+.btn-action-delete,
+.btn-card-delete {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.14) 0%, rgba(225, 29, 72, 0.14) 100%);
+  border-color: rgba(239, 68, 68, 0.36);
+  color: #fca5a5;
+}
+
+.btn-action-delete:hover,
+.btn-card-delete:hover {
+  background: linear-gradient(135deg, #ef4444 0%, #be123c 100%);
+  border-color: #ef4444;
+  color: #ffffff;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(239, 68, 68, 0.45), 0 0 12px rgba(244, 63, 94, 0.3);
+}
+
+/* ----------------------------------------------------
+   2. การกระทำ: ปุ่มสลับ Role (Toggle Role)
+   ---------------------------------------------------- */
+.btn-action-role {
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.16) 0%, rgba(217, 70, 239, 0.14) 100%);
+  border-color: rgba(217, 70, 239, 0.38);
+  color: #f0abfc;
+}
+
+.btn-action-role:hover {
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.38) 0%, rgba(217, 70, 239, 0.38) 100%);
+  border-color: rgba(232, 121, 249, 0.8);
+  color: #ffffff;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(217, 70, 239, 0.35), 0 0 12px rgba(168, 85, 247, 0.25);
+}
+
+/* When switching from Admin -> Member (Amber style) */
+.btn-action-role.is-admin {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(217, 119, 6, 0.14) 100%);
+  border-color: rgba(245, 158, 11, 0.38);
+  color: #fde047;
+}
+
+.btn-action-role.is-admin:hover {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.38) 0%, rgba(217, 119, 6, 0.38) 100%);
+  border-color: rgba(251, 191, 36, 0.85);
+  color: #ffffff;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(245, 158, 11, 0.35), 0 0 10px rgba(245, 158, 11, 0.2);
+}
+
+/* ----------------------------------------------------
+   2. การกระทำ: ปุ่มปรับเงิน (Adjust Balance)
+   ---------------------------------------------------- */
+.btn-action-balance {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(5, 150, 105, 0.14) 100%);
+  border-color: rgba(52, 211, 153, 0.38);
+  color: #6ee7b7;
+}
+
+.btn-action-balance:hover {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.38) 0%, rgba(5, 150, 105, 0.38) 100%);
+  border-color: rgba(52, 211, 153, 0.85);
+  color: #ffffff;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(16, 185, 129, 0.35), 0 0 12px rgba(52, 211, 153, 0.25);
+}
+
+/* User Role Badges */
+.user-role-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+}
+
+.user-role-badge.role-admin {
+  background: rgba(225, 29, 72, 0.16);
+  border: 1px solid rgba(225, 29, 72, 0.45);
+  color: #f472b6;
+  box-shadow: 0 0 10px rgba(225, 29, 72, 0.2);
+}
+
+.user-role-badge.role-member {
+  background: rgba(148, 163, 184, 0.12);
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  color: #cbd5e1;
+}
+

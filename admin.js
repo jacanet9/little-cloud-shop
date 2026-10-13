@@ -112,13 +112,17 @@ class AdminManager {
         <td><span class="product-category-tag" style="position: static;">${p.category}</span></td>
         <td style="color: #ef4444; font-weight: 700; font-family: var(--font-en);">${p.price} ฿</td>
         <td style="font-weight: 600;">${p.stock} ชิ้น</td>
-        <td>
-          <button class="btn-card-edit" style="display: inline-flex; margin-right: 4px;" onclick="window.adminManager.openEditProduct('${p.id}')">
-            <i class="fas fa-edit"></i> แก้ไข
-          </button>
-          <button class="btn-card-delete" style="display: inline-flex;" onclick="window.adminManager.deleteProduct('${p.id}')">
-            <i class="fas fa-trash-alt"></i> ลบ
-          </button>
+        <td style="white-space: nowrap;">
+          <div class="admin-table-actions">
+            <button type="button" class="btn-action-edit" onclick="window.adminManager.openEditProduct('${p.id}')" title="แก้ไขข้อมูลสินค้า">
+              <i class="fas fa-edit"></i>
+              <span>แก้ไข</span>
+            </button>
+            <button type="button" class="btn-action-delete" onclick="window.adminManager.deleteProduct('${p.id}')" title="ลบสินค้านี้">
+              <i class="fas fa-trash-alt"></i>
+              <span>ลบ</span>
+            </button>
+          </div>
         </td>
       </tr>
     `}).join('');
@@ -432,13 +436,17 @@ class AdminManager {
         </td>
         <td style="color: #34d399; font-weight: 700; font-family: var(--font-en);">฿ ${(Number(u.balance)||0).toFixed(2)}</td>
         <td style="font-size: 0.8rem; color: #a79bb7;">${new Date(u.created_at || Date.now()).toLocaleDateString('th-TH')}</td>
-        <td>
-          <button class="btn-card-edit" style="display: inline-flex; margin-right: 4px;" onclick="window.adminManager.toggleUserRole('${u.id}', '${u.role}')">
-            <i class="fas fa-user-shield"></i> สลับ Role (${u.role === 'admin' ? 'เป็น Member' : 'เป็น Admin'})
-          </button>
-          <button class="btn-card-edit" style="display: inline-flex;" onclick="window.adminManager.adjustUserBalance('${u.id}', '${u.username}', ${u.balance || 0})">
-            <i class="fas fa-coins"></i> ปรับเงิน
-          </button>
+        <td style="white-space: nowrap;">
+          <div class="admin-table-actions">
+            <button type="button" class="btn-action-role ${u.role === 'admin' ? 'is-admin' : 'is-member'}" onclick="window.adminManager.toggleUserRole('${u.id}', '${u.role}')" title="สลับบทบาทผู้ใช้">
+              <i class="fas ${u.role === 'admin' ? 'fa-user' : 'fa-user-shield'}"></i>
+              <span>สลับ Role (${u.role === 'admin' ? 'เป็น Member' : 'เป็น Admin'})</span>
+            </button>
+            <button type="button" class="btn-action-balance" onclick="window.adminManager.adjustUserBalance('${u.id}', '${u.username}', ${u.balance || 0})" title="ปรับยอดเงินในระบบ">
+              <i class="fas fa-coins"></i>
+              <span>ปรับเงิน</span>
+            </button>
+          </div>
         </td>
       </tr>
     `).join('');
