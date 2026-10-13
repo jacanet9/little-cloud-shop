@@ -1255,7 +1255,7 @@ body {
 }
 
 /* ==============================================================================
-   ADMIN TABLES & MODERN ACTION BUTTONS (Products "จัดการ" & Users "การกระทำ")
+   ADMIN TABLES & MODERN ACTION BUTTONS (Matching Little Cloud Design System)
    ============================================================================== */
 
 /* Modern Admin Table Enhancements */
@@ -1303,179 +1303,167 @@ body {
 
 /* Action Button Flex Container */
 .admin-table-actions {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: nowrap;
-  vertical-align: middle;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  flex-wrap: nowrap !important;
+  vertical-align: middle !important;
 }
 
-/* Base Style for all Admin Action Buttons */
+/* Reset all buttons inside admin table to prevent browser default white background */
+.admin-table button,
+.admin-table-actions button,
 .btn-action-edit,
 .btn-action-delete,
 .btn-action-role,
 .btn-action-balance,
 .btn-card-edit,
 .btn-card-delete {
+  font-family: 'Prompt', 'Kanit', sans-serif !important;
+  font-size: 0.8rem !important;
+  font-weight: 600 !important;
+  line-height: 1.4 !important;
   display: inline-flex !important;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 6px 14px;
-  border-radius: 8px;
-  font-size: 0.8rem;
-  font-weight: 600;
-  font-family: 'Prompt', 'Kanit', sans-serif;
-  line-height: 1.4;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
-  outline: none;
-  border: 1px solid transparent;
-  user-select: none;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.25);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  padding: 6px 15px !important;
+  border-radius: var(--radius-full, 9999px) !important; /* Capsule/Pill shape matching website buttons */
+  cursor: pointer !important;
+  white-space: nowrap !important;
+  outline: none !important;
+  user-select: none !important;
+  transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25) !important;
+  text-decoration: none !important;
 }
 
-.btn-action-edit i,
-.btn-action-delete i,
-.btn-action-role i,
-.btn-action-balance i,
-.btn-card-edit i,
-.btn-card-delete i {
-  font-size: 0.82rem;
-  transition: transform 0.2s ease;
+.admin-table button i,
+.admin-table-actions button i {
+  font-size: 0.84rem !important;
+  transition: transform 0.2s ease !important;
 }
 
-.btn-action-edit:hover i,
-.btn-action-delete:hover i,
-.btn-action-role:hover i,
-.btn-action-balance:hover i,
-.btn-card-edit:hover i,
-.btn-card-delete:hover i {
-  transform: scale(1.12);
+.admin-table button:hover i,
+.admin-table-actions button:hover i {
+  transform: scale(1.12) !important;
 }
 
-.btn-action-edit:active,
-.btn-action-delete:active,
-.btn-action-role:active,
-.btn-action-balance:active,
-.btn-card-edit:active,
-.btn-card-delete:active {
+.admin-table button:active,
+.admin-table-actions button:active {
   transform: translateY(0) scale(0.96) !important;
 }
 
 /* ----------------------------------------------------
-   1. การจัดการ: ปุ่มแก้ไข (Edit Product)
+   1. การจัดการ: ปุ่มแก้ไข (Edit) - Little Cloud Candy Pink Pill
    ---------------------------------------------------- */
 .btn-action-edit,
 .btn-card-edit {
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.16) 0%, rgba(139, 92, 246, 0.14) 100%);
-  border-color: rgba(139, 92, 246, 0.38);
-  color: #c4b5fd;
+  background: rgba(228, 37, 117, 0.14) !important;
+  border: 1px solid rgba(244, 114, 182, 0.42) !important;
+  color: #f472b6 !important;
 }
 
 .btn-action-edit:hover,
 .btn-card-edit:hover {
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.35) 0%, rgba(139, 92, 246, 0.38) 100%);
-  border-color: rgba(167, 139, 250, 0.75);
-  color: #ffffff;
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(124, 58, 237, 0.35), 0 0 10px rgba(139, 92, 246, 0.25);
+  background: var(--primary-gradient, linear-gradient(135deg, #e42575 0%, #c01859 100%)) !important;
+  border-color: #e42575 !important;
+  color: #ffffff !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 4px 16px rgba(228, 37, 117, 0.5), 0 0 10px rgba(244, 114, 182, 0.3) !important;
 }
 
 /* ----------------------------------------------------
-   1. การจัดการ: ปุ่มลบ (Delete Product)
+   1. การจัดการ: ปุ่มลบ (Delete) - Obsidian Crimson Danger Pill
    ---------------------------------------------------- */
 .btn-action-delete,
 .btn-card-delete {
-  background: linear-gradient(135deg, rgba(239, 68, 68, 0.14) 0%, rgba(225, 29, 72, 0.14) 100%);
-  border-color: rgba(239, 68, 68, 0.36);
-  color: #fca5a5;
+  background: rgba(239, 68, 68, 0.12) !important;
+  border: 1px solid rgba(239, 68, 68, 0.38) !important;
+  color: #fca5a5 !important;
 }
 
 .btn-action-delete:hover,
 .btn-card-delete:hover {
-  background: linear-gradient(135deg, #ef4444 0%, #be123c 100%);
-  border-color: #ef4444;
-  color: #ffffff;
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(239, 68, 68, 0.45), 0 0 12px rgba(244, 63, 94, 0.3);
+  background: linear-gradient(135deg, #ef4444 0%, #be123c 100%) !important;
+  border-color: #ef4444 !important;
+  color: #ffffff !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 4px 16px rgba(239, 68, 68, 0.5), 0 0 12px rgba(244, 63, 94, 0.3) !important;
 }
 
 /* ----------------------------------------------------
-   2. การกระทำ: ปุ่มสลับ Role (Toggle Role)
+   2. การกระทำ: ปุ่มสลับ Role - Royal Purple / Amethyst Admin Pill
    ---------------------------------------------------- */
 .btn-action-role {
-  background: linear-gradient(135deg, rgba(168, 85, 247, 0.16) 0%, rgba(217, 70, 239, 0.14) 100%);
-  border-color: rgba(217, 70, 239, 0.38);
-  color: #f0abfc;
+  background: rgba(168, 85, 247, 0.14) !important;
+  border: 1px solid rgba(217, 70, 239, 0.42) !important;
+  color: #f0abfc !important;
 }
 
 .btn-action-role:hover {
-  background: linear-gradient(135deg, rgba(168, 85, 247, 0.38) 0%, rgba(217, 70, 239, 0.38) 100%);
-  border-color: rgba(232, 121, 249, 0.8);
-  color: #ffffff;
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(217, 70, 239, 0.35), 0 0 12px rgba(168, 85, 247, 0.25);
+  background: linear-gradient(135deg, #a855f7 0%, #d946ef 100%) !important;
+  border-color: #d946ef !important;
+  color: #ffffff !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 4px 16px rgba(217, 70, 239, 0.45), 0 0 12px rgba(168, 85, 247, 0.3) !important;
 }
 
-/* When switching from Admin -> Member (Amber style) */
+/* When switching from Admin -> Member (Amber Warning Pill) */
 .btn-action-role.is-admin {
-  background: linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(217, 119, 6, 0.14) 100%);
-  border-color: rgba(245, 158, 11, 0.38);
-  color: #fde047;
+  background: rgba(245, 158, 11, 0.14) !important;
+  border: 1px solid rgba(245, 158, 11, 0.42) !important;
+  color: #fde047 !important;
 }
 
 .btn-action-role.is-admin:hover {
-  background: linear-gradient(135deg, rgba(245, 158, 11, 0.38) 0%, rgba(217, 119, 6, 0.38) 100%);
-  border-color: rgba(251, 191, 36, 0.85);
-  color: #ffffff;
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(245, 158, 11, 0.35), 0 0 10px rgba(245, 158, 11, 0.2);
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important;
+  border-color: #f59e0b !important;
+  color: #ffffff !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 4px 16px rgba(245, 158, 11, 0.45) !important;
 }
 
 /* ----------------------------------------------------
-   2. การกระทำ: ปุ่มปรับเงิน (Adjust Balance)
+   2. การกระทำ: ปุ่มปรับเงิน - Cyber Emerald / Supabase Wallet Pill
    ---------------------------------------------------- */
 .btn-action-balance {
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(5, 150, 105, 0.14) 100%);
-  border-color: rgba(52, 211, 153, 0.38);
-  color: #6ee7b7;
+  background: rgba(16, 185, 129, 0.14) !important;
+  border: 1px solid rgba(52, 211, 153, 0.42) !important;
+  color: #34d399 !important;
 }
 
 .btn-action-balance:hover {
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.38) 0%, rgba(5, 150, 105, 0.38) 100%);
-  border-color: rgba(52, 211, 153, 0.85);
-  color: #ffffff;
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(16, 185, 129, 0.35), 0 0 12px rgba(52, 211, 153, 0.25);
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+  border-color: #10b981 !important;
+  color: #ffffff !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.5), 0 0 12px rgba(52, 211, 153, 0.3) !important;
 }
 
 /* User Role Badges */
 .user-role-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 3px 10px;
-  border-radius: 6px;
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.6px;
-  text-transform: uppercase;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+  padding: 3px 12px !important;
+  border-radius: var(--radius-full, 9999px) !important;
+  font-size: 0.72rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.6px !important;
+  text-transform: uppercase !important;
 }
 
 .user-role-badge.role-admin {
-  background: rgba(225, 29, 72, 0.16);
-  border: 1px solid rgba(225, 29, 72, 0.45);
-  color: #f472b6;
-  box-shadow: 0 0 10px rgba(225, 29, 72, 0.2);
+  background: rgba(225, 29, 72, 0.16) !important;
+  border: 1px solid rgba(225, 29, 72, 0.5) !important;
+  color: #f472b6 !important;
+  box-shadow: 0 0 10px rgba(225, 29, 72, 0.25) !important;
 }
 
 .user-role-badge.role-member {
-  background: rgba(148, 163, 184, 0.12);
-  border: 1px solid rgba(148, 163, 184, 0.28);
-  color: #cbd5e1;
+  background: rgba(148, 163, 184, 0.12) !important;
+  border: 1px solid rgba(148, 163, 184, 0.3) !important;
+  color: #cbd5e1 !important;
 }
 
