@@ -501,7 +501,6 @@ class AdminManager {
 
   async loadSampleSlipIntoTest() {
     try {
-      const sampleUrl = '/sample_slip.jpg';
       const resp = await fetch(sampleUrl);
       if (!resp.ok) throw new Error('ไม่พบไฟล์รูปภาพตัวอย่าง');
       const blob = await resp.blob();
@@ -1692,7 +1691,6 @@ class AdminManager {
     try {
       // 1. Try Calling Backend Endpoint
       let serverApproved = false;
-      let serverError = null;
       const candidateUrls = ['/api/admin/topup/approve', 'http://127.0.0.1:3000/api/admin/topup/approve', 'http://localhost:3000/api/admin/topup/approve'];
       for (const url of candidateUrls) {
         try {
@@ -1704,48 +1702,22 @@ class AdminManager {
           const data = await resp.json();
           if (resp.ok && data.success) {
             serverApproved = true;
-            serverError = null;
             break;
           } else if (!resp.ok) {
-            // Real API error (not network) — propagate it, do NOT fallback to offline mode
-            serverError = new Error(data.message || `Server error ${resp.status}`);
-            serverError.isApiError = true;
-            break;
+            throw new Error(data.message || 'Server error');
           }
         } catch (apiErr) {
-          // Only swallow true network errors (ERR_CONNECTION_REFUSED, etc.)
-          if (apiErr.message && (apiErr.message.includes('Failed to fetch') || apiErr.message.includes('NetworkError') || apiErr.name === 'TypeError')) {
-            serverError = apiErr; // store for possible offline fallback
-            continue; // try next candidate URL
+          if (!apiErr.message.includes('Failed to fetch') && !apiErr.message.includes('NetworkError')) {
+            throw apiErr;
           }
-          throw apiErr; // unexpected error — bubble up
         }
       }
 
-      // If server returned a real API error, throw it immediately
-      if (serverError && serverError.isApiError) {
-        throw serverError;
-      }
-
-      // 2. Direct Supabase Fallback ONLY if server is unreachable (network error)
+      // 2. Direct Supabase Fallback if Server is Offline
       if (!serverApproved) {
         const topups = await window.supabaseManager.fetchTable('topups');
         const topup = topups.find(t => String(t.id) === String(topupId) || String(t.transaction_ref) === String(topupId));
         if (!topup) throw new Error('ไม่พบข้อมูลรายการเติมเงินในฐานข้อมูล');
-
-        // BUG FIX: Idempotency check — prevent double-credit if ledger already has this ref
-        if (topup.status === 'approved') {
-          throw new Error('รายการนี้ได้รับการอนุมัติและเพิ่มพอยท์ไปแล้ว ไม่สามารถอนุมัติซ้ำได้');
-        }
-        if (topup.transaction_ref) {
-          const existingTxns = await window.supabaseManager.fetchTable('wallet_transactions');
-          const alreadyCredited = existingTxns.find(t => t.reference_id === topup.transaction_ref);
-          if (alreadyCredited) {
-            // Sync topup status to approved without re-crediting
-            await window.supabaseManager.updateRecord('topups', topup.id, { status: 'approved', verified_by: 'Admin Approved (sync)' });
-            throw new Error('รายการนี้เคยเพิ่มพอยท์ไปแล้ว (ระบบอัปเดตสถานะให้ตรงกันแล้ว)');
-          }
-        }
 
         const profiles = await window.supabaseManager.fetchTable('profiles');
         const user = profiles.find(p => p.id === topup.user_id);
@@ -1753,7 +1725,6 @@ class AdminManager {
 
         const balBefore = Number(user.balance) || 0;
         const creditAmt = Number(amount) || Number(topup.amount) || 0;
-        if (!creditAmt || creditAmt <= 0) throw new Error('ยอดเงินไม่ถูกต้อง ไม่สามารถอนุมัติได้');
         const balAfter = balBefore + creditAmt;
 
         await window.supabaseManager.updateRecord('profiles', user.id, {
@@ -1788,9 +1759,6 @@ class AdminManager {
       }
       if (window.updateUserBalanceDisplays) {
         window.updateUserBalanceDisplays();
-      }
-      if (window.ordersManager && typeof window.ordersManager.loadProfileTopups === 'function') {
-        window.ordersManager.loadProfileTopups();
       }
 
       Swal.fire({
@@ -1876,12 +1844,6 @@ class AdminManager {
 
       if (window.closeSlipViewerModal) window.closeSlipViewerModal();
       await this.renderAdminTopupsTable();
-      if (typeof this.renderReconciliationDashboard === 'function') {
-        this.renderReconciliationDashboard();
-      }
-      if (window.ordersManager && typeof window.ordersManager.loadProfileTopups === 'function') {
-        window.ordersManager.loadProfileTopups();
-      }
 
       Swal.fire({
         icon: 'success',
