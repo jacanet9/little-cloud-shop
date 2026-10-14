@@ -969,11 +969,80 @@ class TopupManager {
         return;
       }
 
+      // Handle DUPLICATE Slip / ALREADY CREDITED Status
+      if (result.status === 'already_credited' || result.alreadyCredited || result.duplicate) {
+        this.closeQrBox();
+        this.resetSlipSelection();
+        if (typeof window.updateUserBalanceDisplays === 'function') {
+          window.updateUserBalanceDisplays();
+        }
+
+        const currentBal = (window.authManager && window.authManager.currentUser)
+          ? Number(window.authManager.currentUser.balance || 0)
+          : (result.balanceAfter !== undefined ? Number(result.balanceAfter) : 0);
+
+        Swal.fire({
+          icon: 'warning',
+          title: '⚠️ สลิปนี้เคยใช้งานไปแล้ว (สลิปซ้ำ)',
+          html: `
+            <div style="text-align: left; padding: 6px 0; color: #cbd5e1; font-size: 0.92rem; line-height: 1.6;">
+              <div style="background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 12px; padding: 12px; margin-bottom: 12px;">
+                <div style="color: #f59e0b; font-weight: 700; font-size: 0.95rem; display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                  <i class="fas fa-exclamation-triangle"></i> สลิปนี้เคยได้รับพอยท์ไปแล้ว
+                </div>
+                <div style="font-size: 0.84rem; color: #e2e8f0; line-height: 1.5;">
+                  สลิปนี้ได้รับการเติมเงินเข้าสู่กระเป๋าของคุณไปเรียบร้อยแล้วในรายการก่อนหน้า <b>ระบบไม่อนุญาตให้นำสลิปเดิมมาใช้ซ้ำเพื่อเพิ่มพอยท์อีกรอบ</b> เพื่อความถูกต้องและปลอดภัยทางการเงินครับ
+                </div>
+              </div>
+
+              <div style="background: #181926; border: 1px solid #282a3d; border-radius: 12px; padding: 12px 14px; font-size: 0.85rem; display: flex; flex-direction: column; gap: 7px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <span style="color: #9496a8;">รหัสอ้างอิงสลิป:</span>
+                  <code style="color: #facc15; font-size: 0.8rem; background: #0e0f17; padding: 2px 6px; border-radius: 4px;">${result.transactionRef || '-'}</code>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <span style="color: #9496a8;">ยอดเงินในสลิป:</span>
+                  <span style="color: #94a3b8; font-weight: 600;">฿ ${Number(result.amount || amount).toFixed(2)} (เติมเงินไปแล้ว)</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px dashed #2d3047; padding-top: 8px; margin-top: 4px;">
+                  <span style="color: #cbd5e1; font-weight: 600;">ยอดเงินคงเหลือปัจจุบันของคุณ:</span>
+                  <b style="color: #38bdf8; font-size: 1.15rem; font-family: 'Outfit', sans-serif;">฿ ${currentBal.toLocaleString('th-TH', { minimumFractionDigits: 2 })}</b>
+                </div>
+              </div>
+
+              <div style="margin-top: 12px; padding: 10px; background: rgba(56, 189, 248, 0.08); border: 1px dashed rgba(56, 189, 248, 0.25); border-radius: 8px; font-size: 0.82rem; color: #7dd3fc; line-height: 1.5;">
+                💡 <b>ต้องการเพิ่มพอยท์?</b> กรุณาสแกน QR Code หรือโอนเงินยอดใหม่ผ่านแอปธนาคาร แล้วแนบสลิปใบใหม่ครับ
+              </div>
+            </div>
+          `,
+          background: '#151622',
+          color: '#fff',
+          confirmButtonColor: '#e11d48',
+          confirmButtonText: '<i class="fas fa-redo"></i> ทำรายการโอนเงินใหม่',
+          showCancelButton: true,
+          cancelButtonText: '<i class="fas fa-shopping-bag"></i> ไปหน้าร้านค้า',
+          cancelButtonColor: '#334155'
+        }).then((swalRes) => {
+          if (swalRes.isConfirmed) {
+            if (this.currentAmount) {
+              this.generateQrCode(this.currentAmount);
+            }
+          } else if (swalRes.isDismissed && swalRes.dismiss === Swal.DismissReason.cancel) {
+            if (typeof window.navToTab === 'function') {
+              window.navToTab('shop');
+            } else {
+              const shopNavBtn = document.getElementById('nav-tab-shop');
+              if (shopNavBtn) shopNavBtn.click();
+            }
+          }
+        });
+        return;
+      }
+
       await this.handlePaymentCompleted({
         amount: result.amount || amount,
         chargeId: result.transactionRef || result.referenceId || `PAY-${Date.now()}`,
-        balanceAfter: result.balanceAfter,
-        alreadyCredited: result.alreadyCredited
+        balanceAfter: result.balanceAfter
       });
     } catch (err) {
       console.error('Topup verification failed:', err);
@@ -991,7 +1060,7 @@ class TopupManager {
   /**
    * Handle Successful Payment Completion & Celebration
    */
-  async handlePaymentCompleted({ amount, chargeId, balanceAfter, alreadyCredited = false }) {
+  async handlePaymentCompleted({ amount, chargeId, balanceAfter }) {
     this.stopStatusPolling();
     this.stopMobileSlipPolling();
     if (this.countdownTimer) clearInterval(this.countdownTimer);
@@ -1024,14 +1093,14 @@ class TopupManager {
 
     Swal.fire({
       icon: 'success',
-      title: alreadyCredited ? '🎉 สลิปนี้ได้รับการเติมเงินสำเร็จแล้ว' : '🎉 เติมเงินสำเร็จเรียบร้อย!',
+      title: '🎉 เติมเงินสำเร็จเรียบร้อย!',
       html: `
         <div style="padding: 10px 0; text-align: center; color: #cbd5e1;">
           <div style="font-size: 2.2rem; font-weight: 800; color: #34d399; font-family: 'Outfit', sans-serif; margin: 8px 0;">
             +฿ ${numAmount.toLocaleString('th-TH', { minimumFractionDigits: 2 })}
           </div>
           <p style="font-size: 0.95rem; margin-bottom: 12px; color: #e2e8f0;">
-            ${alreadyCredited ? 'ยอดเงินในสลิปนี้ถูกบันทึกเข้ากระเป๋าของคุณเรียบร้อยแล้ว' : 'ยอดเงินเข้าสู่กระเป๋าเครดิตของคุณเรียบร้อยแล้ว'}
+            ยอดเงินเข้าสู่กระเป๋าเครดิตของคุณเรียบร้อยแล้ว
           </p>
           <div style="background: #181926; border: 1px solid #282a3d; border-radius: 12px; padding: 12px 16px; display: flex; flex-direction: column; gap: 8px; font-size: 0.84rem; text-align: left;">
             <div style="display: flex; justify-content: space-between;">

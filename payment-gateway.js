@@ -323,12 +323,15 @@ class PaymentGatewayEngine {
           success: true,
           status: 'already_credited',
           alreadyCredited: true,
+          duplicate: true,
           gateway: `PromptPay QR (${slipInspection.bankName})`,
           transactionRef: transRef,
           gatewayRef: `SLIP-${transRef}`,
           verifiedAmount: serverResult.amount || expectedAmount,
+          balanceAfter: serverResult.currentBalance !== undefined ? serverResult.currentBalance : (user ? user.balance : undefined),
           bankName: slipInspection.bankName,
-          imgSrc: resolvedSlipUrl
+          imgSrc: resolvedSlipUrl,
+          message: serverResult.message
         };
       }
 
@@ -495,16 +498,19 @@ class PaymentGatewayEngine {
 
     // If slip was already credited to this user in a previous step, avoid duplicate credit & return current balance
     if (verification.alreadyCredited) {
-      console.log('✅ Slip already credited to this user, returning current balance...');
+      console.log('⚠️ Slip already credited to this user, returning duplicate status...');
       if (window.updateUserBalanceDisplays) window.updateUserBalanceDisplays();
       return {
         success: true,
+        status: 'already_credited',
         alreadyCredited: true,
+        duplicate: true,
         amount: verification.verifiedAmount || amount,
         transactionRef: verification.transactionRef,
         gateway: verification.gateway,
         bankName: verification.bankName,
-        balanceAfter: user.balance
+        balanceAfter: verification.balanceAfter !== undefined ? verification.balanceAfter : (user ? user.balance : 0),
+        message: verification.message
       };
     }
 

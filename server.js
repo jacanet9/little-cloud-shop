@@ -527,19 +527,32 @@ app.post('/api/slip/verify', async (req, res) => {
 
     if ((dupTxn && dupTxn.length > 0) || (dupTopup && dupTopup.length > 0)) {
       const dup = (dupTxn && dupTxn[0]) || (dupTopup && dupTopup[0]);
-      if (dup.user_id === user_id && dup.status === 'approved') {
+      const { data: userProfile } = await supabase.from('profiles').select('balance').eq('id', user_id).single();
+      const currentBal = userProfile ? Number(userProfile.balance) : 0;
+
+      if (dup.user_id === user_id && (dup.status === 'approved' || dup.status === 'completed')) {
         return res.status(200).json({
           success: true,
           status: 'already_credited',
           alreadyCredited: true,
-          message: 'สลิปนี้ได้รับการเติมเงินสำเร็จไปแล้วในระบบ',
+          duplicate: true,
+          message: 'สลิปนี้ได้รับการเติมเงินสำเร็จไปแล้วในรายการก่อนหน้า (ไม่สามารถใช้สลิปเดิมซ้ำเพื่อเพิ่มพอยท์ได้)',
           transRef,
-          amount: Number(dup.amount)
+          amount: Number(dup.amount),
+          currentBalance: currentBal
         });
       }
       return res.status(400).json({
         success: false,
         message: `⚠️ สลิปนี้ถูกใช้งานไปแล้วในระบบ (รหัสอ้างอิง: ${transRef}) ไม่สามารถใช้สลิปซ้ำได้เพื่อความปลอดภัย`
+      });
+    }
+
+    // Guard against external duplicate slips reported by SlipOK but not in this database
+    if (lastSlipOkError && (lastSlipOkError.code === 1012 || lastSlipOkError.code === 1003)) {
+      return res.status(400).json({
+        success: false,
+        message: '❌ สลิปนี้เคยถูกส่งใช้งานไปแล้วในระบบธนาคาร (สลิปซ้ำ) ระบบไม่อนุญาตให้นำมาใช้เติมเงิน'
       });
     }
 
