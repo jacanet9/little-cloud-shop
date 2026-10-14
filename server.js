@@ -833,6 +833,23 @@ app.post('/api/slip/verify', async (req, res) => {
 // 1.6 STANDALONE SLIPOK CHECKER & CONNECTION TEST (Used by NextJS & Admin Tools)
 // ==============================================================================
 
+// GET /api/slip/config - Expose gateway config for NextJS SlipOK integration
+app.get('/api/slip/config', async (req, res) => {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  try {
+    const { apiKey, branchId, promptpayNum } = await getGatewaySettings();
+    return res.status(200).json({
+      success: true,
+      branch_id: branchId || '78528',
+      api_key: apiKey || 'SLIPOKRQF9YV8',
+      promptpay_number: promptpayNum || '0815993194',
+      shop_name: 'Little Cloud Shop'
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 app.post('/api/slip/check', async (req, res) => {
   res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
   try {
