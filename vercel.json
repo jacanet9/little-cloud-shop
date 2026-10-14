@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/api"
+    },
+    {
+      "source": "/upload-slip",
+      "destination": "/upload-slip.html"
+    }
+  ]
+}
