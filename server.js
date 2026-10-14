@@ -38,9 +38,13 @@ app.use((req, res, next) => {
 // Middlewares - Support large image uploads (up to 50MB base64)
 app.use(express.json({ limit: '50mb' }));
 app.use(express.static(path.join(__dirname, './'), {
+  etag: false,
+  lastModified: false,
   setHeaders: (res, filePath) => {
     if (filePath.endsWith('.js') || filePath.endsWith('.html') || filePath.endsWith('.css')) {
-      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
     }
   }
 }));
