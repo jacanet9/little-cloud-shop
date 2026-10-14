@@ -1366,6 +1366,63 @@
             </form>
           </div>
 
+          <!-- SlipOK AI Inspector & Test Suite (From nextjs-slipok-api-main) -->
+          <div style="background: #181926; border: 1px solid rgba(244, 114, 182, 0.35); border-radius: 14px; padding: 18px; margin-bottom: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+              <h5 style="color: #fff; font-size: 0.95rem; font-weight: 700; margin: 0; display: flex; align-items: center; gap: 8px;">
+                <i class="fas fa-brain" style="color: #f472b6;"></i>
+                เครื่องมือทดสอบเช็คสลิปด้วย SlipOK AI (NextJS Integration)
+              </h5>
+              <button type="button" class="btn-outline-dark" style="font-size: 0.78rem; padding: 5px 12px; color: #38bdf8; border-color: rgba(56, 189, 248, 0.3);" onclick="window.adminManager.testSlipOkConnection()">
+                <i class="fas fa-plug"></i> ทดสอบการเชื่อมต่อ SlipOK API
+              </button>
+            </div>
+            
+            <p style="font-size: 0.8rem; color: #9496a8; line-height: 1.5; margin-bottom: 14px;">
+              ทดสอบอัปโหลดรูปภาพสลิปเพื่อเรียกดูข้อมูลที่ระบบ SlipOK AI ตรวจจับได้จริง (เช่น ยอดเงิน, ผู้รับโอน, ธนาคาร, วันที่/เวลา) โดยอ้างอิงและเชื่อมกับโปรเจกต์ <code>nextjs-slipok-api-main</code>
+            </p>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start;">
+              <!-- Upload / Input -->
+              <div style="background: #12131c; border: 1px solid #282a3c; border-radius: 12px; padding: 14px;">
+                <label style="display: block; font-size: 0.82rem; color: #e2e8f0; font-weight: 600; margin-bottom: 6px;">
+                  เลือกไฟล์สลิปเพื่อทดสอบ
+                </label>
+                <input type="file" id="slipok-test-file-input" accept="image/*" style="display: block; width: 100%; font-size: 0.78rem; color: #a5a8bc; margin-bottom: 10px;" onchange="window.adminManager.handleSlipOkTestFileSelected(this)">
+                
+                <div style="display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap;">
+                  <button type="button" class="btn-pink" id="btn-run-slipok-test" style="flex: 1; padding: 8px 14px; font-size: 0.82rem; font-weight: 700;" onclick="window.adminManager.runSlipOkTest()">
+                    <i class="fas fa-magnifying-glass"></i> ตรวจสอบสลิปด้วย SlipOK
+                  </button>
+                  <button type="button" class="btn-outline-dark" style="padding: 8px 12px; font-size: 0.78rem;" onclick="window.adminManager.loadSampleSlipIntoTest()">
+                    โหลดสลิปตัวอย่าง
+                  </button>
+                </div>
+
+                <!-- Preview Box -->
+                <div id="slipok-test-preview-box" style="width: 100%; min-height: 180px; max-height: 260px; background: #0a0b12; border: 1px dashed #2d2f45; border-radius: 8px; display: flex; align-items: center; justify-content: center; overflow: hidden; padding: 6px;">
+                  <span id="slipok-test-preview-empty" style="color: #64748b; font-size: 0.78rem;">ยังไม่ได้เลือกไฟล์รูปภาพ</span>
+                  <img id="slipok-test-preview-img" src="" alt="Test Slip" style="display: none; max-width: 100%; max-height: 240px; object-fit: contain; border-radius: 6px;">
+                </div>
+              </div>
+
+              <!-- Output Result Card -->
+              <div style="background: #12131c; border: 1px solid #282a3c; border-radius: 12px; padding: 14px; min-height: 310px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                  <span style="font-size: 0.82rem; color: #e2e8f0; font-weight: 700;">ผลการตรวจสอบจาก SlipOK AI</span>
+                  <span id="slipok-test-status-badge" style="display: none; font-size: 0.72rem; padding: 2px 8px; border-radius: 6px; font-weight: 700;"></span>
+                </div>
+
+                <div id="slipok-test-result-body">
+                  <div style="text-align: center; color: #64748b; padding: 40px 10px; font-size: 0.8rem;">
+                    <i class="fas fa-file-invoice" style="font-size: 2.2rem; opacity: 0.3; margin-bottom: 8px; display: block;"></i>
+                    เลือกรูปสลิปแล้วกด "ตรวจสอบสลิปด้วย SlipOK" เพื่อดูผลการอ่านค่า AI
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <!-- Immutable Ledger Audit Logs Table -->
           <h5 style="color: #fff; font-size: 0.95rem; font-weight: 700; margin-bottom: 12px;">
             <i class="fas fa-list-check" style="color: #34d399;"></i> ประวัติธุรกรรมเครดิต (Immutable Ledger &

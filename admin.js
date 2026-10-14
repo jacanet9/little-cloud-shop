@@ -414,6 +414,246 @@ class AdminManager {
   }
 
   // ==========================================
+  // SLIPOK AI INSPECTOR & TEST SUITE (NextJS Pattern)
+  // ==========================================
+  async testSlipOkConnection() {
+    const branchEl = document.getElementById('gateway-input-branch');
+    const keyEl = document.getElementById('gateway-input-key');
+    const branchId = branchEl ? branchEl.value.trim() : '';
+    const apiKey = keyEl ? keyEl.value.trim() : '';
+
+    if (!branchId || !apiKey) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'กรุณากรอกข้อมูล',
+        text: 'กรุณากรอกทั้ง SlipOK Branch ID และ API Key ในฟอร์มด้านบนก่อนกดทดสอบ',
+        background: '#151622',
+        color: '#fff',
+        confirmButtonColor: '#e11d48'
+      });
+      return;
+    }
+
+    Swal.fire({
+      title: 'กำลังทดสอบเชื่อมต่อ SlipOK...',
+      text: `ส่งคำขอทดสอบไปยังสาขา: ${branchId}`,
+      allowOutsideClick: false,
+      didOpen: () => Swal.showLoading(),
+      background: '#151622',
+      color: '#fff'
+    });
+
+    try {
+      const resp = await fetch('/api/slip/test-connection', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ branch_id: branchId, api_key: apiKey })
+      });
+      const data = await resp.json();
+
+      if (resp.ok && data.success) {
+        Swal.fire({
+          icon: 'success',
+          title: '🎉 เชื่อมต่อ SlipOK สำเร็จ!',
+          text: data.message || 'Branch ID และ API Key ถูกต้อง พร้อมใช้งานสำหรับระบบตรวจสอบสลิป',
+          background: '#151622',
+          color: '#fff',
+          confirmButtonColor: '#10b981'
+        });
+      } else {
+        Swal.fire({
+          icon: 'error',
+          title: 'เชื่อมต่อ SlipOK ไม่สำเร็จ',
+          text: data.message || 'กรุณาตรวจสอบ Branch ID และ API Key ในแดชบอร์ด SlipOK อีกครั้ง',
+          background: '#151622',
+          color: '#fff',
+          confirmButtonColor: '#e11d48'
+        });
+      }
+    } catch (err) {
+      Swal.fire({
+        icon: 'error',
+        title: 'เกิดข้อผิดพลาดในการเชื่อมต่อ',
+        text: err.message,
+        background: '#151622',
+        color: '#fff'
+      });
+    }
+  }
+
+  handleSlipOkTestFileSelected(input) {
+    if (input.files && input.files[0]) {
+      const file = input.files[0];
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        this.currentTestSlipDataUrl = e.target.result;
+        const img = document.getElementById('slipok-test-preview-img');
+        const empty = document.getElementById('slipok-test-preview-empty');
+        if (img) {
+          img.src = e.target.result;
+          img.style.display = 'block';
+        }
+        if (empty) empty.style.display = 'none';
+      };
+      reader.readAsDataURL(file);
+    }
+  }
+
+  async loadSampleSlipIntoTest() {
+    try {
+      const sampleUrl = 'nextjs-slipok-api-main/public/432690985_814835843801601_4395314745528656572_n.jpg';
+      const resp = await fetch(sampleUrl);
+      if (!resp.ok) throw new Error('ไม่พบไฟล์รูปภาพตัวอย่าง');
+      const blob = await resp.blob();
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        this.currentTestSlipDataUrl = e.target.result;
+        const img = document.getElementById('slipok-test-preview-img');
+        const empty = document.getElementById('slipok-test-preview-empty');
+        if (img) {
+          img.src = e.target.result;
+          img.style.display = 'block';
+        }
+        if (empty) empty.style.display = 'none';
+      };
+      reader.readAsDataURL(blob);
+    } catch (e) {
+      Swal.fire({
+        icon: 'info',
+        title: 'โหลดภาพตัวอย่าง',
+        text: 'กำลังโหลดภาพสลิปตัวอย่างจากโปรเจกต์ nextjs-slipok-api-main...',
+        timer: 1500,
+        showConfirmButton: false,
+        background: '#151622',
+        color: '#fff'
+      });
+    }
+  }
+
+  async runSlipOkTest() {
+    if (!this.currentTestSlipDataUrl) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'ยังไม่ได้เลือกรูปสลิป',
+        text: 'กรุณาเลือกไฟล์สลิปหรือกดปุ่ม "โหลดสลิปตัวอย่าง" ก่อนกดตรวจสอบ',
+        background: '#151622',
+        color: '#fff'
+      });
+      return;
+    }
+
+    const branchEl = document.getElementById('gateway-input-branch');
+    const keyEl = document.getElementById('gateway-input-key');
+    const branchId = branchEl ? branchEl.value.trim() : '';
+    const apiKey = keyEl ? keyEl.value.trim() : '';
+
+    const badgeEl = document.getElementById('slipok-test-status-badge');
+    const bodyEl = document.getElementById('slipok-test-result-body');
+
+    if (bodyEl) {
+      bodyEl.innerHTML = `
+        <div style="text-align: center; color: #cbd5e1; padding: 40px 10px; font-size: 0.85rem;">
+          <i class="fas fa-spinner fa-spin" style="font-size: 2rem; color: #f472b6; margin-bottom: 12px; display: block;"></i>
+          กำลังส่งรูปสลิปไปยัง SlipOK AI เพื่อตรวจสอบ...
+        </div>
+      `;
+    }
+
+    try {
+      const resp = await fetch('/api/slip/check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          slip_data: this.currentTestSlipDataUrl,
+          branch_id: branchId,
+          api_key: apiKey
+        })
+      });
+
+      const resData = await resp.json();
+
+      if (resp.ok && resData.success && resData.data) {
+        const d = resData.data;
+        if (badgeEl) {
+          badgeEl.style.display = 'inline-block';
+          badgeEl.style.background = 'rgba(16, 185, 129, 0.2)';
+          badgeEl.style.color = '#34d399';
+          badgeEl.style.border = '1px solid #10b981';
+          badgeEl.innerHTML = '<i class="fas fa-circle-check"></i> สลิปถูกต้อง (Verified)';
+        }
+
+        if (bodyEl) {
+          bodyEl.innerHTML = `
+            <div style="background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.35); border-radius: 10px; padding: 12px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+              <div>
+                <span style="font-size: 0.72rem; color: #a7f3d0;">ยอดเงินที่ตรวจพบ</span>
+                <div style="font-size: 1.4rem; font-weight: 800; color: #34d399; font-family: 'Outfit', sans-serif;">
+                  ฿ ${(Number(d.amount)||0).toLocaleString('th-TH', { minimumFractionDigits: 2 })}
+                </div>
+              </div>
+              <div style="text-align: right; font-size: 0.76rem; color: #cbd5e1;">
+                <div>วันที่: <b>${d.transDate || '-'}</b></div>
+                <div>เวลา: <b>${d.transTime || '-'}</b></div>
+              </div>
+            </div>
+
+            <div style="background: #0d0e17; border: 1px solid #232537; border-radius: 10px; padding: 10px; font-size: 0.78rem; display: flex; flex-direction: column; gap: 8px;">
+              <div style="display: flex; justify-content: space-between;">
+                <span style="color: #9496a8;">ผู้รับเงิน:</span>
+                <b style="color: #fff;">${d.receiver?.displayName || '-'}</b>
+              </div>
+              <div style="display: flex; justify-content: space-between;">
+                <span style="color: #9496a8;">ธนาคารผู้รับ:</span>
+                <span style="color: #f472b6;">${d.receivingBankName || d.receivingBank || '-'}</span>
+              </div>
+              <div style="display: flex; justify-content: space-between;">
+                <span style="color: #9496a8;">ผู้โอนเงิน:</span>
+                <b style="color: #fff;">${d.sender?.displayName || '-'}</b>
+              </div>
+              <div style="display: flex; justify-content: space-between;">
+                <span style="color: #9496a8;">ธนาคารผู้โอน:</span>
+                <span style="color: #60a5fa;">${d.sendingBankName || d.sendingBank || '-'}</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #1a1b28; padding-top: 6px;">
+                <span style="color: #9496a8;">รหัสอ้างอิง:</span>
+                <code style="background: #181926; padding: 2px 6px; border-radius: 4px; color: #facc15;">${d.transRef || '-'}</code>
+              </div>
+            </div>
+          `;
+        }
+      } else {
+        if (badgeEl) {
+          badgeEl.style.display = 'inline-block';
+          badgeEl.style.background = 'rgba(239, 68, 68, 0.2)';
+          badgeEl.style.color = '#fca5a5';
+          badgeEl.style.border = '1px solid #ef4444';
+          badgeEl.innerHTML = '<i class="fas fa-circle-xmark"></i> ตรวจสอบไม่ผ่าน';
+        }
+
+        if (bodyEl) {
+          bodyEl.innerHTML = `
+            <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 10px; padding: 14px; color: #fca5a5; font-size: 0.8rem; line-height: 1.6;">
+              <b style="display: block; margin-bottom: 4px; color: #f87171;">⚠️ ผลการตรวจสอบจาก SlipOK:</b>
+              <div>${resData.message || 'ไม่สามารถตรวจสอบสลิปได้'}</div>
+              <div style="margin-top: 8px; font-size: 0.74rem; color: #a5a8bc;">
+                * หมายเหตุ: หากระบบแจ้ง "ไม่พบข้อมูลสาขา" กรุณาอัปเดต SlipOK Branch ID และ API Key ให้ตรงกับบัญชีที่สมัครไว้ใน slipok.com
+              </div>
+            </div>
+          `;
+        }
+      }
+    } catch (err) {
+      if (bodyEl) {
+        bodyEl.innerHTML = `
+          <div style="color: #ef4444; font-size: 0.8rem; padding: 20px; text-align: center;">
+            เกิดข้อผิดพลาด: ${err.message}
+          </div>
+        `;
+      }
+    }
+  }
+
+  // ==========================================
   // USERS MANAGEMENT
   // ==========================================
   async renderAdminUsersTable() {

@@ -149,6 +149,35 @@ class PaymentGatewayEngine {
       }
     }
 
+    // Pass 6: SlipOK AI Inspector Engine Fallback (from nextjs-slipok-api-main)
+    if (!qrResult || !qrResult.data) {
+      try {
+        const checkResp = await fetch('/api/slip/check', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ slip_data: imgSrc })
+        });
+        if (checkResp.ok) {
+          const checkData = await checkResp.json();
+          if (checkData && checkData.success && checkData.data) {
+            const ai = checkData.data;
+            return {
+              isBankSlip: true,
+              bankCode: ai.receivingBank || '000',
+              bankName: ai.receivingBankName || 'ธนาคารผู้รับ',
+              transRef: ai.transRef || `REF${Date.now()}`,
+              rawPayload: ai.transRef || '',
+              tags: {},
+              imgSrc,
+              slipOkData: ai
+            };
+          }
+        }
+      } catch (aiErr) {
+        console.warn('SlipOK AI fallback check warning:', aiErr);
+      }
+    }
+
     // Strict QR Code Existence Check
     if (!qrResult || !qrResult.data || !qrResult.data.trim()) {
       throw new Error('❌ ตรวจสอบไม่ผ่าน: ไม่พบ QR Code บนรูปภาพ หรือรูปภาพไม่ใช่สลิปโอนเงินของธนาคาร กรุณาใช้สลิปจริงที่ได้จากแอปธนาคาร');

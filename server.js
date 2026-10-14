@@ -453,13 +453,50 @@ app.post('/api/slip/verify', async (req, res) => {
     if (apiKey && branchId) {
       try {
         console.log(`[*] Calling SlipOK verification for branch: ${branchId}...`);
-        const slipOkResp = await axios.post(
-          `https://api.slipok.com/api/line/apikey/${branchId}`,
-          { data: payload, amount: requestedAmount },
-          { headers: { 'x-authorization': apiKey }, timeout: 8000 }
-        );
+        const FormData = require('form-data');
+        let slipOkResp = null;
 
-        if (slipOkResp.data && slipOkResp.data.success && slipOkResp.data.data) {
+        // Priority 1: Check via Slip Image File (FormData 'files' - same as nextjs-slipok-api-main)
+        if (slip_data && typeof slip_data === 'string' && slip_data.includes('base64')) {
+          try {
+            const base64Data = slip_data.replace(/^data:image\/\w+;base64,/, '');
+            const imgBuffer = Buffer.from(base64Data, 'base64');
+            const form = new FormData();
+            form.append('files', imgBuffer, { filename: 'slip.jpg', contentType: 'image/jpeg' });
+            if (requestedAmount) form.append('amount', requestedAmount);
+            form.append('log', 'true');
+
+            slipOkResp = await axios.post(
+              `https://api.slipok.com/api/line/apikey/${branchId}`,
+              form,
+              {
+                headers: {
+                  ...form.getHeaders(),
+                  'x-authorization': apiKey
+                },
+                timeout: 10000
+              }
+            );
+          } catch (fileErr) {
+            console.warn('SlipOK FormData check error:', fileErr.response?.data || fileErr.message);
+          }
+        }
+
+        // Priority 2: Fallback to decoded QR string payload check
+        if (!slipOkResp && payload) {
+          try {
+            slipOkResp = await axios.post(
+              `https://api.slipok.com/api/line/apikey/${branchId}`,
+              { data: payload, amount: requestedAmount, log: true },
+              { headers: { 'x-authorization': apiKey, 'Content-Type': 'application/json' }, timeout: 8000 }
+            );
+          } catch (qrErr) {
+            console.warn('SlipOK QR string check error:', qrErr.response?.data || qrErr.message);
+            throw qrErr;
+          }
+        }
+
+        if (slipOkResp && slipOkResp.data && slipOkResp.data.success && slipOkResp.data.data) {
           const slipInfo = slipOkResp.data.data;
           const actualAmount = Number(slipInfo.amount) || requestedAmount;
 
@@ -483,7 +520,7 @@ app.post('/api/slip/verify', async (req, res) => {
           slipOkVerified = true;
           verifiedAmount = actualAmount;
           if (slipInfo.transRef) transRef = slipInfo.transRef;
-        } else {
+        } else if (slipOkResp && slipOkResp.data && !slipOkResp.data.success) {
           return res.status(400).json({
             success: false,
             message: '❌ การตรวจสอบสลิปล้มเหลว: ' + (slipOkResp.data?.message || 'ไม่พบรายการโอนเงินในระบบธนาคาร')
@@ -577,6 +614,164 @@ app.post('/api/slip/verify', async (req, res) => {
   } catch (err) {
     console.error('Slip Verification Endpoint Error:', err);
     return res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์: ' + err.message });
+  }
+});
+
+// ==============================================================================
+// 1.6 STANDALONE SLIPOK CHECKER & CONNECTION TEST (Used by NextJS & Admin Tools)
+// ==============================================================================
+
+app.post('/api/slip/check', async (req, res) => {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  try {
+    const { slip_data, qr_data, payload: rawPayload, amount, branch_id: customBranch, api_key: customKey } = req.body;
+
+    // 1. Resolve SlipOK credentials from DB or request overrides
+    const { data: settingsData } = await supabase.from('site_settings').select('*').limit(1);
+    const settings = (settingsData && settingsData[0]) || {};
+    const apiKey = (customKey || settings.gateway_api_key || process.env.SLIPOK_API_KEY || '').trim();
+    const branchId = (customBranch || settings.gateway_branch_id || process.env.SLIPOK_BRANCH_ID || '').trim().replace(/^.*\/apikey\//i, '').replace(/[^a-zA-Z0-9_-]/g, '');
+
+    if (!apiKey || !branchId) {
+      return res.status(400).json({
+        success: false,
+        message: 'กรุณาระบุ SlipOK Branch ID และ API Key ในหน้าตั้งค่าก่อนตรวจสอบสลิป'
+      });
+    }
+
+    let slipOkData = null;
+    let lastSlipError = null;
+    const FormData = require('form-data');
+
+    // Method 1: Check via Image Buffer (FormData files - same as nextjs-slipok-api-main)
+    if (slip_data && typeof slip_data === 'string' && slip_data.includes('base64')) {
+      try {
+        const base64Data = slip_data.replace(/^data:image\/\w+;base64,/, '');
+        const imgBuffer = Buffer.from(base64Data, 'base64');
+        const form = new FormData();
+        form.append('files', imgBuffer, { filename: 'slip.jpg', contentType: 'image/jpeg' });
+        if (amount) form.append('amount', Number(amount));
+        form.append('log', 'true');
+
+        const slipRes = await axios.post(
+          `https://api.slipok.com/api/line/apikey/${branchId}`,
+          form,
+          {
+            headers: {
+              ...form.getHeaders(),
+              'x-authorization': apiKey
+            },
+            timeout: 10000
+          }
+        );
+        if (slipRes.data && slipRes.data.success && slipRes.data.data) {
+          slipOkData = slipRes.data.data;
+        }
+      } catch (err) {
+        console.warn('Standalone SlipOK FormData error:', err.response?.data || err.message);
+        lastSlipError = err.response?.data;
+      }
+    }
+
+    // Method 2: Check via Decoded QR string (data: payload)
+    const qrString = rawPayload || qr_data || '';
+    if (!slipOkData && qrString) {
+      try {
+        const slipRes = await axios.post(
+          `https://api.slipok.com/api/line/apikey/${branchId}`,
+          { data: qrString, amount: amount ? Number(amount) : undefined, log: true },
+          {
+            headers: { 'x-authorization': apiKey, 'Content-Type': 'application/json' },
+            timeout: 8000
+          }
+        );
+        if (slipRes.data && slipRes.data.success && slipRes.data.data) {
+          slipOkData = slipRes.data.data;
+        }
+      } catch (err) {
+        console.warn('Standalone SlipOK QR data error:', err.response?.data || err.message);
+        lastSlipError = err.response?.data;
+      }
+    }
+
+    if (!slipOkData) {
+      const errMsg = lastSlipError?.message || 'ไม่พบข้อมูลสลิปในระบบธนาคาร หรือรูปภาพไม่ใช่สลิปจริง กรุณาตรวจสอบไอดีสาขา SlipOK และรูปภาพ';
+      return res.status(400).json({
+        success: false,
+        code: lastSlipError?.code,
+        message: errMsg
+      });
+    }
+
+    // Comprehensive Bank Code Mapping (same as nextjs-slipok-api-main)
+    const bankNames = {
+      '002': 'ธนาคารกรุงเทพ (BBL)',
+      '004': 'ธนาคารกสิกรไทย (K-Bank)',
+      '006': 'ธนาคารกรุงไทย (KTB)',
+      '011': 'ธนาคารทหารไทยธนชาต (ttb)',
+      '014': 'ธนาคารไทยพาณิชย์ (SCB)',
+      '025': 'ธนาคารกรุงศรีอยุธยา (BAY)',
+      '030': 'ธนาคารออมสิน (GSB)',
+      '034': 'ธนาคาร ธ.ก.ส. (BAAC)',
+      '069': 'ธนาคารเกียรตินาคินภัทร (KKP)',
+      '022': 'ธนาคารซีไอเอ็มบีไทย (CIMBT)',
+      '067': 'ธนาคารทิสโก้ (TISCO)',
+      '073': 'ธนาคารแลนด์ แอนด์ เฮ้าส์ (LH Bank)',
+      '070': 'ธนาคารไอซีบีซี (ไทย)'
+    };
+
+    return res.status(200).json({
+      success: true,
+      message: 'ตรวจสอบสลิปสำเร็จ (SlipOK AI Verified)',
+      data: {
+        ...slipOkData,
+        receivingBankName: bankNames[slipOkData.receivingBank] || slipOkData.receivingBank || 'ธนาคารพาณิชย์ไทย',
+        sendingBankName: bankNames[slipOkData.sendingBank] || slipOkData.sendingBank || 'ธนาคารพาณิชย์ไทย'
+      }
+    });
+
+  } catch (err) {
+    console.error('Slip Check Endpoint Error:', err);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Test SlipOK Connection (Validates Branch ID & API Key)
+app.post('/api/slip/test-connection', async (req, res) => {
+  try {
+    const { branch_id: customBranch, api_key: customKey } = req.body;
+    const { data: settingsData } = await supabase.from('site_settings').select('*').limit(1);
+    const settings = (settingsData && settingsData[0]) || {};
+    const apiKey = (customKey || settings.gateway_api_key || '').trim();
+    const branchId = (customBranch || settings.gateway_branch_id || '').trim().replace(/^.*\/apikey\//i, '').replace(/[^a-zA-Z0-9_-]/g, '');
+
+    if (!apiKey || !branchId) {
+      return res.status(400).json({ success: false, message: 'กรุณากรอกทั้ง SlipOK Branch ID และ API Key' });
+    }
+
+    try {
+      const pingRes = await axios.post(
+        `https://api.slipok.com/api/line/apikey/${branchId}`,
+        { data: '004600060000010103004022520261014TESTPING00005102TH9104EF12' },
+        { headers: { 'x-authorization': apiKey, 'Content-Type': 'application/json' }, timeout: 6000 }
+      );
+      return res.json({ success: true, message: 'เชื่อมต่อ SlipOK สำเร็จ! Branch ID และ API Key ใช้งานได้' });
+    } catch (err) {
+      const errData = err.response?.data;
+      if (errData?.code === 1001) {
+        return res.status(400).json({ success: false, code: 1001, message: 'ไม่พบข้อมูลสาขา กรุณาตรวจสอบ SlipOK Branch ID ในแดชบอร์ด SlipOK' });
+      }
+      if (err.response?.status === 401 || errData?.code === 1000) {
+        return res.status(400).json({ success: false, code: 1000, message: 'API Key ไม่ถูกต้อง กรุณาตรวจสอบ x-authorization API Key' });
+      }
+      // If code is not 1001 (e.g. 1002 slip not found), branch and key are VALID!
+      if (err.response?.status === 400 && errData && errData.code !== 1001) {
+        return res.json({ success: true, message: 'เชื่อมต่อ SlipOK สำเร็จ! สาขาและ API Key ถูกต้อง (พร้อมตรวจสอบสลิป)' });
+      }
+      return res.status(400).json({ success: false, message: errData?.message || err.message });
+    }
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
   }
 });
 
