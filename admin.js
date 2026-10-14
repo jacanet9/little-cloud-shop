@@ -501,6 +501,7 @@ class AdminManager {
 
   async loadSampleSlipIntoTest() {
     try {
+      const sampleUrl = 'nextjs-slipok-api-main/public/432690985_814835843801601_4395314745528656572_n.jpg';
       const resp = await fetch(sampleUrl);
       if (!resp.ok) throw new Error('ไม่พบไฟล์รูปภาพตัวอย่าง');
       const blob = await resp.blob();
