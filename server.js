@@ -201,14 +201,8 @@ app.get('/api/slip/check/:session_id', (req, res) => {
   const { session_id } = req.params;
   const session = SLIP_SESSIONS[session_id];
 
+  // BUG FIX: Do NOT auto-create sessions for unknown IDs (prevents old session replay)
   if (!session) {
-    SLIP_SESSIONS[session_id] = {
-      session_id: session_id,
-      status: 'waiting',
-      slip_data: null,
-      filename: null,
-      created_at: Date.now()
-    };
     return res.status(200).json({
       success: true,
       status: 'waiting',
@@ -222,6 +216,16 @@ app.get('/api/slip/check/:session_id', (req, res) => {
       success: true,
       status: 'waiting',
       message: 'Waiting for mobile upload'
+    });
+  }
+
+  // BUG FIX: Expire completed sessions older than 30 minutes to prevent stale slip reuse
+  const sessionAge = Date.now() - (session.uploaded_at || session.created_at || 0);
+  if (sessionAge > 30 * 60 * 1000) {
+    return res.status(200).json({
+      success: true,
+      status: 'waiting',
+      message: 'Session expired'
     });
   }
 
@@ -250,7 +254,15 @@ app.get('/api/slip/latest', (req, res) => {
     } catch (e) {}
   }
 
+  // BUG FIX: Expire cached slips older than 30 minutes to prevent stale slip reuse
   if (latest && latest.slip_data) {
+    const slipAge = Date.now() - (latest.uploaded_at || latest.created_at || 0);
+    if (slipAge > 30 * 60 * 1000) {
+      return res.status(404).json({
+        success: false,
+        message: 'สลิปล่าสุดหมดอายุแล้ว (เกิน 30 นาที) กรุณาอัพโหลดสลิปใหม่'
+      });
+    }
     return res.status(200).json({
       success: true,
       status: 'completed',
@@ -623,11 +635,20 @@ app.post('/api/slip/verify', async (req, res) => {
         throw new HttpError(400, `❌ ยอดเงินในสลิป (฿${actualAmount.toFixed(2)}) ไม่ตรงกับยอดที่ระบุเติม (฿${requestedAmount.toFixed(2)}) กรุณาระบุยอดให้ตรงกับสลิป`, 'AMOUNT_MISMATCH');
       }
 
-      // Receiver guard: compare PromptPay proxy suffix (masked values like xxx-xxx-3194)
+      // Receiver guard: compare PromptPay proxy suffix
+      // BUG FIX: Require at least 6 digits to avoid false positives from short masked values
       const rx = slipInfo.receiver || {};
       const proxyDigits = extractDigits(rx.proxy);
-      if (promptpayNum && proxyDigits.length >= 4 && proxyDigits.slice(-4) !== promptpayNum.slice(-4)) {
-        throw new HttpError(400, `❌ สลิปนี้ไม่ได้โอนเข้าพร้อมเพย์ของร้าน (${promptpayNum.slice(0, 3)}-xxx-${promptpayNum.slice(-4)}) ไม่สามารถเติมเงินได้`, 'WRONG_RECEIVER');
+      const shopSuffix6 = promptpayNum.slice(-6);
+      const shopSuffix4 = promptpayNum.slice(-4);
+      if (promptpayNum && proxyDigits.length >= 6) {
+        if (proxyDigits.slice(-6) !== shopSuffix6) {
+          throw new HttpError(400, `❌ สลิปนี้ไม่ได้โอนเข้าพร้อมเพย์ของร้าน (${promptpayNum.slice(0, 3)}-xxx-${shopSuffix4}) ไม่สามารถเติมเงินได้`, 'WRONG_RECEIVER');
+        }
+      } else if (promptpayNum && proxyDigits.length >= 4) {
+        if (proxyDigits.slice(-4) !== shopSuffix4) {
+          throw new HttpError(400, `❌ สลิปนี้ไม่ได้โอนเข้าพร้อมเพย์ของร้าน (${promptpayNum.slice(0, 3)}-xxx-${shopSuffix4}) ไม่สามารถเติมเงินได้`, 'WRONG_RECEIVER');
+        }
       }
 
       transRef = sanitizeRef(slipInfo.transRef);
@@ -635,9 +656,15 @@ app.post('/api/slip/verify', async (req, res) => {
       verifiedAmount = actualAmount;
     } else {
       // Pending path: need a stable reference so the same slip can't be queued twice
+      // BUG FIX: Require at least a valid QR payload or image to queue as PENDING
+      // Without a ref, any random image could spam pending records
+      if (!slipData && !payload) {
+        throw new HttpError(400, '❌ กรุณาแนบรูปภาพสลิปหรือข้อมูล QR เพื่อดำเนินการต่อ', 'INVALID_SLIP');
+      }
       transRef = parseSlipRefFromPayload(payload);
       if (!transRef) {
         if (!slipData) throw new HttpError(400, '❌ ข้อมูล QR ไม่ใช่สลิปโอนเงินของธนาคาร', 'INVALID_SLIP');
+        // Use content hash of image as stable ref for unreadable-QR slips
         transRef = 'IMG-' + crypto.createHash('sha256').update(slipData).digest('hex').slice(0, 24);
       }
     }
