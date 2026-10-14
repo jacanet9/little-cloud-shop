@@ -553,7 +553,7 @@ class ShopManager {
 
         // Automatically open live customer chat with admin immediately upon purchase
         if (window.chatManager) {
-          window.chatManager.openChatForOrder(displayOrderId, product.name);
+          window.chatManager.openChatForOrder(displayOrderId, product.name, deliveryCodeStr, user.username, 'completed');
         }
 
         Swal.fire({
@@ -568,7 +568,7 @@ class ShopManager {
               <p style="color: #a5a8bc; font-size: 0.85rem; margin-top: 2px;">ยอดคงเหลือ: <b style="color: #34d399;">${newBal.toLocaleString('th-TH')} บาท</b></p>
               <p style="color: #a5a8bc; font-size: 0.85rem; margin-top: 4px;">การจัดส่ง: <b style="color: #34d399;"><i class="fas fa-car"></i> นัดรับของในเกม FiveM ผ่านแชท</b></p>
               <div style="margin-top: 14px;">
-                <button type="button" class="btn-pink" style="width: 100%; padding: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 0.92rem;" onclick="window.chatManager && window.chatManager.openChatForOrder('${displayOrderId}', '${product.name.replace(/'/g, "\\'")}'); Swal.close();">
+                <button type="button" class="btn-pink" style="width: 100%; padding: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 0.92rem;" onclick="window.chatManager && window.chatManager.openChatForOrder('${displayOrderId}', '${product.name.replace(/'/g, "\\'")}', '${(deliveryCodeStr||'').replace(/'/g, "\\'")}', '${user.username}', 'completed'); Swal.close();">
                   <i class="fas fa-comments"></i> เปิดหน้าต่างแชทกับแอดมินทันที
                 </button>
               </div>
@@ -676,7 +676,8 @@ class ShopManager {
       chatBtn.onclick = () => {
         this.closeSkinDetailModal();
         if (window.chatManager) {
-          window.chatManager.openChatForOrder(null, p.name);
+          const user = window.authManager ? window.authManager.currentUser : null;
+          window.chatManager.openChatForOrder(null, p.name, '', (user ? user.username : 'member'), 'inquiry');
         }
       };
     }

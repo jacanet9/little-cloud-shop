@@ -44,29 +44,64 @@ class OrdersManager {
       return;
     }
 
-    container.innerHTML = userOrders.map(o => `
-      <div style="background: #1a1b28; border: 1px solid #282a3c; border-radius: 12px; padding: 16px; margin-bottom: 12px; display: flex; flex-direction: column; gap: 8px;">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-          <b style="color: #fff; font-size: 1rem;">
-            ${o.product_name}
-            ${o.quantity && o.quantity > 1 ? `<span style="background: rgba(228, 37, 117, 0.2); color: #f472b6; border: 1px solid rgba(228, 37, 117, 0.4); padding: 1px 8px; border-radius: 6px; font-size: 0.8rem; margin-left: 6px;">x${o.quantity} ชิ้น</span>` : ''}
-          </b>
-          <span style="color: #f472b6; font-weight: 800; font-family: 'Outfit', sans-serif; font-size: 1.1rem;">${(Number(o.total_price)||0).toLocaleString('th-TH')} บาท</span>
+    this._cachedOrders = userOrders;
+    const isCurrentUserAdmin = user && user.role === 'admin';
+
+    container.innerHTML = userOrders.map(o => {
+      const orderStatus = (o.status || 'completed').toLowerCase();
+      let statusHtml = '';
+      if (orderStatus === 'completed' || orderStatus === 'paid' || orderStatus === 'approved') {
+        statusHtml = `<span style="font-size: 0.76rem; color: #10b981; background: rgba(16,185,129,0.12); padding: 3px 8px; border-radius: 4px; font-weight: 600; display: inline-flex; align-items: center; gap: 5px;"><i class="fas fa-check-circle"></i> ชำระเงินแล้ว</span>`;
+      } else if (orderStatus === 'pending' || orderStatus === 'waiting_payment') {
+        statusHtml = `<span style="font-size: 0.76rem; color: #f59e0b; background: rgba(245,158,11,0.12); padding: 3px 8px; border-radius: 4px; font-weight: 600; display: inline-flex; align-items: center; gap: 5px;"><i class="fas fa-clock"></i> รอชำระเงิน</span>`;
+      } else if (orderStatus === 'cancelled' || orderStatus === 'rejected') {
+        statusHtml = `<span style="font-size: 0.76rem; color: #ef4444; background: rgba(239,68,68,0.12); padding: 3px 8px; border-radius: 4px; font-weight: 600; display: inline-flex; align-items: center; gap: 5px;"><i class="fas fa-circle-xmark"></i> ยกเลิก/ไม่อนุมัติ</span>`;
+      } else {
+        statusHtml = `<span style="font-size: 0.76rem; color: #9496a8; background: rgba(148,150,168,0.12); padding: 3px 8px; border-radius: 4px; font-weight: 600; display: inline-flex; align-items: center; gap: 5px;"><i class="fas fa-circle-question"></i> ยังไม่ได้ชำระ</span>`;
+      }
+
+      const chatBtnText = isCurrentUserAdmin ? `แชทกับลูกค้า (${o.username || 'ลูกค้า'})` : 'แชทกับแอดมินสำหรับออเดอร์นี้';
+
+      return `
+        <div style="background: #1a1b28; border: 1px solid #282a3c; border-radius: 12px; padding: 16px; margin-bottom: 12px; display: flex; flex-direction: column; gap: 8px;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <b style="color: #fff; font-size: 1rem;">
+              ${o.product_name}
+              ${o.quantity && o.quantity > 1 ? `<span style="background: rgba(228, 37, 117, 0.2); color: #f472b6; border: 1px solid rgba(228, 37, 117, 0.4); padding: 1px 8px; border-radius: 6px; font-size: 0.8rem; margin-left: 6px;">x${o.quantity} ชิ้น</span>` : ''}
+              ${isCurrentUserAdmin ? `<span style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); padding: 1px 6px; border-radius: 4px; font-size: 0.72rem; margin-left: 6px;"><i class="fas fa-user"></i> ${o.username}</span>` : ''}
+            </b>
+            <span style="color: #f472b6; font-weight: 800; font-family: 'Outfit', sans-serif; font-size: 1.1rem;">${(Number(o.total_price)||0).toLocaleString('th-TH')} บาท</span>
+          </div>
+          <div style="font-size: 0.8rem; color: #a5a8bc; display: flex; justify-content: space-between;">
+            <span>รหัสออเดอร์: <code style="color: #fff;">${o.id}</code></span>
+            <span>${new Date(o.created_at || Date.now()).toLocaleString('th-TH')}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.06);">
+            ${statusHtml}
+            <button type="button" class="btn-outline-dark" style="padding: 5px 12px; font-size: 0.76rem; display: flex; align-items: center; gap: 6px;" onclick="window.ordersManager && window.ordersManager.openChatForOrder('${o.id}');">
+              <i class="fas fa-comments" style="color: #f472b6;"></i> ${chatBtnText}
+            </button>
+          </div>
         </div>
-        <div style="font-size: 0.8rem; color: #a5a8bc; display: flex; justify-content: space-between;">
-          <span>รหัสออเดอร์: <code style="color: #fff;">${o.id}</code></span>
-          <span>${new Date(o.created_at || Date.now()).toLocaleString('th-TH')}</span>
-        </div>
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.06);">
-          <span style="font-size: 0.76rem; color: #10b981; background: rgba(16,185,129,0.12); padding: 3px 8px; border-radius: 4px; font-weight: 600; display: inline-flex; align-items: center; gap: 5px;">
-            <i class="fas fa-check-circle"></i> ชำระเงินแล้ว
-          </span>
-          <button type="button" class="btn-outline-dark" style="padding: 5px 12px; font-size: 0.76rem; display: flex; align-items: center; gap: 6px;" onclick="window.chatManager && window.chatManager.openChatForOrder('${o.id}', '${(o.product_name || '').replace(/'/g, "\\'")}');">
-            <i class="fas fa-comments" style="color: #f472b6;"></i> แชทกับแอดมินสำหรับออเดอร์นี้
-          </button>
-        </div>
-      </div>
-    `).join('');
+      `;
+    }).join('');
+  }
+
+  openChatForOrder(orderId) {
+    const all = this._cachedOrders || [];
+    const ord = all.find(item => String(item.id) === String(orderId));
+    const user = window.authManager ? window.authManager.currentUser : null;
+    if (ord && window.chatManager) {
+      window.chatManager.openChatForOrder(
+        ord.id,
+        ord.product_name,
+        ord.delivery_code || '',
+        ord.username || (user ? user.username : 'member'),
+        ord.status || 'completed'
+      );
+    } else if (window.chatManager) {
+      window.chatManager.openChatForOrder(orderId, 'ออเดอร์สินค้า', '', (user ? user.username : 'member'), 'completed');
+    }
   }
 
   async loadProfileTopups() {

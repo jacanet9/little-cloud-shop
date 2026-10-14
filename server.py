@@ -256,6 +256,7 @@ class LittleCloudHandler(SimpleHTTPRequestHandler):
             user_id = body.get('user_id', '')
             username = body.get('username', 'Customer')
             sender_role = body.get('sender_role', 'customer')
+            customer_username = body.get('customer_username') or (username if sender_role == 'customer' else '')
             text = body.get('message', '').strip()
             attachment = body.get('attachment', '')
             product_name = body.get('product_name', '')
@@ -269,6 +270,7 @@ class LittleCloudHandler(SimpleHTTPRequestHandler):
                 "order_id": order_id,
                 "user_id": user_id,
                 "username": username,
+                "customer_username": customer_username,
                 "sender_role": sender_role,
                 "message": text,
                 "attachment": attachment,
@@ -338,7 +340,7 @@ class LittleCloudHandler(SimpleHTTPRequestHandler):
             if order_id and order_id != 'all':
                 chats = [c for c in chats if c.get('order_id') == order_id]
             elif username and username != 'all':
-                chats = [c for c in chats if c.get('username', '').lower() == username.lower()]
+                chats = [c for c in chats if c.get('username', '').lower() == username.lower() or c.get('customer_username', '').lower() == username.lower()]
 
             return self._send_json(200, {"success": True, "messages": chats})
 

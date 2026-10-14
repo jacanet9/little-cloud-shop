@@ -3,6 +3,9 @@
 
 <head>
   <meta charset="UTF-8">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Little Cloud Shop - ศูนย์รวมบริการ FiveM และสกินอาวุธ</title>
 
@@ -18,10 +21,10 @@
 
   <!-- Supabase JS Client & Config -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/supabase-config.js?v=11.0"></script>
+  <script src="js/supabase-config.js?v=21.0"></script>
 
   <!-- Custom Design System matching Screenshots -->
-  <link rel="stylesheet" href="css/style.css?v=9.0">
+  <link rel="stylesheet" href="css/style.css?v=21.0">
 
   <!-- Embedded High-Priority Action Buttons Styling (Matches Website Candy Pill Theme) -->
   <style id="admin-action-buttons-css">
@@ -1139,6 +1142,7 @@
                   <th style="padding: 10px 14px;">ยอดเงิน</th>
                   <th style="padding: 10px 14px;">รหัสจัดส่ง</th>
                   <th style="padding: 10px 14px;">เวลา</th>
+                  <th style="padding: 10px 14px; text-align: center;">แชท</th>
                 </tr>
               </thead>
               <tbody id="admin-orders-table-body"></tbody>
@@ -1373,9 +1377,14 @@
                 <i class="fas fa-brain" style="color: #f472b6;"></i>
                 เครื่องมือทดสอบเช็คสลิปด้วย SlipOK AI (NextJS Integration)
               </h5>
-              <button type="button" class="btn-outline-dark" style="font-size: 0.78rem; padding: 5px 12px; color: #38bdf8; border-color: rgba(56, 189, 248, 0.3);" onclick="window.adminManager.testSlipOkConnection()">
-                <i class="fas fa-plug"></i> ทดสอบการเชื่อมต่อ SlipOK API
-              </button>
+              <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <a href="http://localhost:3001" target="_blank" class="btn-pink" style="font-size: 0.78rem; padding: 5px 12px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
+                  <i class="fas fa-external-link-alt"></i> เปิดหน้าเว็บ NextJS SlipOK (Port 3001)
+                </a>
+                <button type="button" class="btn-outline-dark" style="font-size: 0.78rem; padding: 5px 12px; color: #38bdf8; border-color: rgba(56, 189, 248, 0.3);" onclick="window.adminManager.testSlipOkConnection()">
+                  <i class="fas fa-plug"></i> ทดสอบการเชื่อมต่อ SlipOK API
+                </button>
+              </div>
             </div>
             
             <p style="font-size: 0.8rem; color: #9496a8; line-height: 1.5; margin-bottom: 14px;">
@@ -1951,14 +1960,14 @@
           </div>
           <div>
             <div style="display: flex; align-items: center; gap: 6px;">
-              <b style="color: #fff; font-size: 0.92rem;">แอดมิน Little Cloud (Support)</b>
-              <span
+              <b id="chat-header-title-text" style="color: #fff; font-size: 0.92rem;">แอดมิน Little Cloud (Support)</b>
+              <span id="chat-header-online-status"
                 style="background: rgba(16, 185, 129, 0.15); color: #34d399; font-size: 0.65rem; padding: 1px 6px; border-radius: 4px; font-weight: 700;">ONLINE
                 24H</span>
             </div>
             <div
               style="font-size: 0.74rem; color: #9496a8; display: flex; align-items: center; gap: 5px; flex-wrap: wrap;">
-              <span>คุยกับคุณ: <b id="chat-header-user-display" style="color: #fb7185;">member</b> <span
+              <span id="chat-header-user-wrapper">คุยกับคุณ: <b id="chat-header-user-display" style="color: #fb7185;">member</b> <span id="chat-header-role-badge"
                   style="font-size: 0.62rem; background: rgba(244, 114, 182, 0.15); color: #f472b6; padding: 1px 5px; border-radius: 4px; font-weight: 700;">Member</span></span>
               <span>•</span>
               <span id="chat-order-ref-badge"
@@ -1986,13 +1995,13 @@
               สินค้าที่สั่งซื้อ
             </b>
           </div>
-          <span
+          <span id="chat-order-status-badge"
             style="font-size: 0.72rem; color: #10b981; background: rgba(16,185,129,0.12); padding: 3px 8px; border-radius: 4px; font-weight: 600;">ชำระแล้ว</span>
         </div>
       </div>
 
       <!-- Quick Action Suggestions (Pills) -->
-      <div
+      <div id="chat-quick-actions-bar"
         style="background: #141522; border-bottom: 1px solid #232537; padding: 8px 12px; display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none;">
         <button type="button" class="chat-quick-pill-item"
           onclick="if(window.chatManager) window.chatManager.sendQuickMessage('สวัสดีครับแอดมิน สะดวกส่งของในเกม FiveM ไหมครับ')">
@@ -2057,16 +2066,16 @@
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
     <script src="js/qrcode.min.js"></script>
-    <script src="js/auth.js?v=8.0"></script>
-    <script src="js/wallet.js?v=5.0"></script>
-    <script src="js/payment-gateway.js?v=7.0"></script>
-    <script src="js/shop.js?v=15.0"></script>
-    <script src="js/admin.js?v=9.0"></script>
-    <script src="js/chat.js?v=3.0"></script>
-    <script src="js/topup.js?v=13.0"></script>
-    <script src="js/reviews.js?v=5.0"></script>
-    <script src="js/orders.js?v=6.0"></script>
-    <script src="js/main.js?v=5.0"></script>
+    <script src="js/auth.js?v=22.0"></script>
+    <script src="js/wallet.js?v=22.0"></script>
+    <script src="js/payment-gateway.js?v=22.0"></script>
+    <script src="js/shop.js?v=22.0"></script>
+    <script src="js/admin.js?v=22.0"></script>
+    <script src="js/chat.js?v=22.0"></script>
+    <script src="js/topup.js?v=22.0"></script>
+    <script src="js/reviews.js?v=22.0"></script>
+    <script src="js/orders.js?v=22.0"></script>
+    <script src="js/main.js?v=22.0"></script>
 
 </body>
 
