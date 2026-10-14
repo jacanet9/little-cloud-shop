@@ -313,49 +313,13 @@ class TopupManager {
   }
 
   /**
-   * Polls Backend endpoint GET /api/topup/status/:charge_id every 3 seconds
+   * Polls Backend endpoint GET /api/topup/status/:charge_id every 3 seconds (Only if backend provides Omise charges)
    */
   startStatusPolling(chargeId) {
     if (this.pollingTimer) clearInterval(this.pollingTimer);
 
-    const pollStatusText = document.getElementById('topup-poll-status-text');
-
-    this.pollingTimer = setInterval(async () => {
-      if (!this.activeChargeId || this.activeChargeId !== chargeId) {
-        this.stopStatusPolling();
-        return;
-      }
-
-      try {
-        // Poll backend
-        const response = await fetch(`/api/topup/status/${chargeId}`);
-        if (response.ok) {
-          const resData = await response.json();
-          if (resData.success && resData.status === 'completed') {
-            await this.handlePaymentCompleted({
-              amount: resData.amount || this.currentAmount,
-              chargeId: chargeId,
-              balanceAfter: resData.balance
-            });
-          }
-        }
-      } catch (err) {
-        // If polling endpoint is unreachable, fallback to checking Supabase Realtime / DB profile
-        if (window.authManager && window.authManager.currentUser) {
-          try {
-            const profiles = await window.supabaseManager.fetchTable('profiles');
-            const user = profiles.find(p => p.id === window.authManager.currentUser.id);
-            if (user && Number(user.balance) > Number(window.authManager.currentUser.balance || 0)) {
-              await this.handlePaymentCompleted({
-                amount: Number(user.balance) - Number(window.authManager.currentUser.balance || 0),
-                chargeId: chargeId,
-                balanceAfter: Number(user.balance)
-              });
-            }
-          } catch (e) {}
-        }
-      }
-    }, 3000);
+    // Disable polling for PromptPay Slip mode (no guessing balances)
+    // Points are strictly awarded upon verified slip submission only!
   }
 
   stopStatusPolling() {
@@ -1046,13 +1010,20 @@ class TopupManager {
       });
     } catch (err) {
       console.error('Topup verification failed:', err);
+      this.closeQrBox();
+      this.resetSlipSelection();
+
+      const isDuplicate = err.code === 'DUPLICATE_SLIP' || (err.message && err.message.includes('สลิปซ้ำ'));
+      const isWrongReceiver = err.code === 'WRONG_RECEIVER' || (err.message && (err.message.includes('ไม่ได้โอนเข้าพร้อมเพย์') || err.message.includes('สลิปจ่ายโอนรายการอื่น')));
+
       Swal.fire({
-        icon: 'error',
-        title: 'การตรวจสอบสลิปไม่ผ่าน',
+        icon: isDuplicate ? 'warning' : 'error',
+        title: isDuplicate ? '⚠️ สลิปนี้เคยใช้งานไปแล้ว (สลิปซ้ำ)' : (isWrongReceiver ? '❌ บัญชีผู้รับไม่ถูกต้อง' : 'การตรวจสอบสลิปไม่ผ่าน'),
         text: err.message || 'เกิดข้อผิดพลาดในการตรวจสอบสลิป กรุณาตรวจสอบว่ารูปภาพเป็นสลิปโอนเงินจริงของธนาคาร',
         background: '#151622',
         color: '#fff',
-        confirmButtonColor: '#ef4444'
+        confirmButtonColor: isDuplicate ? '#e11d48' : '#ef4444',
+        confirmButtonText: 'ตกลง'
       });
     }
   }

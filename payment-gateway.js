@@ -377,14 +377,16 @@ class PaymentGatewayEngine {
     const existingTopups = await window.supabaseManager.fetchTable('topups');
 
     const duplicateTxn = existingTransactions.find(t => 
-      t.reference_id === transRef || t.gateway_ref === transRef || t.gateway_ref === `SLIP-${transRef}`
+      t.reference_id === transRef || t.gateway_ref === transRef || t.gateway_ref === `SLIP-${transRef}` || t.gateway_ref === `SLIPOK-${transRef}`
     );
     const duplicateTopup = existingTopups.find(t => 
-      t.transaction_ref === transRef || t.gateway_ref === transRef
+      t.transaction_ref === transRef || t.gateway_ref === transRef || t.gateway_ref === `SLIP-${transRef}` || t.gateway_ref === `SLIPOK-${transRef}`
     );
 
     if (duplicateTxn || duplicateTopup) {
-      throw new Error(`⚠️ สลิปนี้ถูกใช้งานไปแล้วในระบบ (รหัสอ้างอิง: ${transRef}) ไม่สามารถใช้สลิปซ้ำได้เพื่อความปลอดภัย`);
+      const err = new Error(`⚠️ สลิปนี้ถูกใช้งานไปแล้วในระบบ (รหัสอ้างอิง: ${transRef}) ไม่สามารถใช้สลิปซ้ำได้เพื่อความปลอดภัย`);
+      err.code = 'DUPLICATE_SLIP';
+      throw err;
     }
 
     // Insert as pending in database

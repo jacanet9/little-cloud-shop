@@ -607,6 +607,15 @@ app.post('/api/slip/verify', async (req, res) => {
       const result = await callSlipOk({ branchId, apiKey, slipData, payload, amount: requestedAmount });
       if (result.info) {
         slipInfo = result.info;
+        if (result.seenBefore) {
+          const ref = sanitizeRef(result.info.transRef);
+          console.warn(`[SlipOK Guard] SlipOK code 1012 (already seen) detected for ref ${ref}`);
+          throw new HttpError(400, `⚠️ สลิปนี้เคยถูกส่งใช้งานไปแล้วในระบบ (ตรวจพบสลิปซ้ำ Ref: ${ref}) ไม่สามารถใช้สลิปเดิมซ้ำได้`, 'DUPLICATE_SLIP', {
+            transRef: ref,
+            alreadyCredited: true,
+            duplicate: true
+          });
+        }
       } else if (result.error && SLIPOK_REJECT_CODES[result.error.code]) {
         const r = SLIPOK_REJECT_CODES[result.error.code];
         let msg = r.message;
@@ -635,20 +644,26 @@ app.post('/api/slip/verify', async (req, res) => {
         throw new HttpError(400, `❌ ยอดเงินในสลิป (฿${actualAmount.toFixed(2)}) ไม่ตรงกับยอดที่ระบุเติม (฿${requestedAmount.toFixed(2)}) กรุณาระบุยอดให้ตรงกับสลิป`, 'AMOUNT_MISMATCH');
       }
 
-      // Receiver guard: compare PromptPay proxy suffix
-      // BUG FIX: Require at least 6 digits to avoid false positives from short masked values
+      // Receiver guard: STRICTLY compare PromptPay proxy suffix
+      // Protect against slips transferred to bank accounts or third-party accounts
       const rx = slipInfo.receiver || {};
       const proxyDigits = extractDigits(rx.proxy);
-      const shopSuffix6 = promptpayNum.slice(-6);
-      const shopSuffix4 = promptpayNum.slice(-4);
-      if (promptpayNum && proxyDigits.length >= 6) {
-        if (proxyDigits.slice(-6) !== shopSuffix6) {
-          throw new HttpError(400, `❌ สลิปนี้ไม่ได้โอนเข้าพร้อมเพย์ของร้าน (${promptpayNum.slice(0, 3)}-xxx-${shopSuffix4}) ไม่สามารถเติมเงินได้`, 'WRONG_RECEIVER');
+      const shopDigits = promptpayNum.replace(/[^0-9]/g, '');
+      const shopSuffix6 = shopDigits.slice(-6);
+      const shopSuffix4 = shopDigits.slice(-4);
+
+      let isMatch = false;
+      if (shopDigits && proxyDigits.length >= 4) {
+        if (proxyDigits.length >= 6 && shopSuffix6) {
+          isMatch = (proxyDigits.slice(-6) === shopSuffix6);
+        } else {
+          isMatch = (proxyDigits.slice(-4) === shopSuffix4);
         }
-      } else if (promptpayNum && proxyDigits.length >= 4) {
-        if (proxyDigits.slice(-4) !== shopSuffix4) {
-          throw new HttpError(400, `❌ สลิปนี้ไม่ได้โอนเข้าพร้อมเพย์ของร้าน (${promptpayNum.slice(0, 3)}-xxx-${shopSuffix4}) ไม่สามารถเติมเงินได้`, 'WRONG_RECEIVER');
-        }
+      }
+
+      if (!isMatch) {
+        const maskedShop = shopDigits ? `${shopDigits.slice(0, 3)}-xxx-${shopSuffix4}` : 'ร้านค้า';
+        throw new HttpError(400, `❌ สลิปนี้ไม่ได้โอนเข้าพร้อมเพย์ของทางร้าน (${maskedShop}) สลิปจ่ายโอนรายการอื่นไม่สามารถใช้เติมเงินได้`, 'WRONG_RECEIVER');
       }
 
       transRef = sanitizeRef(slipInfo.transRef);
@@ -656,8 +671,7 @@ app.post('/api/slip/verify', async (req, res) => {
       verifiedAmount = actualAmount;
     } else {
       // Pending path: need a stable reference so the same slip can't be queued twice
-      // BUG FIX: Require at least a valid QR payload or image to queue as PENDING
-      // Without a ref, any random image could spam pending records
+      // Require genuine bank QR payload or valid slip image
       if (!slipData && !payload) {
         throw new HttpError(400, '❌ กรุณาแนบรูปภาพสลิปหรือข้อมูล QR เพื่อดำเนินการต่อ', 'INVALID_SLIP');
       }
@@ -686,15 +700,11 @@ app.post('/api/slip/verify', async (req, res) => {
       const topupStatus = existing.topup ? existing.topup.status : null;
 
       if (existing.txn || topupStatus === 'approved') {
-        return res.status(200).json({
-          success: true,
-          status: 'already_credited',
+        throw new HttpError(400, `⚠️ สลิปนี้เคยใช้งานเติมเงินเข้าสู่กระเป๋าไปแล้ว (Ref: ${transRef}) ไม่สามารถใช้สลิปเดิมซ้ำได้`, 'DUPLICATE_SLIP', {
+          transRef,
           alreadyCredited: true,
           duplicate: true,
-          message: 'สลิปนี้เติมเงินเข้ากระเป๋าไปแล้วในรายการก่อนหน้า ไม่สามารถใช้ซ้ำได้',
-          transRef,
-          amount: Number((existing.txn || existing.topup).amount),
-          currentBalance: await getBalance(user_id)
+          amount: Number((existing.txn || existing.topup).amount)
         });
       }
 
@@ -740,10 +750,11 @@ app.post('/api/slip/verify', async (req, res) => {
         });
       } catch (e) {
         if (e.code === 'ALREADY_CREDITED') {
-          return res.status(200).json({
-            success: true, status: 'already_credited', alreadyCredited: true, duplicate: true,
-            message: 'สลิปนี้เติมเงินเข้ากระเป๋าไปแล้ว', transRef, amount: verifiedAmount,
-            currentBalance: await getBalance(user_id)
+          throw new HttpError(400, `⚠️ สลิปนี้เคยใช้งานเติมเงินเข้าสู่กระเป๋าไปแล้ว (Ref: ${transRef}) ไม่สามารถใช้สลิปเดิมซ้ำได้`, 'DUPLICATE_SLIP', {
+            transRef,
+            alreadyCredited: true,
+            duplicate: true,
+            amount: verifiedAmount
           });
         }
         throw e;
