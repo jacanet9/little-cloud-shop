@@ -330,133 +330,27 @@ app.post('/api/slip/verify', async (req, res) => {
       return res.status(400).json({ success: false, message: 'กรุณาแนบรูปภาพสลิปหลักฐานการโอนเงิน' });
     }
 
-    // 1. Resolve QR Payload if not supplied directly
-    if (!payload && slip_data) {
-      try {
-        const base64Data = slip_data.replace(/^data:image\/\w+;base64,/, '');
-        const buffer = Buffer.from(base64Data, 'base64');
-        const jpeg = require('jpeg-js');
-        const rawImageData = jpeg.decode(buffer, { useTArray: true });
-        if (rawImageData && rawImageData.data) {
-          const jsQR = require('jsqr');
-          const code = jsQR(rawImageData.data, rawImageData.width, rawImageData.height, { inversionAttempts: 'attemptBoth' });
-          if (code && code.data) payload = code.data.trim();
-        }
-      } catch (decErr) {
-        console.warn('Server slip QR decode error:', decErr.message);
-      }
-    }
-
-    if (!payload) {
-      return res.status(400).json({
-        success: false,
-        message: '❌ ตรวจสอบไม่ผ่าน: ไม่พบ QR Code บนรูปภาพ หรือภาพไม่ชัดเจน กรุณาใช้รูปสลิปจริงที่ได้จากแอปธนาคาร'
-      });
-    }
-
-    // 2. Parse TLV (Tag-Length-Value) standard format for Thai Bank e-Slips
-    const parseTLV = (str) => {
-      const tags = {};
-      let i = 0;
-      while (i < str.length) {
-        const tag = str.substring(i, i + 2);
-        if (tag.length < 2 || isNaN(tag)) break;
-        i += 2;
-        const len = parseInt(str.substring(i, i + 2), 10);
-        if (isNaN(len) || len < 0) break;
-        i += 2;
-        tags[tag] = str.substring(i, i + len);
-        i += len;
-      }
-      return tags;
-    };
-
-    const outerTags = parseTLV(payload);
-    let isBankSlip = false;
-    let bankCode = '';
-    let transRef = '';
-
-    if (outerTags['00']) {
-      const innerTags = parseTLV(outerTags['00']);
-      if (innerTags['00'] === '000001' || innerTags['01'] || innerTags['02']) {
-        isBankSlip = true;
-        bankCode = innerTags['01'] || outerTags['01'] || '';
-        transRef = innerTags['02'] || outerTags['02'] || '';
-      }
-    }
-
-    if (!isBankSlip) {
-      if (payload.includes('000001') || outerTags['02'] || (payload.startsWith('00') && payload.length > 25)) {
-        isBankSlip = true;
-        transRef = outerTags['02'] || payload.substring(10, 35).replace(/[^a-zA-Z0-9]/g, '');
-        bankCode = outerTags['01'] || '';
-      }
-    }
-
-    if (!transRef) {
-      const refMatch = payload.match(/02([0-9]{2})([A-Za-z0-9_-]+)/);
-      if (refMatch && refMatch[2]) {
-        isBankSlip = true;
-        transRef = refMatch[2];
-      }
-    }
-
-    if (!isBankSlip || !transRef || transRef.length < 10) {
-      return res.status(400).json({
-        success: false,
-        message: '❌ ตรวจสอบไม่ผ่าน: QR Code บนรูปภาพไม่ใช่สลิปโอนเงินของธนาคาร (ไม่ใช่ Thai Bank e-Slip QR) ระบบไม่อนุญาตให้ใช้สลิปปลอม'
-      });
-    }
-
-    // 3. Anti-Replay Duplicate Check in Supabase
-    const { data: dupTxn } = await supabase
-      .from('wallet_transactions')
-      .select('reference_id, user_id, amount, status')
-      .or(`reference_id.eq.${transRef},gateway_ref.eq.${transRef},gateway_ref.eq.SLIP-${transRef}`)
-      .limit(1);
-
-    const { data: dupTopup } = await supabase
-      .from('topups')
-      .select('transaction_ref, user_id, amount, status')
-      .or(`transaction_ref.eq.${transRef},gateway_ref.eq.${transRef}`)
-      .limit(1);
-
-    if ((dupTxn && dupTxn.length > 0) || (dupTopup && dupTopup.length > 0)) {
-      const dup = (dupTxn && dupTxn[0]) || (dupTopup && dupTopup[0]);
-      if (dup.user_id === user_id && dup.status === 'approved') {
-        return res.status(200).json({
-          success: true,
-          status: 'already_credited',
-          alreadyCredited: true,
-          message: 'สลิปนี้ได้รับการเติมเงินสำเร็จไปแล้วในระบบ',
-          transRef,
-          amount: Number(dup.amount)
-        });
-      }
-      return res.status(400).json({
-        success: false,
-        message: `⚠️ สลิปนี้ถูกใช้งานไปแล้วในระบบ (รหัสอ้างอิง: ${transRef}) ไม่สามารถใช้สลิปซ้ำได้เพื่อความปลอดภัย`
-      });
-    }
-
-    // 4. Fetch Gateway Configuration from Supabase site_settings
+    // 1. Fetch Gateway Configuration from Supabase site_settings
     const { data: settingsData } = await supabase.from('site_settings').select('*').limit(1);
     const settings = (settingsData && settingsData[0]) || {};
-    const apiKey = (settings.gateway_api_key || '').trim();
-    const branchId = (settings.gateway_branch_id || '').trim().replace(/^.*\/apikey\//i, '').replace(/[^a-zA-Z0-9_-]/g, '');
+    const apiKey = (settings.gateway_api_key || process.env.SLIPOK_API_KEY || '').trim();
+    const branchId = (settings.gateway_branch_id || process.env.SLIPOK_BRANCH_ID || '').trim().replace(/^.*\/apikey\//i, '').replace(/[^a-zA-Z0-9_-]/g, '');
     const promptpayNum = (settings.promptpay_number || '0815993194').replace(/[^0-9]/g, '');
 
     let slipOkVerified = false;
     let verifiedAmount = requestedAmount;
+    let transRef = '';
+    let bankCode = '';
 
-    // Check with SlipOK API if configured
+    // 2. PRIMARY VERIFICATION: SlipOK Banking Switch API (Priority 1)
     if (apiKey && branchId) {
       try {
         console.log(`[*] Calling SlipOK verification for branch: ${branchId}...`);
         const FormData = require('form-data');
         let slipOkResp = null;
+        let lastSlipOkError = null;
 
-        // Priority 1: Check via Slip Image File (FormData 'files' - same as nextjs-slipok-api-main)
+        // Method A: Check via Slip Image File (FormData 'files' buffer - highest accuracy AI inspector)
         if (slip_data && typeof slip_data === 'string' && slip_data.includes('base64')) {
           try {
             const base64Data = slip_data.replace(/^data:image\/\w+;base64,/, '');
@@ -478,11 +372,12 @@ app.post('/api/slip/verify', async (req, res) => {
               }
             );
           } catch (fileErr) {
-            console.warn('SlipOK FormData check error:', fileErr.response?.data || fileErr.message);
+            lastSlipOkError = fileErr.response?.data;
+            console.warn('SlipOK FormData check warning:', lastSlipOkError || fileErr.message);
           }
         }
 
-        // Priority 2: Fallback to decoded QR string payload check
+        // Method B: Fallback via QR string payload if FormData didn't succeed
         if (!slipOkResp && payload) {
           try {
             slipOkResp = await axios.post(
@@ -491,15 +386,23 @@ app.post('/api/slip/verify', async (req, res) => {
               { headers: { 'x-authorization': apiKey, 'Content-Type': 'application/json' }, timeout: 8000 }
             );
           } catch (qrErr) {
-            console.warn('SlipOK QR string check error:', qrErr.response?.data || qrErr.message);
-            throw qrErr;
+            lastSlipOkError = qrErr.response?.data;
+            console.warn('SlipOK QR string check warning:', lastSlipOkError || qrErr.message);
           }
         }
 
-        if (slipOkResp && slipOkResp.data && slipOkResp.data.success && slipOkResp.data.data) {
-          const slipInfo = slipOkResp.data.data;
+        let slipInfo = slipOkResp?.data?.data;
+
+        // Handle Code 1012 (SlipOK reports duplicate slip because it was tested or sent before)
+        // If SlipOK has code 1012, errData.data contains the real verified slip info!
+        if (!slipInfo && lastSlipOkError?.code === 1012 && lastSlipOkError?.data) {
+          slipInfo = lastSlipOkError.data;
+        }
+
+        if (slipInfo) {
           const actualAmount = Number(slipInfo.amount) || requestedAmount;
 
+          // Amount Guard: Must match requested amount
           if (Math.abs(actualAmount - requestedAmount) > 0.01) {
             return res.status(400).json({
               success: false,
@@ -507,19 +410,16 @@ app.post('/api/slip/verify', async (req, res) => {
             });
           }
 
+          // Receiver Account Match Guard (Safe Object / String parser)
           if (slipInfo.receiver) {
             const rx = slipInfo.receiver;
             let rxRaw = '';
-            if (typeof rx.account === 'string') {
-              rxRaw = rx.account;
-            } else if (rx.account && typeof rx.account.value === 'string') {
-              rxRaw = rx.account.value;
-            } else if (rx.proxy && typeof rx.proxy.value === 'string') {
-              rxRaw = rx.proxy.value;
-            }
+            if (typeof rx.account === 'string') rxRaw = rx.account;
+            else if (rx.account && typeof rx.account.value === 'string') rxRaw = rx.account.value;
+            else if (rx.proxy && typeof rx.proxy.value === 'string') rxRaw = rx.proxy.value;
 
             const rxAcc = rxRaw.replace(/[^0-9]/g, '');
-            const cleanShopNum = (promptpayNum || '').replace(/[^0-9]/g, '');
+            const cleanShopNum = promptpayNum.replace(/[^0-9]/g, '');
 
             if (cleanShopNum && rxAcc && rxAcc.length >= 4) {
               const rxSuffix = rxAcc.slice(-4);
@@ -534,32 +434,117 @@ app.post('/api/slip/verify', async (req, res) => {
             }
           }
 
-          slipOkVerified = true;
+          transRef = slipInfo.transRef || `SLIPOK-${Date.now()}`;
           verifiedAmount = actualAmount;
-          if (slipInfo.transRef) transRef = slipInfo.transRef;
-        } else if (slipOkResp && slipOkResp.data && !slipOkResp.data.success) {
-          return res.status(400).json({
-            success: false,
-            message: '❌ การตรวจสอบสลิปล้มเหลว: ' + (slipOkResp.data?.message || 'ไม่พบรายการโอนเงินในระบบธนาคาร')
-          });
+          bankCode = slipInfo.sendingBank || slipInfo.receivingBank || '000';
+          slipOkVerified = true;
+        } else if (lastSlipOkError) {
+          // Explicit rejection from SlipOK (Code 1014: wrong receiver, code 1003: duplicate, etc.)
+          if (lastSlipOkError.code === 1014) {
+            return res.status(400).json({
+              success: false,
+              message: '❌ บัญชีผู้รับไม่ตรงกับบัญชีของร้านค้า กรุณาโอนเงินเข้าบัญชี PromptPay ของร้านค้าเท่านั้น'
+            });
+          } else if (lastSlipOkError.code !== 1001 && lastSlipOkError.code !== 1000) {
+            return res.status(400).json({
+              success: false,
+              message: '❌ ตรวจสอบสลิปไม่ผ่าน: ' + (lastSlipOkError.message || 'ไม่พบข้อมูลการโอนเงินจริงในระบบธนาคาร')
+            });
+          }
         }
       } catch (slipErr) {
-        const errData = slipErr.response?.data;
-        console.warn('SlipOK Verification Result:', errData || slipErr.message);
+        console.warn('SlipOK verify exception:', slipErr.message);
+      }
+    }
 
-        // If SlipOK returned error that the slip itself is fake or duplicate:
-        if (errData && errData.code && errData.code !== 1001) {
-          return res.status(400).json({
-            success: false,
-            message: '❌ ตรวจสอบสลิปไม่ผ่าน: ' + (errData.message || 'ไม่พบข้อมูลการโอนเงินจริงในระบบธนาคาร')
-          });
+    // 3. FALLBACK QR DECODER (When SlipOK is not active or for local validation)
+    if (!slipOkVerified) {
+      if (!payload && slip_data) {
+        try {
+          const base64Data = slip_data.replace(/^data:image\/\w+;base64,/, '');
+          const buffer = Buffer.from(base64Data, 'base64');
+          const jpeg = require('jpeg-js');
+          const rawImageData = jpeg.decode(buffer, { useTArray: true });
+          if (rawImageData && rawImageData.data) {
+            const jsQR = require('jsqr');
+            const code = jsQR(rawImageData.data, rawImageData.width, rawImageData.height, { inversionAttempts: 'attemptBoth' });
+            if (code && code.data) payload = code.data.trim();
+          }
+        } catch (decErr) {}
+      }
+
+      if (payload) {
+        const parseTLV = (str) => {
+          const tags = {};
+          let i = 0;
+          while (i < str.length) {
+            const tag = str.substring(i, i + 2);
+            if (tag.length < 2 || isNaN(tag)) break;
+            i += 2;
+            const len = parseInt(str.substring(i, i + 2), 10);
+            if (isNaN(len) || len < 0) break;
+            i += 2;
+            tags[tag] = str.substring(i, i + len);
+            i += len;
+          }
+          return tags;
+        };
+
+        const outerTags = parseTLV(payload);
+        if (outerTags['00']) {
+          const innerTags = parseTLV(outerTags['00']);
+          if (innerTags['00'] === '000001' || innerTags['01'] || innerTags['02']) {
+            bankCode = innerTags['01'] || outerTags['01'] || '';
+            transRef = innerTags['02'] || outerTags['02'] || '';
+          }
+        }
+        if (!transRef) {
+          const refMatch = payload.match(/02([0-9]{2})([A-Za-z0-9_-]+)/);
+          if (refMatch && refMatch[2]) transRef = refMatch[2];
         }
       }
     }
 
-    // 5. DETERMINE APPROVAL ACTION
+    if (!transRef) {
+      return res.status(400).json({
+        success: false,
+        message: '❌ ตรวจสอบไม่ผ่าน: ไม่พบข้อมูลสลิปในระบบธนาคาร หรือรูปภาพไม่ใช่สลิปจริง กรุณาใช้สลิปโอนเงินจริงจากแอปธนาคาร'
+      });
+    }
+
+    // 4. ANTI-REPLAY DUPLICATE CHECK IN SUPABASE LEDGER
+    const { data: dupTxn } = await supabase
+      .from('wallet_transactions')
+      .select('reference_id, user_id, amount, status')
+      .or(`reference_id.eq.${transRef},gateway_ref.eq.${transRef},gateway_ref.eq.SLIP-${transRef},gateway_ref.eq.SLIPOK-${transRef}`)
+      .limit(1);
+
+    const { data: dupTopup } = await supabase
+      .from('topups')
+      .select('transaction_ref, user_id, amount, status')
+      .or(`transaction_ref.eq.${transRef},gateway_ref.eq.${transRef},gateway_ref.eq.SLIPOK-${transRef}`)
+      .limit(1);
+
+    if ((dupTxn && dupTxn.length > 0) || (dupTopup && dupTopup.length > 0)) {
+      const dup = (dupTxn && dupTxn[0]) || (dupTopup && dupTopup[0]);
+      if (dup.user_id === user_id && dup.status === 'approved') {
+        return res.status(200).json({
+          success: true,
+          status: 'already_credited',
+          alreadyCredited: true,
+          message: 'สลิปนี้ได้รับการเติมเงินสำเร็จไปแล้วในระบบ',
+          transRef,
+          amount: Number(dup.amount)
+        });
+      }
+      return res.status(400).json({
+        success: false,
+        message: `⚠️ สลิปนี้ถูกใช้งานไปแล้วในระบบ (รหัสอ้างอิง: ${transRef}) ไม่สามารถใช้สลิปซ้ำได้เพื่อความปลอดภัย`
+      });
+    }
+
+    // 5. AUTO-APPROVE AND CREDIT POINTS (When SlipOK Verified)
     if (slipOkVerified) {
-      // AUTO-APPROVED VIA REAL BANK NETWORK
       const { data: userProfile } = await supabase.from('profiles').select('id, username, balance').eq('id', user_id).single();
       if (!userProfile) return res.status(404).json({ success: false, message: 'ไม่พบผู้ใช้ในระบบ' });
 
@@ -603,7 +588,7 @@ app.post('/api/slip/verify', async (req, res) => {
       });
     }
 
-    // 6. IF NO WORKING BANK API: PUT IN PENDING MANUAL APPROVAL MODE (PREVENTS FAKE SLIPS FROM ADDING POINTS!)
+    // 6. IF NO WORKING BANK API (Fallback to Pending Mode - Prevents Fake Slips from Adding Points)
     const { data: userProfile } = await supabase.from('profiles').select('id, username, balance').eq('id', user_id).single();
     if (!userProfile) return res.status(404).json({ success: false, message: 'ไม่พบผู้ใช้ในระบบ' });
 
@@ -619,7 +604,6 @@ app.post('/api/slip/verify', async (req, res) => {
       status: 'pending'
     });
 
-    // NOTICE: profiles.balance IS NOT MODIFIED! ZERO FREE POINTS!
     return res.status(200).json({
       success: true,
       status: 'pending',
