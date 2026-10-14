@@ -507,13 +507,30 @@ app.post('/api/slip/verify', async (req, res) => {
             });
           }
 
-          if (slipInfo.receiver && slipInfo.receiver.account) {
-            const rxAcc = slipInfo.receiver.account.replace(/[^0-9]/g, '');
-            if (promptpayNum && rxAcc && !rxAcc.includes(promptpayNum) && !promptpayNum.includes(rxAcc)) {
-              return res.status(400).json({
-                success: false,
-                message: `❌ สลิปนี้ไม่ได้โอนเงินมายังบัญชีร้านค้า (${promptpayNum}) แต่โอนไปยังบัญชีอื่น ไม่อนุมัติ`
-              });
+          if (slipInfo.receiver) {
+            const rx = slipInfo.receiver;
+            let rxRaw = '';
+            if (typeof rx.account === 'string') {
+              rxRaw = rx.account;
+            } else if (rx.account && typeof rx.account.value === 'string') {
+              rxRaw = rx.account.value;
+            } else if (rx.proxy && typeof rx.proxy.value === 'string') {
+              rxRaw = rx.proxy.value;
+            }
+
+            const rxAcc = rxRaw.replace(/[^0-9]/g, '');
+            const cleanShopNum = (promptpayNum || '').replace(/[^0-9]/g, '');
+
+            if (cleanShopNum && rxAcc && rxAcc.length >= 4) {
+              const rxSuffix = rxAcc.slice(-4);
+              const shopSuffix = cleanShopNum.slice(-4);
+              const isMatch = rxAcc.includes(cleanShopNum) || cleanShopNum.includes(rxAcc) || (rxSuffix === shopSuffix);
+              if (!isMatch) {
+                return res.status(400).json({
+                  success: false,
+                  message: `❌ สลิปนี้ไม่ได้โอนเงินมายังบัญชีร้านค้า (${promptpayNum}) แต่โอนไปยังบัญชีอื่น ไม่อนุมัติ`
+                });
+              }
             }
           }
 

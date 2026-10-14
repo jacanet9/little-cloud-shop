@@ -1761,6 +1761,9 @@ class AdminManager {
       if (window.updateUserBalanceDisplays) {
         window.updateUserBalanceDisplays();
       }
+      if (window.ordersManager && typeof window.ordersManager.loadProfileTopups === 'function') {
+        window.ordersManager.loadProfileTopups();
+      }
 
       Swal.fire({
         icon: 'success',
@@ -1845,6 +1848,12 @@ class AdminManager {
 
       if (window.closeSlipViewerModal) window.closeSlipViewerModal();
       await this.renderAdminTopupsTable();
+      if (typeof this.renderReconciliationDashboard === 'function') {
+        this.renderReconciliationDashboard();
+      }
+      if (window.ordersManager && typeof window.ordersManager.loadProfileTopups === 'function') {
+        window.ordersManager.loadProfileTopups();
+      }
 
       Swal.fire({
         icon: 'success',
