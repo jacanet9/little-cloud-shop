@@ -1024,9 +1024,9 @@ class TopupManager {
           cancelButtonColor: '#334155'
         }).then((swalRes) => {
           if (swalRes.isConfirmed) {
-            if (this.currentAmount) {
-              this.generateQrCode(this.currentAmount);
-            }
+            const input = document.getElementById('topup-amount-input');
+            if (input && this.currentAmount) input.value = this.currentAmount;
+            this.generatePromptPayQR();
           } else if (swalRes.isDismissed && swalRes.dismiss === Swal.DismissReason.cancel) {
             if (typeof window.navToTab === 'function') {
               window.navToTab('shop');

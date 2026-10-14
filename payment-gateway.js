@@ -180,42 +180,22 @@ class PaymentGatewayEngine {
       return tags;
     };
 
+    // Customer attached the shop's PromptPay payment QR instead of their transfer slip
+    if (payload.startsWith('000201')) {
+      throw new Error('❌ รูปนี้คือ QR พร้อมเพย์สำหรับ "จ่ายเงิน" ไม่ใช่สลิปโอนเงิน กรุณาแนบสลิปที่ได้หลังโอนเงินสำเร็จ');
+    }
+
+    // Standard BOT Thai Bank e-Slip mini-QR (Tag 00 -> SubTag 00: 000001, 01: Bank, 02: TransRef)
+    // Anything else is passed through untouched: the server + SlipOK reads the slip image itself.
     const outerTags = parseTLV(payload);
     let bankCode = '';
     let transRef = '';
-    let isBankSlip = false;
-
-    // Standard BOT Thai Bank Slip Format (Tag 00 -> SubTag 00: 000001, SubTag 01: Bank, SubTag 02: TransRef)
     if (outerTags['00']) {
       const innerTags = parseTLV(outerTags['00']);
-      if (innerTags['00'] === '000001' || innerTags['01'] || innerTags['02']) {
-        isBankSlip = true;
-        bankCode = innerTags['01'] || outerTags['01'] || '';
-        transRef = innerTags['02'] || outerTags['02'] || '';
+      if (innerTags['00'] === '000001' && innerTags['02']) {
+        bankCode = innerTags['01'] || '';
+        transRef = String(innerTags['02']).replace(/[^A-Za-z0-9_-]/g, '');
       }
-    }
-
-    // Alternative common format where Tag 00 is directly present or payload contains BOT signature
-    if (!isBankSlip) {
-      if (payload.includes('000001') || outerTags['02'] || (payload.startsWith('00') && payload.length > 25)) {
-        isBankSlip = true;
-        transRef = outerTags['02'] || payload.substring(10, 35).replace(/[^a-zA-Z0-9]/g, '');
-        bankCode = outerTags['01'] || '';
-      }
-    }
-
-    // Regex fallback for non-standard TLV with clear transaction reference
-    if (!transRef) {
-      const refMatch = payload.match(/02([0-9]{2})([A-Za-z0-9_-]+)/);
-      if (refMatch && refMatch[2]) {
-        isBankSlip = true;
-        transRef = refMatch[2];
-      }
-    }
-
-    // Strict Format Validation
-    if (!isBankSlip || !transRef) {
-      throw new Error('❌ ตรวจสอบไม่ผ่าน: QR Code บนรูปภาพไม่ใช่สลิปโอนเงินของธนาคาร (ตรวจพบ QR แต่ไม่ใช่ Thai Bank e-Slip) กรุณาใช้สลิปโอนเงินจริง');
     }
 
     // Comprehensive Thai Bank Mapping
@@ -265,13 +245,14 @@ class PaymentGatewayEngine {
     const slipInspection = await this.inspectBankSlip(slipFile, slipDataUrl);
     const transRef = slipInspection.transRef;
 
-    // Convert/compress slip image to Data URL
+    // Normalize image (JPEG, max 1800px) -> smaller upload, still sharp enough for bank QR reading
     let resolvedSlipUrl = slipInspection.imgSrc || '';
     if (!resolvedSlipUrl) {
       try {
         resolvedSlipUrl = await this.getSlipDataUrl(slipFile, slipDataUrl);
       } catch (e) {}
     }
+    resolvedSlipUrl = await this.normalizeSlipImage(resolvedSlipUrl);
 
     if (resolvedSlipUrl && transRef) {
       try {
@@ -287,33 +268,47 @@ class PaymentGatewayEngine {
       'http://localhost:3000/api/slip/verify'
     ];
 
+    let lastNetworkError = null;
     for (const url of candidateUrls) {
+      let resp;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 45000);
       try {
-        const resp = await fetch(url, {
+        resp = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          signal: controller.signal,
           body: JSON.stringify({
             user_id: user.id,
             amount: expectedAmount,
             slip_data: resolvedSlipUrl,
-            payload: slipInspection.rawPayload,
-            transRef: transRef,
-            bankCode: slipInspection.bankCode
+            payload: slipInspection.rawPayload
           })
         });
-
-        const resData = await resp.json();
-        if (!resp.ok) {
-          throw new Error(resData.message || 'การตรวจสอบสลิปล้มเหลว');
+      } catch (netErr) {
+        clearTimeout(timeoutId);
+        lastNetworkError = netErr;
+        if (netErr.name === 'AbortError') {
+          throw new Error('⏱️ การตรวจสอบสลิปใช้เวลานานเกินไป กรุณาลองใหม่อีกครั้ง (ระบบจะไม่เติมเงินซ้ำ)');
         }
-        serverResult = resData;
-        break;
-      } catch (fetchErr) {
-        if (!fetchErr.message.includes('Failed to fetch') && !fetchErr.message.includes('NetworkError')) {
-          // Explicit error from server validation (fake slip, duplicate ref, wrong amount, etc.)
-          throw fetchErr;
-        }
+        continue; // server not reachable on this URL -> try next
       }
+      clearTimeout(timeoutId);
+
+      let resData = null;
+      try { resData = await resp.json(); } catch (e) { resData = null; }
+      if (!resData) {
+        // Not our API (e.g. static file server returned HTML) -> try next candidate
+        lastNetworkError = new Error(`HTTP ${resp.status}`);
+        continue;
+      }
+      if (!resp.ok || resData.success === false) {
+        const err = new Error(resData.message || 'การตรวจสอบสลิปล้มเหลว');
+        err.code = resData.code;
+        throw err;
+      }
+      serverResult = resData;
+      break;
     }
 
     // 3. Handle Server Result
@@ -374,7 +369,10 @@ class PaymentGatewayEngine {
     }
 
     // 4. Server Offline Fallback: Anti-Replay Check in Supabase & Queue as PENDING (NEVER Auto-Credit!)
-    console.warn('Backend server unreachable, queuing topup as PENDING in Supabase...');
+    console.warn('Backend server unreachable, queuing topup as PENDING in Supabase...', lastNetworkError);
+    if (!transRef) {
+      throw new Error('❌ ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ตรวจสอบสลิปได้ในขณะนี้ กรุณาลองใหม่ภายหลัง หรือติดต่อแอดมิน');
+    }
     const existingTransactions = await window.supabaseManager.fetchTable('wallet_transactions');
     const existingTopups = await window.supabaseManager.fetchTable('topups');
 
@@ -464,6 +462,49 @@ class PaymentGatewayEngine {
         reader.readAsDataURL(slipFile);
       } catch (e) {
         resolve('');
+      }
+    });
+  }
+
+  /**
+   * Helper: Normalize & optimize slip image to clean JPEG (max 1600px)
+   * Keeps QR code razor-sharp while reducing upload payload size
+   */
+  async normalizeSlipImage(dataUrl) {
+    if (!dataUrl || typeof dataUrl !== 'string' || !dataUrl.startsWith('data:image')) {
+      return dataUrl || '';
+    }
+    return new Promise((resolve) => {
+      try {
+        const img = new Image();
+        img.onload = () => {
+          try {
+            const canvas = document.createElement('canvas');
+            const maxDim = 1600;
+            let w = img.width;
+            let h = img.height;
+            if (w > maxDim || h > maxDim) {
+              if (w > h) {
+                h = Math.round((h * maxDim) / w);
+                w = maxDim;
+              } else {
+                w = Math.round((w * maxDim) / h);
+                h = maxDim;
+              }
+            }
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, w, h);
+            resolve(canvas.toDataURL('image/jpeg', 0.88));
+          } catch (err) {
+            resolve(dataUrl);
+          }
+        };
+        img.onerror = () => resolve(dataUrl);
+        img.src = dataUrl;
+      } catch (e) {
+        resolve(dataUrl);
       }
     });
   }
